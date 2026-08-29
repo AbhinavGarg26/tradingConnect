@@ -1,0 +1,11 @@
+symbol,pattern,signal,strength,close,candle_date,action,description
+HDFCBANK,Standard Doji,neutral,weak,744.55,2026-05-29 00:00:00+05:30,Wait for next candle direction before trading.,Open ≈ Close. Full market indecision.
+TCS,Bearish Engulfing,bearish,strong,2258.9,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."
+SBIN,Spinning Top,neutral,weak,964.4,2026-05-29 00:00:00+05:30,Watch for directional candle with volume.,"Small body, long wicks both sides — exhaustion/indecision."
+AXISBANK,Spinning Top,neutral,weak,1286.6,2026-05-29 00:00:00+05:30,Watch for directional candle with volume.,"Small body, long wicks both sides — exhaustion/indecision."
+KOTAKBANK,Bearish Engulfing,bearish,strong,384.2,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."
+BAJFINANCE,Spinning Top,neutral,weak,908.25,2026-05-29 00:00:00+05:30,Watch for directional candle with volume.,"Small body, long wicks both sides — exhaustion/indecision."
+MARUTI,Bearish Engulfing,bearish,strong,13127.0,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."
+ADANIPORTS,Bearish Engulfing,bearish,strong,1804.6,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."
+NTPC,Bearish Engulfing,bearish,strong,386.9,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."
+POWERGRID,Bearish Engulfing,bearish,strong,290.55,2026-05-29 00:00:00+05:30,Short below C2 close. SL above C2 high.,"C2 opens above C1 close, closes below C1 open — complete seller takeover."

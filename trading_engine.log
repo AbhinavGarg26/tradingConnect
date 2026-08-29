@@ -1,0 +1,507 @@
+2026-03-22 01:22:40  INFO      __main__ — ============================================================
+2026-03-22 01:22:40  INFO      __main__ — Trading engine starting...
+2026-03-22 01:22:40  INFO      __main__ — ============================================================
+2026-03-22 01:22:41  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:27:26  INFO      __main__ — ============================================================
+2026-03-22 01:27:26  INFO      __main__ — Trading engine starting...
+2026-03-22 01:27:26  INFO      __main__ — ============================================================
+2026-03-22 01:27:26  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:31:04  INFO      __main__ — ============================================================
+2026-03-22 01:31:04  INFO      __main__ — Trading engine starting...
+2026-03-22 01:31:04  INFO      __main__ — ============================================================
+2026-03-22 01:31:04  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:31:30  INFO      __main__ — ============================================================
+2026-03-22 01:31:30  INFO      __main__ — Trading engine starting...
+2026-03-22 01:31:30  INFO      __main__ — ============================================================
+2026-03-22 01:31:30  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:33:14  INFO      __main__ — ============================================================
+2026-03-22 01:33:14  INFO      __main__ — Trading engine starting...
+2026-03-22 01:33:14  INFO      __main__ — ============================================================
+2026-03-22 01:33:15  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:33:15  INFO      trading.login_flow — LoginFlow: session token valid — expires 2026-03-22 06:00 IST
+2026-03-22 01:33:15  INFO      __main__ — Session token valid — proceeding to start engine
+2026-03-22 01:33:15  INFO      trading.order_poller — OrderPoller started — interval=5s
+2026-03-22 01:33:15  INFO      __main__ — All systems go — connecting to Kite WebSocket
+2026-03-22 01:33:15  INFO      trading.websocket_engine — WebSocketEngine: starting for user_id=975447485
+2026-03-22 01:33:15  ERROR     trading.order_poller — OrderPoller sync error: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.ExternalRoutineInvocationException: Wrong key or corrupt data
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 84, in _sync_orders
+    kite   = ExchangeLinkRepo.get_kite_client(db, self.user_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 211, in get_kite_client
+    access_token = link.decrypt_session_token(db)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 88, in decrypt_session_token
+    return self._decrypt(db, self.session_token_encrypted)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 102, in _decrypt
+    row = db.execute(
+          ^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2245, in _execute_internal
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2353, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.InternalError: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:15  INFO      trading.websocket_engine — WebSocketEngine: loaded 2 instrument tokens
+2026-03-22 01:33:15  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:15  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 1/10 in 2s
+2026-03-22 01:33:17  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:17  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 2/10 in 4s
+2026-03-22 01:33:20  ERROR     trading.order_poller — OrderPoller sync error: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.ExternalRoutineInvocationException: Wrong key or corrupt data
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 84, in _sync_orders
+    kite   = ExchangeLinkRepo.get_kite_client(db, self.user_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 211, in get_kite_client
+    access_token = link.decrypt_session_token(db)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 88, in decrypt_session_token
+    return self._decrypt(db, self.session_token_encrypted)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 102, in _decrypt
+    row = db.execute(
+          ^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2245, in _execute_internal
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2353, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.InternalError: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:21  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:21  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 3/10 in 8s
+2026-03-22 01:33:25  ERROR     trading.order_poller — OrderPoller sync error: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.ExternalRoutineInvocationException: Wrong key or corrupt data
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 84, in _sync_orders
+    kite   = ExchangeLinkRepo.get_kite_client(db, self.user_id)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 211, in get_kite_client
+    access_token = link.decrypt_session_token(db)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 88, in decrypt_session_token
+    return self._decrypt(db, self.session_token_encrypted)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/exchange_link.py", line 102, in _decrypt
+    row = db.execute(
+          ^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2351, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2245, in _execute_internal
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2353, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 924, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.InternalError: (psycopg2.errors.ExternalRoutineInvocationException) Wrong key or corrupt data
+
+[SQL: SELECT pgp_sym_decrypt(%(c)s, %(k)s) AS dec]
+[parameters: {'c': b'\\xc30d040703025cc27ea50fe0414a61d25101224949a9fd84a6171e268a32e60d4991905e5176162893845a40c589aa1301fd3645cdf573ee0e7ea9dae5f6af75611f56facb29b0c4f534e2ce56601dc7e438202ebd6bc05794a569e6603c5f42418b', 'k': '7c2223afc5d585701c643cb0ecd3fdb1677037324355c79d54c9470c1573c5f8'}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+2026-03-22 01:33:26  INFO      __main__ — Shutdown signal received — stopping engine...
+2026-03-22 01:33:26  INFO      trading.order_poller — OrderPoller stopped
+2026-03-22 01:33:26  INFO      trading.websocket_engine — WebSocketEngine: stopping...
+2026-03-22 01:33:26  INFO      trading.websocket_engine — WebSocketEngine: stopped
+2026-03-22 01:33:26  INFO      __main__ — Trading engine stopped cleanly
+2026-03-22 01:57:01  INFO      __main__ — ============================================================
+2026-03-22 01:57:01  INFO      __main__ — Trading engine starting...
+2026-03-22 01:57:01  INFO      __main__ — ============================================================
+2026-03-22 01:57:01  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:57:01  INFO      trading.login_flow — LoginFlow: session token valid — expires 2026-03-22 06:00 IST
+2026-03-22 01:57:01  INFO      __main__ — Session token valid — proceeding to start engine
+2026-03-22 01:57:01  INFO      trading.order_poller — OrderPoller started — interval=5s
+2026-03-22 01:57:01  INFO      __main__ — All systems go — connecting to Kite WebSocket
+2026-03-22 01:57:01  INFO      trading.websocket_engine — WebSocketEngine: starting for user_id=975447485
+2026-03-22 01:57:01  INFO      trading.websocket_engine — WebSocketEngine: loaded 2 instrument tokens
+2026-03-22 01:57:01  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — KiteTicker.connect() got an unexpected keyword argument 'disable_ssl_verify'
+2026-03-22 01:57:01  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 1/10 in 2s
+2026-03-22 01:57:03  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — KiteTicker.connect() got an unexpected keyword argument 'disable_ssl_verify'
+2026-03-22 01:57:03  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 2/10 in 4s
+2026-03-22 01:57:07  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — KiteTicker.connect() got an unexpected keyword argument 'disable_ssl_verify'
+2026-03-22 01:57:07  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 3/10 in 8s
+2026-03-22 01:57:15  ERROR     trading.websocket_engine — WebSocketEngine: connect failed — KiteTicker.connect() got an unexpected keyword argument 'disable_ssl_verify'
+2026-03-22 01:57:15  INFO      trading.websocket_engine — WebSocketEngine: reconnect attempt 4/10 in 16s
+2026-03-22 01:57:19  INFO      __main__ — Shutdown signal received — stopping engine...
+2026-03-22 01:57:19  INFO      trading.order_poller — OrderPoller stopped
+2026-03-22 01:57:19  INFO      trading.websocket_engine — WebSocketEngine: stopping...
+2026-03-22 01:57:19  INFO      trading.websocket_engine — WebSocketEngine: stopped
+2026-03-22 01:57:19  INFO      __main__ — Trading engine stopped cleanly
+2026-03-22 01:58:11  INFO      __main__ — ============================================================
+2026-03-22 01:58:11  INFO      __main__ — Trading engine starting...
+2026-03-22 01:58:11  INFO      __main__ — ============================================================
+2026-03-22 01:58:11  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 01:58:11  INFO      trading.login_flow — LoginFlow: session token valid — expires 2026-03-22 06:00 IST
+2026-03-22 01:58:11  INFO      __main__ — Session token valid — proceeding to start engine
+2026-03-22 01:58:11  INFO      trading.order_poller — OrderPoller started — interval=5s
+2026-03-22 01:58:11  INFO      __main__ — All systems go — connecting to Kite WebSocket
+2026-03-22 01:58:11  INFO      trading.websocket_engine — WebSocketEngine: starting for user_id=975447485
+2026-03-22 01:58:11  INFO      trading.websocket_engine — WebSocketEngine: loaded 2 instrument tokens
+2026-03-22 01:58:11  INFO      trading.websocket_engine — WebSocketEngine: connected
+2026-03-22 01:58:11  INFO      trading.websocket_engine — WebSocketEngine: subscribed 2 tokens (batch 1)
+2026-03-22 02:03:03  ERROR     trading.order_poller — OrderPoller sync error: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105d29210>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 213, in _new_conn
+    raise ConnectTimeoutError(
+urllib3.exceptions.ConnectTimeoutError: (<HTTPSConnection(host='api.kite.trade', port=443) at 0x105d29210>, 'Connection to api.kite.trade timed out. (connect timeout=7)')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105d29210>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 85, in _sync_orders
+    orders = kite.orders()   # full order book for the day
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 416, in orders
+    return self._format_response(self._get("orders"))
+                                 ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 861, in _get
+    return self._request(route, "GET", url_args=url_args, params=params, is_json=is_json)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 916, in _request
+    raise e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 904, in _request
+    r = self.reqsession.request(method,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 665, in send
+    raise ConnectTimeout(e, request=request)
+requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105d29210>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+2026-03-22 02:03:22  ERROR     trading.order_poller — OrderPoller sync error: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105de53d0>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 213, in _new_conn
+    raise ConnectTimeoutError(
+urllib3.exceptions.ConnectTimeoutError: (<HTTPSConnection(host='api.kite.trade', port=443) at 0x105de53d0>, 'Connection to api.kite.trade timed out. (connect timeout=7)')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105de53d0>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 85, in _sync_orders
+    orders = kite.orders()   # full order book for the day
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 416, in orders
+    return self._format_response(self._get("orders"))
+                                 ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 861, in _get
+    return self._request(route, "GET", url_args=url_args, params=params, is_json=is_json)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 916, in _request
+    raise e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 904, in _request
+    r = self.reqsession.request(method,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 665, in send
+    raise ConnectTimeout(e, request=request)
+requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.kite.trade', port=443) at 0x105de53d0>, 'Connection to api.kite.trade timed out. (connect timeout=7)'))
+2026-03-22 02:03:28  ERROR     trading.order_poller — OrderPoller sync error: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/connection.py", line 60, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/Cellar/python@3.11/3.11.12/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socket.py", line 974, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connection.py", line 211, in _new_conn
+    raise NameResolutionError(self.host, self, e) from e
+urllib3.exceptions.NameResolutionError: HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/urllib3/util/retry.py", line 535, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 77, in _poll_loop
+    self._sync_orders()
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/trading/order_poller.py", line 85, in _sync_orders
+    orders = kite.orders()   # full order book for the day
+             ^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 416, in orders
+    return self._format_response(self._get("orders"))
+                                 ^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 861, in _get
+    return self._request(route, "GET", url_args=url_args, params=params, is_json=is_json)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 916, in _request
+    raise e
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/kiteconnect/connect.py", line 904, in _request
+    r = self.reqsession.request(method,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/abhinavgarg/Documents/Projects/kiteConnect/venv/lib/python3.11/site-packages/requests/adapters.py", line 677, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /orders (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-03-22 02:04:01  INFO      __main__ — Shutdown signal received — stopping engine...
+2026-03-22 02:04:01  INFO      trading.order_poller — OrderPoller stopped
+2026-03-22 02:04:01  INFO      trading.websocket_engine — WebSocketEngine: stopping...
+2026-03-22 02:04:01  INFO      trading.websocket_engine — WebSocketEngine: stopped
+2026-03-22 02:04:01  INFO      __main__ — Trading engine stopped cleanly
+2026-03-22 02:12:03  INFO      __main__ — ============================================================
+2026-03-22 02:12:03  INFO      __main__ — Trading engine starting...
+2026-03-22 02:12:03  INFO      __main__ — ============================================================
+2026-03-22 02:12:03  INFO      __main__ — User: abhinavgarg26@gmail.com (id=975447485)
+2026-03-22 02:12:03  INFO      trading.login_flow — LoginFlow: session token valid — expires 2026-03-22 06:00 IST
+2026-03-22 02:12:03  INFO      __main__ — Session token valid — proceeding to start engine
+2026-03-22 02:12:03  INFO      trading.order_poller — OrderPoller started — interval=5s
+2026-03-22 02:12:03  INFO      __main__ — All systems go — connecting to Kite WebSocket
+2026-03-22 02:12:03  INFO      trading.websocket_engine — WebSocketEngine: starting for user_id=975447485
+2026-03-22 02:12:03  INFO      trading.websocket_engine — WebSocketEngine: loaded 2 instrument tokens
+2026-03-22 02:12:04  INFO      trading.websocket_engine — WebSocketEngine: connected
+2026-03-22 02:12:04  INFO      trading.websocket_engine — WebSocketEngine: subscribed 2 tokens (batch 1)
+2026-03-22 02:19:04  INFO      __main__ — Shutdown signal received — stopping engine...
+2026-03-22 02:19:04  INFO      trading.order_poller — OrderPoller stopped
+2026-03-22 02:19:04  INFO      trading.websocket_engine — WebSocketEngine: stopping...
+2026-03-22 02:19:04  INFO      trading.websocket_engine — WebSocketEngine: stopped
+2026-03-22 02:19:04  INFO      __main__ — Trading engine stopped cleanly

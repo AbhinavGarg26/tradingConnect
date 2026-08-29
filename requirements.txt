@@ -1,0 +1,23 @@
+# Core
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# Kite Connect
+kiteconnect==5.0.1
+
+# Data / TA
+pandas==2.2.2
+pandas-ta>=0.3.14b
+numpy==1.26.4
+
+# Scheduling
+APScheduler==3.10.4
+
+# Alerts
+python-telegram-bot==21.3
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.7.1
+httpx==0.27.0

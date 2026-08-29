@@ -1,0 +1,1115 @@
+2026-06-14 23:20:01,467 [INFO] Divergence Scanner v2 — started
+2026-06-14 23:20:01,468 [INFO] Symbols   : ['NIFTY 50', 'NIFTY BANK', 'NIFTY FIN SERVICE', 'NIFTY MIDCAP 100', 'TATASTEEL', 'BHARTIARTL', 'IOC', 'ANGELONE', 'MANKIND', 'VEDL', 'PFC', 'MCX', 'HINDALCO', 'ABB', 'MAZDOCK', 'RELIANCE', 'HDFCBANK', 'INFY', 'TCS', 'ICICIBANK', 'SBIN', 'AXISBANK', 'BAJFINANCE', 'WIPRO', 'ADANIENT', 'MARUTI', 'HINDUNILVR', 'KOTAKBANK', 'LT', 'INDHOTEL', 'HCLTECH', 'TECHM', 'LTIM', 'PERSISTENT', 'MPHASIS', 'INDUSINDBK', 'BANDHANBNK', 'FEDERALBNK', 'IDFCFIRSTB', 'BAJAJFINSV', 'CHOLAFIN', 'MUTHOOTFIN', 'ONGC', 'BPCL', 'GAIL', 'POWERGRID', 'NTPC', 'TATAPOWER', 'ADANIGREEN', 'ADANIPOWER', 'SUNPHARMA', 'DRREDDY', 'CIPLA', 'DIVISLAB', 'APOLLOHOSP', 'TMPV', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TVSMOTOR', 'COALINDIA', 'NMDC', 'JSWSTEEL', 'SAIL', 'BEL', 'HAL', 'BHEL', 'SIEMENS', 'CUMMINSIND', 'ITC', 'NESTLEIND', 'BRITANNIA', 'DABUR', 'MARICO', 'VBL', 'ULTRACEMCO', 'SHREECEM', 'AMBUJACEM', 'ACC', 'BSE', 'CDSL', 'CAMS', 'POLICYBZR', 'DLF', 'GODREJPROP', 'PHOENIXLTD', 'TITAN', 'TRENT', 'ASIANPAINT', 'HAVELLS', 'BERGEPAINT', 'VOLTAS', 'VBL', 'HAVELLS', 'ETERNAL', 'JIOFIN', 'PAYTM', 'NYKAA', 'DELHIVERY', 'PIDILITIND', 'SRF', 'UPL', 'TATACHEM', 'INDIGO', 'CONCOR', 'BLUEDART', 'GRASIM', 'TATACONSUM', 'POLYCAB', 'RECLTD', 'RVNL', 'IRFC', 'SJVN', 'IREDA', 'NHPC', 'ASHOKLEY', 'AUROPHARMA', 'BALKRISIND', 'BHARATFORG', 'BIOCON', 'COLPAL', 'ESCORTS', 'EXIDEIND', 'GUJGASLTD', 'ADANIPORTS', 'IPCALAB', 'JINDALSTEL', 'JUBLFOOD', 'LICHSGFIN', 'LUPIN', 'MRF', 'PAGEIND', 'SUNTV', 'TATAELXSI', 'UBL', 'YESBANK', 'SUZLON', 'TRIDENT', 'RTNINDIA', 'SOUTHBANK', 'HFCL', 'ZENSARTECH', 'SONATSOFTW', 'KARURVYSYA', 'NBCC', 'IRCON', 'HUDCO', 'MAHABANK', 'IFCI', 'ALOKINDS']
+2026-06-14 23:20:01,468 [INFO] Timeframes: ['day', 'week']
+2026-06-14 23:20:01,468 [INFO] Starting scan — 151 symbols × ['day', 'week']
+2026-06-14 23:20:01,468 [INFO]   Scanning NIFTY 50…
+2026-06-14 23:20:02,340 [INFO]   → 1 signal(s) found
+2026-06-14 23:20:02,340 [INFO]   Scanning NIFTY BANK…
+2026-06-14 23:20:03,093 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:03,094 [INFO]   Scanning NIFTY FIN SERVICE…
+2026-06-14 23:20:03,860 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:03,861 [INFO]   Scanning NIFTY MIDCAP 100…
+2026-06-14 23:20:04,632 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:04,632 [INFO]   Scanning TATASTEEL…
+2026-06-14 23:20:06,131 [INFO]   → 1 signal(s) found
+2026-06-14 23:20:06,132 [INFO]   Scanning BHARTIARTL…
+2026-06-14 23:20:07,548 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:07,548 [INFO]   Scanning IOC…
+2026-06-14 23:20:08,984 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:08,985 [INFO]   Scanning ANGELONE…
+2026-06-14 23:20:10,722 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:10,722 [INFO]   Scanning MANKIND…
+2026-06-14 23:20:12,125 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:12,125 [INFO]   Scanning VEDL…
+2026-06-14 23:20:13,867 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:13,867 [INFO]   Scanning PFC…
+2026-06-14 23:20:15,374 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:15,374 [INFO]   Scanning MCX…
+2026-06-14 23:20:16,686 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:16,686 [INFO]   Scanning HINDALCO…
+2026-06-14 23:20:18,058 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:18,058 [INFO]   Scanning ABB…
+2026-06-14 23:20:19,380 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:19,381 [INFO]   Scanning MAZDOCK…
+2026-06-14 23:20:20,701 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:20,702 [INFO]   Scanning RELIANCE…
+2026-06-14 23:20:22,029 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:22,029 [INFO]   Scanning HDFCBANK…
+2026-06-14 23:20:23,349 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:23,349 [INFO]   Scanning INFY…
+2026-06-14 23:20:24,680 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:24,680 [INFO]   Scanning TCS…
+2026-06-14 23:20:26,006 [INFO]   → 1 signal(s) found
+2026-06-14 23:20:26,007 [INFO]   Scanning ICICIBANK…
+2026-06-14 23:20:27,330 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:27,330 [INFO]   Scanning SBIN…
+2026-06-14 23:20:28,673 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:28,673 [INFO]   Scanning AXISBANK…
+2026-06-14 23:20:29,994 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:29,994 [INFO]   Scanning BAJFINANCE…
+2026-06-14 23:20:31,379 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:31,379 [INFO]   Scanning WIPRO…
+2026-06-14 23:20:32,708 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:32,708 [INFO]   Scanning ADANIENT…
+2026-06-14 23:20:34,037 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:34,038 [INFO]   Scanning MARUTI…
+2026-06-14 23:20:35,351 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:35,351 [INFO]   Scanning HINDUNILVR…
+2026-06-14 23:20:36,694 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:36,694 [INFO]   Scanning KOTAKBANK…
+2026-06-14 23:20:38,028 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:38,028 [INFO]   Scanning LT…
+2026-06-14 23:20:39,358 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:39,358 [INFO]   Scanning INDHOTEL…
+2026-06-14 23:20:40,733 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:40,734 [INFO]   Scanning HCLTECH…
+2026-06-14 23:20:42,046 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:42,046 [INFO]   Scanning TECHM…
+2026-06-14 23:20:43,381 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:43,381 [INFO]   Scanning LTIM…
+2026-06-14 23:20:44,698 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:44,698 [INFO]   Scanning PERSISTENT…
+2026-06-14 23:20:46,031 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:46,032 [INFO]   Scanning MPHASIS…
+2026-06-14 23:20:47,366 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:47,366 [INFO]   Scanning INDUSINDBK…
+2026-06-14 23:20:48,743 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:48,744 [INFO]   Scanning BANDHANBNK…
+2026-06-14 23:20:50,083 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:50,083 [INFO]   Scanning FEDERALBNK…
+2026-06-14 23:20:51,441 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:51,441 [INFO]   Scanning IDFCFIRSTB…
+2026-06-14 23:20:52,814 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:52,815 [INFO]   Scanning BAJAJFINSV…
+2026-06-14 23:20:54,133 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:54,133 [INFO]   Scanning CHOLAFIN…
+2026-06-14 23:20:55,482 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:55,482 [INFO]   Scanning MUTHOOTFIN…
+2026-06-14 23:20:56,853 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:56,853 [INFO]   Scanning ONGC…
+2026-06-14 23:20:58,166 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:58,166 [INFO]   Scanning BPCL…
+2026-06-14 23:20:59,567 [INFO]   → 0 signal(s) found
+2026-06-14 23:20:59,568 [INFO]   Scanning GAIL…
+2026-06-14 23:21:00,949 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:00,949 [INFO]   Scanning POWERGRID…
+2026-06-14 23:21:02,323 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:02,323 [INFO]   Scanning NTPC…
+2026-06-14 23:21:03,674 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:03,674 [INFO]   Scanning TATAPOWER…
+2026-06-14 23:21:05,103 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:05,103 [INFO]   Scanning ADANIGREEN…
+2026-06-14 23:21:06,451 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:06,451 [INFO]   Scanning ADANIPOWER…
+2026-06-14 23:21:07,815 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:07,815 [INFO]   Scanning SUNPHARMA…
+2026-06-14 23:21:09,152 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:09,153 [INFO]   Scanning DRREDDY…
+2026-06-14 23:21:10,559 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:10,559 [INFO]   Scanning CIPLA…
+2026-06-14 23:21:12,221 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:12,221 [INFO]   Scanning DIVISLAB…
+2026-06-14 23:21:13,600 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:13,600 [INFO]   Scanning APOLLOHOSP…
+2026-06-14 23:21:14,958 [INFO]   → 1 signal(s) found
+2026-06-14 23:21:14,958 [INFO]   Scanning TMPV…
+2026-06-14 23:21:16,387 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:16,387 [INFO]   Scanning M&M…
+2026-06-14 23:21:18,324 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:18,325 [INFO]   Scanning BAJAJ-AUTO…
+2026-06-14 23:21:19,715 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:19,715 [INFO]   Scanning HEROMOTOCO…
+2026-06-14 23:21:21,066 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:21,066 [INFO]   Scanning EICHERMOT…
+2026-06-14 23:21:22,453 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:22,453 [INFO]   Scanning TVSMOTOR…
+2026-06-14 23:21:24,193 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:24,193 [INFO]   Scanning COALINDIA…
+2026-06-14 23:21:25,518 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:25,518 [INFO]   Scanning NMDC…
+2026-06-14 23:21:26,866 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:26,866 [INFO]   Scanning JSWSTEEL…
+2026-06-14 23:21:28,184 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:28,184 [INFO]   Scanning SAIL…
+2026-06-14 23:21:29,532 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:29,532 [INFO]   Scanning BEL…
+2026-06-14 23:21:30,925 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:30,925 [INFO]   Scanning HAL…
+2026-06-14 23:21:32,286 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:32,287 [INFO]   Scanning BHEL…
+2026-06-14 23:21:33,623 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:33,623 [INFO]   Scanning SIEMENS…
+2026-06-14 23:21:34,957 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:34,957 [INFO]   Scanning CUMMINSIND…
+2026-06-14 23:21:36,268 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:36,269 [INFO]   Scanning ITC…
+2026-06-14 23:21:37,615 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:37,616 [INFO]   Scanning NESTLEIND…
+2026-06-14 23:21:38,973 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:38,973 [INFO]   Scanning BRITANNIA…
+2026-06-14 23:21:40,331 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:40,332 [INFO]   Scanning DABUR…
+2026-06-14 23:21:41,684 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:41,684 [INFO]   Scanning MARICO…
+2026-06-14 23:21:43,048 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:43,049 [INFO]   Scanning VBL…
+2026-06-14 23:21:44,389 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:44,389 [INFO]   Scanning ULTRACEMCO…
+2026-06-14 23:21:45,793 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:45,793 [INFO]   Scanning SHREECEM…
+2026-06-14 23:21:47,122 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:47,122 [INFO]   Scanning AMBUJACEM…
+2026-06-14 23:21:48,593 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:48,594 [INFO]   Scanning ACC…
+2026-06-14 23:21:49,930 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:49,931 [INFO]   Scanning BSE…
+2026-06-14 23:21:51,309 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:51,309 [INFO]   Scanning CDSL…
+2026-06-14 23:21:52,631 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:52,631 [INFO]   Scanning CAMS…
+2026-06-14 23:21:54,015 [INFO]   → 1 signal(s) found
+2026-06-14 23:21:54,016 [INFO]   Scanning POLICYBZR…
+2026-06-14 23:21:55,340 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:55,340 [INFO]   Scanning DLF…
+2026-06-14 23:21:56,698 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:56,699 [INFO]   Scanning GODREJPROP…
+2026-06-14 23:21:58,065 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:58,065 [INFO]   Scanning PHOENIXLTD…
+2026-06-14 23:21:59,398 [INFO]   → 0 signal(s) found
+2026-06-14 23:21:59,399 [INFO]   Scanning TITAN…
+2026-06-14 23:22:00,732 [INFO]   → 2 signal(s) found
+2026-06-14 23:22:00,732 [INFO]   Scanning TRENT…
+2026-06-14 23:22:02,075 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:02,075 [INFO]   Scanning ASIANPAINT…
+2026-06-14 23:22:03,401 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:03,401 [INFO]   Scanning HAVELLS…
+2026-06-14 23:22:04,715 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:04,715 [INFO]   Scanning BERGEPAINT…
+2026-06-14 23:22:06,040 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:06,040 [INFO]   Scanning VOLTAS…
+2026-06-14 23:22:07,356 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:07,356 [INFO]   Scanning VBL…
+2026-06-14 23:22:08,687 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:08,687 [INFO]   Scanning HAVELLS…
+2026-06-14 23:22:10,023 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:10,024 [INFO]   Scanning ETERNAL…
+2026-06-14 23:22:11,353 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:11,353 [INFO]   Scanning JIOFIN…
+2026-06-14 23:22:12,664 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:12,665 [INFO]   Scanning PAYTM…
+2026-06-14 23:22:13,974 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:13,974 [INFO]   Scanning NYKAA…
+2026-06-14 23:22:15,298 [INFO]   → 1 signal(s) found
+2026-06-14 23:22:15,298 [INFO]   Scanning DELHIVERY…
+2026-06-14 23:22:16,784 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:16,784 [INFO]   Scanning PIDILITIND…
+2026-06-14 23:22:18,141 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:18,141 [INFO]   Scanning SRF…
+2026-06-14 23:22:19,494 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:19,494 [INFO]   Scanning UPL…
+2026-06-14 23:22:20,864 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:20,864 [INFO]   Scanning TATACHEM…
+2026-06-14 23:22:22,185 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:22,185 [INFO]   Scanning INDIGO…
+2026-06-14 23:22:23,558 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:23,558 [INFO]   Scanning CONCOR…
+2026-06-14 23:22:24,893 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:24,893 [INFO]   Scanning BLUEDART…
+2026-06-14 23:22:26,248 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:26,248 [INFO]   Scanning GRASIM…
+2026-06-14 23:22:27,612 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:27,613 [INFO]   Scanning TATACONSUM…
+2026-06-14 23:22:28,954 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:28,954 [INFO]   Scanning POLYCAB…
+2026-06-14 23:22:30,326 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:30,326 [INFO]   Scanning RECLTD…
+2026-06-14 23:22:31,663 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:31,663 [INFO]   Scanning RVNL…
+2026-06-14 23:22:33,025 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:33,026 [INFO]   Scanning IRFC…
+2026-06-14 23:22:34,451 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:34,452 [INFO]   Scanning SJVN…
+2026-06-14 23:22:35,789 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:35,790 [INFO]   Scanning IREDA…
+2026-06-14 23:22:37,076 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:37,076 [INFO]   Scanning NHPC…
+2026-06-14 23:22:38,411 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:38,411 [INFO]   Scanning ASHOKLEY…
+2026-06-14 23:22:39,728 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:39,728 [INFO]   Scanning AUROPHARMA…
+2026-06-14 23:22:41,109 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:41,109 [INFO]   Scanning BALKRISIND…
+2026-06-14 23:22:42,440 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:42,440 [INFO]   Scanning BHARATFORG…
+2026-06-14 23:22:43,816 [INFO]   → 1 signal(s) found
+2026-06-14 23:22:43,816 [INFO]   Scanning BIOCON…
+2026-06-14 23:22:45,160 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:45,161 [INFO]   Scanning COLPAL…
+2026-06-14 23:22:46,521 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:46,521 [INFO]   Scanning ESCORTS…
+2026-06-14 23:22:47,906 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:47,906 [INFO]   Scanning EXIDEIND…
+2026-06-14 23:22:49,248 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:49,249 [INFO]   Scanning GUJGASLTD…
+2026-06-14 23:22:51,144 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:51,145 [INFO]   Scanning ADANIPORTS…
+2026-06-14 23:22:52,918 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:52,918 [INFO]   Scanning IPCALAB…
+2026-06-14 23:22:54,764 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:54,764 [INFO]   Scanning JINDALSTEL…
+2026-06-14 23:22:56,190 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:56,190 [INFO]   Scanning JUBLFOOD…
+2026-06-14 23:22:57,625 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:57,625 [INFO]   Scanning LICHSGFIN…
+2026-06-14 23:22:59,695 [INFO]   → 0 signal(s) found
+2026-06-14 23:22:59,695 [INFO]   Scanning LUPIN…
+2026-06-14 23:23:01,491 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:01,491 [INFO]   Scanning MRF…
+2026-06-14 23:23:02,870 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:02,870 [INFO]   Scanning PAGEIND…
+2026-06-14 23:23:04,262 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:04,262 [INFO]   Scanning SUNTV…
+2026-06-14 23:23:05,578 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:05,579 [INFO]   Scanning TATAELXSI…
+2026-06-14 23:23:06,892 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:06,892 [INFO]   Scanning UBL…
+2026-06-14 23:23:08,258 [INFO]   → 1 signal(s) found
+2026-06-14 23:23:08,258 [INFO]   Scanning YESBANK…
+2026-06-14 23:23:09,626 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:09,626 [INFO]   Scanning SUZLON…
+2026-06-14 23:23:11,350 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:11,351 [INFO]   Scanning TRIDENT…
+2026-06-14 23:23:12,733 [INFO]   → 1 signal(s) found
+2026-06-14 23:23:12,734 [INFO]   Scanning RTNINDIA…
+2026-06-14 23:23:14,172 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:14,173 [INFO]   Scanning SOUTHBANK…
+2026-06-14 23:23:15,491 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:15,491 [INFO]   Scanning HFCL…
+2026-06-14 23:23:16,859 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:16,859 [INFO]   Scanning ZENSARTECH…
+2026-06-14 23:23:18,220 [INFO]   → 1 signal(s) found
+2026-06-14 23:23:18,220 [INFO]   Scanning SONATSOFTW…
+2026-06-14 23:23:19,562 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:19,562 [INFO]   Scanning KARURVYSYA…
+2026-06-14 23:23:21,035 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:21,035 [INFO]   Scanning NBCC…
+2026-06-14 23:23:22,373 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:22,373 [INFO]   Scanning IRCON…
+2026-06-14 23:23:23,746 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:23,746 [INFO]   Scanning HUDCO…
+2026-06-14 23:23:25,117 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:25,118 [INFO]   Scanning MAHABANK…
+2026-06-14 23:23:26,486 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:26,487 [INFO]   Scanning IFCI…
+2026-06-14 23:23:27,816 [INFO]   → 0 signal(s) found
+2026-06-14 23:23:27,816 [INFO]   Scanning ALOKINDS…
+2026-06-14 23:23:29,219 [INFO]   → 0 signal(s) found
+2026-06-15 08:24:29,641 [CRITICAL] Session token expired or missing. Paste a fresh token via Rails UI first.
+2026-08-09 16:49:05,960 [INFO] Divergence Scanner v2 — started
+2026-08-09 16:49:05,961 [INFO] Symbols   : ['NIFTY 50', 'NIFTY BANK', 'NIFTY FIN SERVICE', 'NIFTY MIDCAP 100', 'TATASTEEL', 'BHARTIARTL', 'IOC', 'ANGELONE', 'MANKIND', 'VEDL', 'PFC', 'MCX', 'HINDALCO', 'ABB', 'MAZDOCK', 'RELIANCE', 'HDFCBANK', 'INFY', 'TCS', 'ICICIBANK', 'SBIN', 'AXISBANK', 'BAJFINANCE', 'WIPRO', 'ADANIENT', 'MARUTI', 'HINDUNILVR', 'KOTAKBANK', 'LT', 'INDHOTEL', 'HCLTECH', 'TECHM', 'LTIM', 'PERSISTENT', 'MPHASIS', 'INDUSINDBK', 'BANDHANBNK', 'FEDERALBNK', 'IDFCFIRSTB', 'BAJAJFINSV', 'CHOLAFIN', 'MUTHOOTFIN', 'ONGC', 'BPCL', 'GAIL', 'POWERGRID', 'NTPC', 'TATAPOWER', 'ADANIGREEN', 'ADANIPOWER', 'SUNPHARMA', 'DRREDDY', 'CIPLA', 'DIVISLAB', 'APOLLOHOSP', 'TMPV', 'M&M', 'BAJAJ-AUTO', 'HEROMOTOCO', 'EICHERMOT', 'TVSMOTOR', 'COALINDIA', 'NMDC', 'JSWSTEEL', 'SAIL', 'BEL', 'HAL', 'BHEL', 'SIEMENS', 'CUMMINSIND', 'ITC', 'NESTLEIND', 'BRITANNIA', 'DABUR', 'MARICO', 'VBL', 'ULTRACEMCO', 'SHREECEM', 'AMBUJACEM', 'ACC', 'BSE', 'CDSL', 'ABCAPITAL', 'CAMS', 'POLICYBZR', 'DLF', 'GODREJPROP', 'PHOENIXLTD', 'TITAN', 'TRENT', 'ASIANPAINT', 'HAVELLS', 'BERGEPAINT', 'VOLTAS', 'VBL', 'HAVELLS', 'ETERNAL', 'JIOFIN', 'PAYTM', 'NYKAA', 'DELHIVERY', 'PIDILITIND', 'SRF', 'UPL', 'TATACHEM', 'INDIGO', 'CONCOR', 'BLUEDART', 'GRASIM', 'TATACONSUM', 'POLYCAB', 'RECLTD', 'RVNL', 'IRFC', 'SJVN', 'IREDA', 'NHPC', 'ASHOKLEY', 'AUROPHARMA', 'BALKRISIND', 'BHARATFORG', 'BIOCON', 'COLPAL', 'ESCORTS', 'EXIDEIND', 'GUJGASLTD', 'ADANIPORTS', 'IPCALAB', 'JINDALSTEL', 'JUBLFOOD', 'LICHSGFIN', 'LUPIN', 'MRF', 'PAGEIND', 'SUNTV', 'TATAELXSI', 'UBL', 'YESBANK', 'SUZLON', 'TRIDENT', 'RTNINDIA', 'SOUTHBANK', 'HFCL', 'ZENSARTECH', 'SONATSOFTW', 'KARURVYSYA', 'NBCC', 'IRCON', 'HUDCO', 'MAHABANK', 'IFCI', 'ALOKINDS']
+2026-08-09 16:49:05,961 [INFO] Timeframes: ['day', 'week']
+2026-08-09 16:49:05,961 [INFO] Starting scan — 152 symbols × ['day', 'week']
+2026-08-09 16:49:05,961 [INFO]   Scanning NIFTY 50…
+2026-08-09 16:49:09,962 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:09,963 [INFO]   Scanning NIFTY BANK…
+2026-08-09 16:49:10,775 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:10,775 [INFO]   Scanning NIFTY FIN SERVICE…
+2026-08-09 16:49:11,527 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:11,527 [INFO]   Scanning NIFTY MIDCAP 100…
+2026-08-09 16:49:12,339 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:12,339 [INFO]   Scanning TATASTEEL…
+2026-08-09 16:49:14,189 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:14,190 [INFO]   Scanning BHARTIARTL…
+2026-08-09 16:49:16,249 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:16,249 [INFO]   Scanning IOC…
+2026-08-09 16:49:17,956 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:17,956 [INFO]   Scanning ANGELONE…
+2026-08-09 16:49:20,175 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:20,175 [INFO]   Scanning MANKIND…
+2026-08-09 16:49:22,568 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:22,569 [INFO]   Scanning VEDL…
+2026-08-09 16:49:24,030 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:24,030 [INFO]   Scanning PFC…
+2026-08-09 16:49:25,893 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:25,893 [INFO]   Scanning MCX…
+2026-08-09 16:49:27,619 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:27,619 [INFO]   Scanning HINDALCO…
+2026-08-09 16:49:29,409 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:29,410 [INFO]   Scanning ABB…
+2026-08-09 16:49:31,375 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:31,388 [INFO]   Scanning MAZDOCK…
+2026-08-09 16:49:33,110 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:33,110 [INFO]   Scanning RELIANCE…
+2026-08-09 16:49:34,815 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:34,815 [INFO]   Scanning HDFCBANK…
+2026-08-09 16:49:36,456 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:36,456 [INFO]   Scanning INFY…
+2026-08-09 16:49:38,252 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:38,252 [INFO]   Scanning TCS…
+2026-08-09 16:49:39,877 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:39,877 [INFO]   Scanning ICICIBANK…
+2026-08-09 16:49:41,577 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:41,577 [INFO]   Scanning SBIN…
+2026-08-09 16:49:43,910 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:43,911 [INFO]   Scanning AXISBANK…
+2026-08-09 16:49:45,926 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:45,926 [INFO]   Scanning BAJFINANCE…
+2026-08-09 16:49:48,280 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:48,281 [INFO]   Scanning WIPRO…
+2026-08-09 16:49:50,119 [INFO]   → 1 signal(s) found
+2026-08-09 16:49:50,119 [INFO]   Scanning ADANIENT…
+2026-08-09 16:49:52,492 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:52,493 [INFO]   Scanning MARUTI…
+2026-08-09 16:49:56,345 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:56,345 [INFO]   Scanning HINDUNILVR…
+2026-08-09 16:49:59,245 [INFO]   → 0 signal(s) found
+2026-08-09 16:49:59,245 [INFO]   Scanning KOTAKBANK…
+2026-08-09 16:50:06,250 [ERROR] Fetch failed — KOTAKBANK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Read timed out. (read timeout=7)
+2026-08-09 16:50:06,251 [WARNING]   Skipping KOTAKBANK [day] — not enough data
+2026-08-09 16:50:06,254 [ERROR] Fetch failed — KOTAKBANK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/492033/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,254 [WARNING]   Skipping KOTAKBANK [week] — not enough data
+2026-08-09 16:50:06,254 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,255 [INFO]   Scanning LT…
+2026-08-09 16:50:06,258 [ERROR] Fetch failed — LT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2939649/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,258 [WARNING]   Skipping LT [day] — not enough data
+2026-08-09 16:50:06,260 [ERROR] Fetch failed — LT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2939649/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,261 [WARNING]   Skipping LT [week] — not enough data
+2026-08-09 16:50:06,261 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,261 [INFO]   Scanning INDHOTEL…
+2026-08-09 16:50:06,264 [ERROR] Fetch failed — INDHOTEL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/387073/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,264 [WARNING]   Skipping INDHOTEL [day] — not enough data
+2026-08-09 16:50:06,266 [ERROR] Fetch failed — INDHOTEL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/387073/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,266 [WARNING]   Skipping INDHOTEL [week] — not enough data
+2026-08-09 16:50:06,266 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,266 [INFO]   Scanning HCLTECH…
+2026-08-09 16:50:06,269 [ERROR] Fetch failed — HCLTECH [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1850625/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,269 [WARNING]   Skipping HCLTECH [day] — not enough data
+2026-08-09 16:50:06,272 [ERROR] Fetch failed — HCLTECH [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1850625/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,272 [WARNING]   Skipping HCLTECH [week] — not enough data
+2026-08-09 16:50:06,272 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,273 [INFO]   Scanning TECHM…
+2026-08-09 16:50:06,275 [ERROR] Fetch failed — TECHM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3465729/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,275 [WARNING]   Skipping TECHM [day] — not enough data
+2026-08-09 16:50:06,278 [ERROR] Fetch failed — TECHM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3465729/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,278 [WARNING]   Skipping TECHM [week] — not enough data
+2026-08-09 16:50:06,278 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,278 [INFO]   Scanning LTIM…
+2026-08-09 16:50:06,281 [ERROR] Fetch failed — LTIM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4561409/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,281 [WARNING]   Skipping LTIM [day] — not enough data
+2026-08-09 16:50:06,286 [ERROR] Fetch failed — LTIM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4561409/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,286 [WARNING]   Skipping LTIM [week] — not enough data
+2026-08-09 16:50:06,286 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,287 [INFO]   Scanning PERSISTENT…
+2026-08-09 16:50:06,290 [ERROR] Fetch failed — PERSISTENT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4701441/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,290 [WARNING]   Skipping PERSISTENT [day] — not enough data
+2026-08-09 16:50:06,293 [ERROR] Fetch failed — PERSISTENT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4701441/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,293 [WARNING]   Skipping PERSISTENT [week] — not enough data
+2026-08-09 16:50:06,293 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,293 [INFO]   Scanning MPHASIS…
+2026-08-09 16:50:06,296 [ERROR] Fetch failed — MPHASIS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1152769/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,296 [WARNING]   Skipping MPHASIS [day] — not enough data
+2026-08-09 16:50:06,299 [ERROR] Fetch failed — MPHASIS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1152769/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,299 [WARNING]   Skipping MPHASIS [week] — not enough data
+2026-08-09 16:50:06,299 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,299 [INFO]   Scanning INDUSINDBK…
+2026-08-09 16:50:06,301 [ERROR] Fetch failed — INDUSINDBK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1346049/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,302 [WARNING]   Skipping INDUSINDBK [day] — not enough data
+2026-08-09 16:50:06,304 [ERROR] Fetch failed — INDUSINDBK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1346049/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,305 [WARNING]   Skipping INDUSINDBK [week] — not enough data
+2026-08-09 16:50:06,305 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,305 [INFO]   Scanning BANDHANBNK…
+2026-08-09 16:50:06,308 [ERROR] Fetch failed — BANDHANBNK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/579329/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,308 [WARNING]   Skipping BANDHANBNK [day] — not enough data
+2026-08-09 16:50:06,310 [ERROR] Fetch failed — BANDHANBNK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/579329/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,311 [WARNING]   Skipping BANDHANBNK [week] — not enough data
+2026-08-09 16:50:06,311 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,311 [INFO]   Scanning FEDERALBNK…
+2026-08-09 16:50:06,313 [ERROR] Fetch failed — FEDERALBNK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/261889/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,313 [WARNING]   Skipping FEDERALBNK [day] — not enough data
+2026-08-09 16:50:06,316 [ERROR] Fetch failed — FEDERALBNK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/261889/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,316 [WARNING]   Skipping FEDERALBNK [week] — not enough data
+2026-08-09 16:50:06,316 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,316 [INFO]   Scanning IDFCFIRSTB…
+2026-08-09 16:50:06,318 [ERROR] Fetch failed — IDFCFIRSTB [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2863105/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,319 [WARNING]   Skipping IDFCFIRSTB [day] — not enough data
+2026-08-09 16:50:06,321 [ERROR] Fetch failed — IDFCFIRSTB [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2863105/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,322 [WARNING]   Skipping IDFCFIRSTB [week] — not enough data
+2026-08-09 16:50:06,322 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,322 [INFO]   Scanning BAJAJFINSV…
+2026-08-09 16:50:06,325 [ERROR] Fetch failed — BAJAJFINSV [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4268801/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,325 [WARNING]   Skipping BAJAJFINSV [day] — not enough data
+2026-08-09 16:50:06,328 [ERROR] Fetch failed — BAJAJFINSV [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4268801/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,328 [WARNING]   Skipping BAJAJFINSV [week] — not enough data
+2026-08-09 16:50:06,328 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,328 [INFO]   Scanning CHOLAFIN…
+2026-08-09 16:50:06,330 [ERROR] Fetch failed — CHOLAFIN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/300545/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,330 [WARNING]   Skipping CHOLAFIN [day] — not enough data
+2026-08-09 16:50:06,333 [ERROR] Fetch failed — CHOLAFIN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/300545/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,333 [WARNING]   Skipping CHOLAFIN [week] — not enough data
+2026-08-09 16:50:06,333 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,333 [INFO]   Scanning MUTHOOTFIN…
+2026-08-09 16:50:06,336 [ERROR] Fetch failed — MUTHOOTFIN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/6054401/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,336 [WARNING]   Skipping MUTHOOTFIN [day] — not enough data
+2026-08-09 16:50:06,338 [ERROR] Fetch failed — MUTHOOTFIN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/6054401/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,339 [WARNING]   Skipping MUTHOOTFIN [week] — not enough data
+2026-08-09 16:50:06,339 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,339 [INFO]   Scanning ONGC…
+2026-08-09 16:50:06,341 [ERROR] Fetch failed — ONGC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/633601/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,342 [WARNING]   Skipping ONGC [day] — not enough data
+2026-08-09 16:50:06,344 [ERROR] Fetch failed — ONGC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/633601/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,344 [WARNING]   Skipping ONGC [week] — not enough data
+2026-08-09 16:50:06,344 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,344 [INFO]   Scanning BPCL…
+2026-08-09 16:50:06,346 [ERROR] Fetch failed — BPCL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/134657/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,347 [WARNING]   Skipping BPCL [day] — not enough data
+2026-08-09 16:50:06,349 [ERROR] Fetch failed — BPCL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/134657/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,349 [WARNING]   Skipping BPCL [week] — not enough data
+2026-08-09 16:50:06,349 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,349 [INFO]   Scanning GAIL…
+2026-08-09 16:50:06,351 [ERROR] Fetch failed — GAIL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1207553/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,352 [WARNING]   Skipping GAIL [day] — not enough data
+2026-08-09 16:50:06,354 [ERROR] Fetch failed — GAIL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1207553/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,354 [WARNING]   Skipping GAIL [week] — not enough data
+2026-08-09 16:50:06,354 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,354 [INFO]   Scanning POWERGRID…
+2026-08-09 16:50:06,357 [ERROR] Fetch failed — POWERGRID [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3834113/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,357 [WARNING]   Skipping POWERGRID [day] — not enough data
+2026-08-09 16:50:06,359 [ERROR] Fetch failed — POWERGRID [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3834113/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,360 [WARNING]   Skipping POWERGRID [week] — not enough data
+2026-08-09 16:50:06,360 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,360 [INFO]   Scanning NTPC…
+2026-08-09 16:50:06,362 [ERROR] Fetch failed — NTPC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2977281/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,362 [WARNING]   Skipping NTPC [day] — not enough data
+2026-08-09 16:50:06,364 [ERROR] Fetch failed — NTPC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2977281/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,365 [WARNING]   Skipping NTPC [week] — not enough data
+2026-08-09 16:50:06,365 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,365 [INFO]   Scanning TATAPOWER…
+2026-08-09 16:50:06,367 [ERROR] Fetch failed — TATAPOWER [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/877057/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,367 [WARNING]   Skipping TATAPOWER [day] — not enough data
+2026-08-09 16:50:06,369 [ERROR] Fetch failed — TATAPOWER [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/877057/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,369 [WARNING]   Skipping TATAPOWER [week] — not enough data
+2026-08-09 16:50:06,369 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,370 [INFO]   Scanning ADANIGREEN…
+2026-08-09 16:50:06,372 [ERROR] Fetch failed — ADANIGREEN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/912129/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,372 [WARNING]   Skipping ADANIGREEN [day] — not enough data
+2026-08-09 16:50:06,375 [ERROR] Fetch failed — ADANIGREEN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/912129/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,375 [WARNING]   Skipping ADANIGREEN [week] — not enough data
+2026-08-09 16:50:06,375 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,375 [INFO]   Scanning ADANIPOWER…
+2026-08-09 16:50:06,378 [ERROR] Fetch failed — ADANIPOWER [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4451329/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,378 [WARNING]   Skipping ADANIPOWER [day] — not enough data
+2026-08-09 16:50:06,380 [ERROR] Fetch failed — ADANIPOWER [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4451329/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,380 [WARNING]   Skipping ADANIPOWER [week] — not enough data
+2026-08-09 16:50:06,380 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,380 [INFO]   Scanning SUNPHARMA…
+2026-08-09 16:50:06,383 [ERROR] Fetch failed — SUNPHARMA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/857857/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,383 [WARNING]   Skipping SUNPHARMA [day] — not enough data
+2026-08-09 16:50:06,385 [ERROR] Fetch failed — SUNPHARMA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/857857/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,386 [WARNING]   Skipping SUNPHARMA [week] — not enough data
+2026-08-09 16:50:06,386 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,386 [INFO]   Scanning DRREDDY…
+2026-08-09 16:50:06,388 [ERROR] Fetch failed — DRREDDY [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/225537/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,388 [WARNING]   Skipping DRREDDY [day] — not enough data
+2026-08-09 16:50:06,391 [ERROR] Fetch failed — DRREDDY [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/225537/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,391 [WARNING]   Skipping DRREDDY [week] — not enough data
+2026-08-09 16:50:06,391 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,391 [INFO]   Scanning CIPLA…
+2026-08-09 16:50:06,393 [ERROR] Fetch failed — CIPLA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/177665/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,394 [WARNING]   Skipping CIPLA [day] — not enough data
+2026-08-09 16:50:06,396 [ERROR] Fetch failed — CIPLA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/177665/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,396 [WARNING]   Skipping CIPLA [week] — not enough data
+2026-08-09 16:50:06,396 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,396 [INFO]   Scanning DIVISLAB…
+2026-08-09 16:50:06,398 [ERROR] Fetch failed — DIVISLAB [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2800641/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,399 [WARNING]   Skipping DIVISLAB [day] — not enough data
+2026-08-09 16:50:06,401 [ERROR] Fetch failed — DIVISLAB [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2800641/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,401 [WARNING]   Skipping DIVISLAB [week] — not enough data
+2026-08-09 16:50:06,401 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,401 [INFO]   Scanning APOLLOHOSP…
+2026-08-09 16:50:06,404 [ERROR] Fetch failed — APOLLOHOSP [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/40193/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,404 [WARNING]   Skipping APOLLOHOSP [day] — not enough data
+2026-08-09 16:50:06,407 [ERROR] Fetch failed — APOLLOHOSP [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/40193/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,407 [WARNING]   Skipping APOLLOHOSP [week] — not enough data
+2026-08-09 16:50:06,407 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,407 [INFO]   Scanning TMPV…
+2026-08-09 16:50:06,409 [ERROR] Fetch failed — TMPV [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/884737/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,409 [WARNING]   Skipping TMPV [day] — not enough data
+2026-08-09 16:50:06,412 [ERROR] Fetch failed — TMPV [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/884737/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,412 [WARNING]   Skipping TMPV [week] — not enough data
+2026-08-09 16:50:06,412 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,412 [INFO]   Scanning M&M…
+2026-08-09 16:50:06,414 [ERROR] Fetch failed — M&M [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/519937/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,415 [WARNING]   Skipping M&M [day] — not enough data
+2026-08-09 16:50:06,417 [ERROR] Fetch failed — M&M [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/519937/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,417 [WARNING]   Skipping M&M [week] — not enough data
+2026-08-09 16:50:06,418 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,418 [INFO]   Scanning BAJAJ-AUTO…
+2026-08-09 16:50:06,420 [ERROR] Fetch failed — BAJAJ-AUTO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4267265/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,420 [WARNING]   Skipping BAJAJ-AUTO [day] — not enough data
+2026-08-09 16:50:06,423 [ERROR] Fetch failed — BAJAJ-AUTO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4267265/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,423 [WARNING]   Skipping BAJAJ-AUTO [week] — not enough data
+2026-08-09 16:50:06,423 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,424 [INFO]   Scanning HEROMOTOCO…
+2026-08-09 16:50:06,426 [ERROR] Fetch failed — HEROMOTOCO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/345089/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,427 [WARNING]   Skipping HEROMOTOCO [day] — not enough data
+2026-08-09 16:50:06,429 [ERROR] Fetch failed — HEROMOTOCO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/345089/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,429 [WARNING]   Skipping HEROMOTOCO [week] — not enough data
+2026-08-09 16:50:06,429 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,430 [INFO]   Scanning EICHERMOT…
+2026-08-09 16:50:06,432 [ERROR] Fetch failed — EICHERMOT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/232961/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,432 [WARNING]   Skipping EICHERMOT [day] — not enough data
+2026-08-09 16:50:06,434 [ERROR] Fetch failed — EICHERMOT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/232961/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,434 [WARNING]   Skipping EICHERMOT [week] — not enough data
+2026-08-09 16:50:06,434 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,435 [INFO]   Scanning TVSMOTOR…
+2026-08-09 16:50:06,437 [ERROR] Fetch failed — TVSMOTOR [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2170625/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,437 [WARNING]   Skipping TVSMOTOR [day] — not enough data
+2026-08-09 16:50:06,440 [ERROR] Fetch failed — TVSMOTOR [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2170625/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,440 [WARNING]   Skipping TVSMOTOR [week] — not enough data
+2026-08-09 16:50:06,440 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,441 [INFO]   Scanning COALINDIA…
+2026-08-09 16:50:06,443 [ERROR] Fetch failed — COALINDIA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5215745/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,443 [WARNING]   Skipping COALINDIA [day] — not enough data
+2026-08-09 16:50:06,448 [ERROR] Fetch failed — COALINDIA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5215745/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,448 [WARNING]   Skipping COALINDIA [week] — not enough data
+2026-08-09 16:50:06,448 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,448 [INFO]   Scanning NMDC…
+2026-08-09 16:50:06,453 [ERROR] Fetch failed — NMDC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3924993/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,453 [WARNING]   Skipping NMDC [day] — not enough data
+2026-08-09 16:50:06,458 [ERROR] Fetch failed — NMDC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3924993/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,459 [WARNING]   Skipping NMDC [week] — not enough data
+2026-08-09 16:50:06,459 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,459 [INFO]   Scanning JSWSTEEL…
+2026-08-09 16:50:06,462 [ERROR] Fetch failed — JSWSTEEL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3001089/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,462 [WARNING]   Skipping JSWSTEEL [day] — not enough data
+2026-08-09 16:50:06,466 [ERROR] Fetch failed — JSWSTEEL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3001089/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,466 [WARNING]   Skipping JSWSTEEL [week] — not enough data
+2026-08-09 16:50:06,466 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,466 [INFO]   Scanning SAIL…
+2026-08-09 16:50:06,470 [ERROR] Fetch failed — SAIL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/758529/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,470 [WARNING]   Skipping SAIL [day] — not enough data
+2026-08-09 16:50:06,474 [ERROR] Fetch failed — SAIL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/758529/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,474 [WARNING]   Skipping SAIL [week] — not enough data
+2026-08-09 16:50:06,474 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,474 [INFO]   Scanning BEL…
+2026-08-09 16:50:06,478 [ERROR] Fetch failed — BEL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/98049/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,478 [WARNING]   Skipping BEL [day] — not enough data
+2026-08-09 16:50:06,481 [ERROR] Fetch failed — BEL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/98049/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,481 [WARNING]   Skipping BEL [week] — not enough data
+2026-08-09 16:50:06,481 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,481 [INFO]   Scanning HAL…
+2026-08-09 16:50:06,484 [ERROR] Fetch failed — HAL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/589569/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,485 [WARNING]   Skipping HAL [day] — not enough data
+2026-08-09 16:50:06,490 [ERROR] Fetch failed — HAL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/589569/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,490 [WARNING]   Skipping HAL [week] — not enough data
+2026-08-09 16:50:06,490 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,491 [INFO]   Scanning BHEL…
+2026-08-09 16:50:06,496 [ERROR] Fetch failed — BHEL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/112129/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,496 [WARNING]   Skipping BHEL [day] — not enough data
+2026-08-09 16:50:06,502 [ERROR] Fetch failed — BHEL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/112129/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,503 [WARNING]   Skipping BHEL [week] — not enough data
+2026-08-09 16:50:06,503 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,503 [INFO]   Scanning SIEMENS…
+2026-08-09 16:50:06,507 [ERROR] Fetch failed — SIEMENS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/806401/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,508 [WARNING]   Skipping SIEMENS [day] — not enough data
+2026-08-09 16:50:06,514 [ERROR] Fetch failed — SIEMENS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/806401/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,514 [WARNING]   Skipping SIEMENS [week] — not enough data
+2026-08-09 16:50:06,514 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,514 [INFO]   Scanning CUMMINSIND…
+2026-08-09 16:50:06,526 [ERROR] Fetch failed — CUMMINSIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/486657/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,527 [WARNING]   Skipping CUMMINSIND [day] — not enough data
+2026-08-09 16:50:06,534 [ERROR] Fetch failed — CUMMINSIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/486657/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,534 [WARNING]   Skipping CUMMINSIND [week] — not enough data
+2026-08-09 16:50:06,534 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,534 [INFO]   Scanning ITC…
+2026-08-09 16:50:06,579 [ERROR] Fetch failed — ITC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/424961/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,599 [WARNING]   Skipping ITC [day] — not enough data
+2026-08-09 16:50:06,605 [ERROR] Fetch failed — ITC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/424961/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,605 [WARNING]   Skipping ITC [week] — not enough data
+2026-08-09 16:50:06,605 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,605 [INFO]   Scanning NESTLEIND…
+2026-08-09 16:50:06,612 [ERROR] Fetch failed — NESTLEIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4598529/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,612 [WARNING]   Skipping NESTLEIND [day] — not enough data
+2026-08-09 16:50:06,619 [ERROR] Fetch failed — NESTLEIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4598529/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,620 [WARNING]   Skipping NESTLEIND [week] — not enough data
+2026-08-09 16:50:06,620 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,620 [INFO]   Scanning BRITANNIA…
+2026-08-09 16:50:06,625 [ERROR] Fetch failed — BRITANNIA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/140033/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,625 [WARNING]   Skipping BRITANNIA [day] — not enough data
+2026-08-09 16:50:06,634 [ERROR] Fetch failed — BRITANNIA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/140033/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,634 [WARNING]   Skipping BRITANNIA [week] — not enough data
+2026-08-09 16:50:06,634 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,634 [INFO]   Scanning DABUR…
+2026-08-09 16:50:06,640 [ERROR] Fetch failed — DABUR [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/197633/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,640 [WARNING]   Skipping DABUR [day] — not enough data
+2026-08-09 16:50:06,645 [ERROR] Fetch failed — DABUR [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/197633/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,645 [WARNING]   Skipping DABUR [week] — not enough data
+2026-08-09 16:50:06,645 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,646 [INFO]   Scanning MARICO…
+2026-08-09 16:50:06,651 [ERROR] Fetch failed — MARICO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1041153/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,651 [WARNING]   Skipping MARICO [day] — not enough data
+2026-08-09 16:50:06,656 [ERROR] Fetch failed — MARICO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1041153/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,657 [WARNING]   Skipping MARICO [week] — not enough data
+2026-08-09 16:50:06,657 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,657 [INFO]   Scanning VBL…
+2026-08-09 16:50:06,662 [ERROR] Fetch failed — VBL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4843777/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,663 [WARNING]   Skipping VBL [day] — not enough data
+2026-08-09 16:50:06,668 [ERROR] Fetch failed — VBL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4843777/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,668 [WARNING]   Skipping VBL [week] — not enough data
+2026-08-09 16:50:06,669 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,669 [INFO]   Scanning ULTRACEMCO…
+2026-08-09 16:50:06,673 [ERROR] Fetch failed — ULTRACEMCO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2952193/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,674 [WARNING]   Skipping ULTRACEMCO [day] — not enough data
+2026-08-09 16:50:06,678 [ERROR] Fetch failed — ULTRACEMCO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2952193/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,679 [WARNING]   Skipping ULTRACEMCO [week] — not enough data
+2026-08-09 16:50:06,679 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,679 [INFO]   Scanning SHREECEM…
+2026-08-09 16:50:06,684 [ERROR] Fetch failed — SHREECEM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/794369/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,684 [WARNING]   Skipping SHREECEM [day] — not enough data
+2026-08-09 16:50:06,688 [ERROR] Fetch failed — SHREECEM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/794369/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,689 [WARNING]   Skipping SHREECEM [week] — not enough data
+2026-08-09 16:50:06,689 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,689 [INFO]   Scanning AMBUJACEM…
+2026-08-09 16:50:06,694 [ERROR] Fetch failed — AMBUJACEM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1152769/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,694 [WARNING]   Skipping AMBUJACEM [day] — not enough data
+2026-08-09 16:50:06,700 [ERROR] Fetch failed — AMBUJACEM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1152769/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,701 [WARNING]   Skipping AMBUJACEM [week] — not enough data
+2026-08-09 16:50:06,701 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,701 [INFO]   Scanning ACC…
+2026-08-09 16:50:06,706 [ERROR] Fetch failed — ACC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5633/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,706 [WARNING]   Skipping ACC [day] — not enough data
+2026-08-09 16:50:06,716 [ERROR] Fetch failed — ACC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5633/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,716 [WARNING]   Skipping ACC [week] — not enough data
+2026-08-09 16:50:06,716 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,717 [INFO]   Scanning BSE…
+2026-08-09 16:50:06,726 [ERROR] Fetch failed — BSE [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5097729/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,727 [WARNING]   Skipping BSE [day] — not enough data
+2026-08-09 16:50:06,738 [ERROR] Fetch failed — BSE [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5097729/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,739 [WARNING]   Skipping BSE [week] — not enough data
+2026-08-09 16:50:06,739 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,739 [INFO]   Scanning CDSL…
+2026-08-09 16:50:06,751 [ERROR] Fetch failed — CDSL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5420545/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,752 [WARNING]   Skipping CDSL [day] — not enough data
+2026-08-09 16:50:06,761 [ERROR] Fetch failed — CDSL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5420545/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,762 [WARNING]   Skipping CDSL [week] — not enough data
+2026-08-09 16:50:06,762 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,762 [INFO]   Scanning ABCAPITAL…
+2026-08-09 16:50:06,773 [ERROR] Fetch failed — ABCAPITAL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5533185/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,773 [WARNING]   Skipping ABCAPITAL [day] — not enough data
+2026-08-09 16:50:06,781 [ERROR] Fetch failed — ABCAPITAL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5533185/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,781 [WARNING]   Skipping ABCAPITAL [week] — not enough data
+2026-08-09 16:50:06,781 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,781 [INFO]   Scanning CAMS…
+2026-08-09 16:50:06,788 [ERROR] Fetch failed — CAMS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/87553/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,789 [WARNING]   Skipping CAMS [day] — not enough data
+2026-08-09 16:50:06,797 [ERROR] Fetch failed — CAMS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/87553/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,798 [WARNING]   Skipping CAMS [week] — not enough data
+2026-08-09 16:50:06,798 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,798 [INFO]   Scanning POLICYBZR…
+2026-08-09 16:50:06,806 [ERROR] Fetch failed — POLICYBZR [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5552641/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,806 [WARNING]   Skipping POLICYBZR [day] — not enough data
+2026-08-09 16:50:06,814 [ERROR] Fetch failed — POLICYBZR [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5552641/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,815 [WARNING]   Skipping POLICYBZR [week] — not enough data
+2026-08-09 16:50:06,815 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,815 [INFO]   Scanning DLF…
+2026-08-09 16:50:06,821 [ERROR] Fetch failed — DLF [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/377857/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,822 [WARNING]   Skipping DLF [day] — not enough data
+2026-08-09 16:50:06,826 [ERROR] Fetch failed — DLF [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/377857/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,827 [WARNING]   Skipping DLF [week] — not enough data
+2026-08-09 16:50:06,827 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,827 [INFO]   Scanning GODREJPROP…
+2026-08-09 16:50:06,834 [ERROR] Fetch failed — GODREJPROP [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4576001/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,834 [WARNING]   Skipping GODREJPROP [day] — not enough data
+2026-08-09 16:50:06,845 [ERROR] Fetch failed — GODREJPROP [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4576001/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,845 [WARNING]   Skipping GODREJPROP [week] — not enough data
+2026-08-09 16:50:06,846 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,847 [INFO]   Scanning PHOENIXLTD…
+2026-08-09 16:50:06,858 [ERROR] Fetch failed — PHOENIXLTD [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3725313/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,859 [WARNING]   Skipping PHOENIXLTD [day] — not enough data
+2026-08-09 16:50:06,866 [ERROR] Fetch failed — PHOENIXLTD [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3725313/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,866 [WARNING]   Skipping PHOENIXLTD [week] — not enough data
+2026-08-09 16:50:06,866 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,867 [INFO]   Scanning TITAN…
+2026-08-09 16:50:06,876 [ERROR] Fetch failed — TITAN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/897537/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,876 [WARNING]   Skipping TITAN [day] — not enough data
+2026-08-09 16:50:06,883 [ERROR] Fetch failed — TITAN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/897537/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,883 [WARNING]   Skipping TITAN [week] — not enough data
+2026-08-09 16:50:06,883 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,883 [INFO]   Scanning TRENT…
+2026-08-09 16:50:06,888 [ERROR] Fetch failed — TRENT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/502785/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,888 [WARNING]   Skipping TRENT [day] — not enough data
+2026-08-09 16:50:06,893 [ERROR] Fetch failed — TRENT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/502785/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,893 [WARNING]   Skipping TRENT [week] — not enough data
+2026-08-09 16:50:06,893 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,893 [INFO]   Scanning ASIANPAINT…
+2026-08-09 16:50:06,900 [ERROR] Fetch failed — ASIANPAINT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/60417/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,900 [WARNING]   Skipping ASIANPAINT [day] — not enough data
+2026-08-09 16:50:06,905 [ERROR] Fetch failed — ASIANPAINT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/60417/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,906 [WARNING]   Skipping ASIANPAINT [week] — not enough data
+2026-08-09 16:50:06,906 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,906 [INFO]   Scanning HAVELLS…
+2026-08-09 16:50:06,911 [ERROR] Fetch failed — HAVELLS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/251137/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,912 [WARNING]   Skipping HAVELLS [day] — not enough data
+2026-08-09 16:50:06,918 [ERROR] Fetch failed — HAVELLS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/251137/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,918 [WARNING]   Skipping HAVELLS [week] — not enough data
+2026-08-09 16:50:06,919 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,919 [INFO]   Scanning BERGEPAINT…
+2026-08-09 16:50:06,924 [ERROR] Fetch failed — BERGEPAINT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/103425/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,924 [WARNING]   Skipping BERGEPAINT [day] — not enough data
+2026-08-09 16:50:06,931 [ERROR] Fetch failed — BERGEPAINT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/103425/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,931 [WARNING]   Skipping BERGEPAINT [week] — not enough data
+2026-08-09 16:50:06,931 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,931 [INFO]   Scanning VOLTAS…
+2026-08-09 16:50:06,938 [ERROR] Fetch failed — VOLTAS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/951809/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,938 [WARNING]   Skipping VOLTAS [day] — not enough data
+2026-08-09 16:50:06,943 [ERROR] Fetch failed — VOLTAS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/951809/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,944 [WARNING]   Skipping VOLTAS [week] — not enough data
+2026-08-09 16:50:06,944 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,944 [INFO]   Scanning VBL…
+2026-08-09 16:50:06,951 [ERROR] Fetch failed — VBL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4843777/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,951 [WARNING]   Skipping VBL [day] — not enough data
+2026-08-09 16:50:06,958 [ERROR] Fetch failed — VBL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4843777/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,958 [WARNING]   Skipping VBL [week] — not enough data
+2026-08-09 16:50:06,958 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,958 [INFO]   Scanning HAVELLS…
+2026-08-09 16:50:06,963 [ERROR] Fetch failed — HAVELLS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2513665/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,964 [WARNING]   Skipping HAVELLS [day] — not enough data
+2026-08-09 16:50:06,970 [ERROR] Fetch failed — HAVELLS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2513665/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,971 [WARNING]   Skipping HAVELLS [week] — not enough data
+2026-08-09 16:50:06,971 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,971 [INFO]   Scanning ETERNAL…
+2026-08-09 16:50:06,977 [ERROR] Fetch failed — ETERNAL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1304833/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,977 [WARNING]   Skipping ETERNAL [day] — not enough data
+2026-08-09 16:50:06,983 [ERROR] Fetch failed — ETERNAL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1304833/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,984 [WARNING]   Skipping ETERNAL [week] — not enough data
+2026-08-09 16:50:06,984 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,984 [INFO]   Scanning JIOFIN…
+2026-08-09 16:50:06,990 [ERROR] Fetch failed — JIOFIN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4644609/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,990 [WARNING]   Skipping JIOFIN [day] — not enough data
+2026-08-09 16:50:06,995 [ERROR] Fetch failed — JIOFIN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4644609/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:06,996 [WARNING]   Skipping JIOFIN [week] — not enough data
+2026-08-09 16:50:06,997 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:06,997 [INFO]   Scanning PAYTM…
+2026-08-09 16:50:07,000 [ERROR] Fetch failed — PAYTM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1716481/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,000 [WARNING]   Skipping PAYTM [day] — not enough data
+2026-08-09 16:50:07,005 [ERROR] Fetch failed — PAYTM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1716481/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,006 [WARNING]   Skipping PAYTM [week] — not enough data
+2026-08-09 16:50:07,006 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,006 [INFO]   Scanning NYKAA…
+2026-08-09 16:50:07,011 [ERROR] Fetch failed — NYKAA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1675521/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,011 [WARNING]   Skipping NYKAA [day] — not enough data
+2026-08-09 16:50:07,017 [ERROR] Fetch failed — NYKAA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1675521/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,017 [WARNING]   Skipping NYKAA [week] — not enough data
+2026-08-09 16:50:07,017 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,017 [INFO]   Scanning DELHIVERY…
+2026-08-09 16:50:07,022 [ERROR] Fetch failed — DELHIVERY [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2457345/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,022 [WARNING]   Skipping DELHIVERY [day] — not enough data
+2026-08-09 16:50:07,029 [ERROR] Fetch failed — DELHIVERY [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2457345/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,030 [WARNING]   Skipping DELHIVERY [week] — not enough data
+2026-08-09 16:50:07,030 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,030 [INFO]   Scanning PIDILITIND…
+2026-08-09 16:50:07,035 [ERROR] Fetch failed — PIDILITIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/681985/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,035 [WARNING]   Skipping PIDILITIND [day] — not enough data
+2026-08-09 16:50:07,039 [ERROR] Fetch failed — PIDILITIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/681985/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,039 [WARNING]   Skipping PIDILITIND [week] — not enough data
+2026-08-09 16:50:07,039 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,039 [INFO]   Scanning SRF…
+2026-08-09 16:50:07,044 [ERROR] Fetch failed — SRF [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/837889/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,044 [WARNING]   Skipping SRF [day] — not enough data
+2026-08-09 16:50:07,049 [ERROR] Fetch failed — SRF [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/837889/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,049 [WARNING]   Skipping SRF [week] — not enough data
+2026-08-09 16:50:07,049 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,049 [INFO]   Scanning UPL…
+2026-08-09 16:50:07,052 [ERROR] Fetch failed — UPL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2889473/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,052 [WARNING]   Skipping UPL [day] — not enough data
+2026-08-09 16:50:07,056 [ERROR] Fetch failed — UPL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2889473/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,056 [WARNING]   Skipping UPL [week] — not enough data
+2026-08-09 16:50:07,056 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,056 [INFO]   Scanning TATACHEM…
+2026-08-09 16:50:07,060 [ERROR] Fetch failed — TATACHEM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/871681/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,060 [WARNING]   Skipping TATACHEM [day] — not enough data
+2026-08-09 16:50:07,067 [ERROR] Fetch failed — TATACHEM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/871681/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,067 [WARNING]   Skipping TATACHEM [week] — not enough data
+2026-08-09 16:50:07,067 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,067 [INFO]   Scanning INDIGO…
+2026-08-09 16:50:07,071 [ERROR] Fetch failed — INDIGO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2865921/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,071 [WARNING]   Skipping INDIGO [day] — not enough data
+2026-08-09 16:50:07,077 [ERROR] Fetch failed — INDIGO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2865921/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,078 [WARNING]   Skipping INDIGO [week] — not enough data
+2026-08-09 16:50:07,078 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,078 [INFO]   Scanning CONCOR…
+2026-08-09 16:50:07,082 [ERROR] Fetch failed — CONCOR [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1215745/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,082 [WARNING]   Skipping CONCOR [day] — not enough data
+2026-08-09 16:50:07,086 [ERROR] Fetch failed — CONCOR [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1215745/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,086 [WARNING]   Skipping CONCOR [week] — not enough data
+2026-08-09 16:50:07,086 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,086 [INFO]   Scanning BLUEDART…
+2026-08-09 16:50:07,091 [ERROR] Fetch failed — BLUEDART [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/126721/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,091 [WARNING]   Skipping BLUEDART [day] — not enough data
+2026-08-09 16:50:07,095 [ERROR] Fetch failed — BLUEDART [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/126721/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,096 [WARNING]   Skipping BLUEDART [week] — not enough data
+2026-08-09 16:50:07,096 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,097 [INFO]   Scanning GRASIM…
+2026-08-09 16:50:07,102 [ERROR] Fetch failed — GRASIM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/315393/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,102 [WARNING]   Skipping GRASIM [day] — not enough data
+2026-08-09 16:50:07,107 [ERROR] Fetch failed — GRASIM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/315393/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,107 [WARNING]   Skipping GRASIM [week] — not enough data
+2026-08-09 16:50:07,107 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,107 [INFO]   Scanning TATACONSUM…
+2026-08-09 16:50:07,114 [ERROR] Fetch failed — TATACONSUM [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/878593/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,114 [WARNING]   Skipping TATACONSUM [day] — not enough data
+2026-08-09 16:50:07,121 [ERROR] Fetch failed — TATACONSUM [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/878593/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,121 [WARNING]   Skipping TATACONSUM [week] — not enough data
+2026-08-09 16:50:07,121 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,121 [INFO]   Scanning POLYCAB…
+2026-08-09 16:50:07,127 [ERROR] Fetch failed — POLYCAB [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2455041/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,128 [WARNING]   Skipping POLYCAB [day] — not enough data
+2026-08-09 16:50:07,132 [ERROR] Fetch failed — POLYCAB [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2455041/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,133 [WARNING]   Skipping POLYCAB [week] — not enough data
+2026-08-09 16:50:07,133 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,133 [INFO]   Scanning RECLTD…
+2026-08-09 16:50:07,139 [ERROR] Fetch failed — RECLTD [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3930881/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,139 [WARNING]   Skipping RECLTD [day] — not enough data
+2026-08-09 16:50:07,144 [ERROR] Fetch failed — RECLTD [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3930881/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,145 [WARNING]   Skipping RECLTD [week] — not enough data
+2026-08-09 16:50:07,145 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,146 [INFO]   Scanning RVNL…
+2026-08-09 16:50:07,153 [ERROR] Fetch failed — RVNL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2445313/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,153 [WARNING]   Skipping RVNL [day] — not enough data
+2026-08-09 16:50:07,158 [ERROR] Fetch failed — RVNL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2445313/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,158 [WARNING]   Skipping RVNL [week] — not enough data
+2026-08-09 16:50:07,158 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,158 [INFO]   Scanning IRFC…
+2026-08-09 16:50:07,164 [ERROR] Fetch failed — IRFC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/519425/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,165 [WARNING]   Skipping IRFC [day] — not enough data
+2026-08-09 16:50:07,172 [ERROR] Fetch failed — IRFC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/519425/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,172 [WARNING]   Skipping IRFC [week] — not enough data
+2026-08-09 16:50:07,172 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,173 [INFO]   Scanning SJVN…
+2026-08-09 16:50:07,179 [ERROR] Fetch failed — SJVN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4834049/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,180 [WARNING]   Skipping SJVN [day] — not enough data
+2026-08-09 16:50:07,187 [ERROR] Fetch failed — SJVN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4834049/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,187 [WARNING]   Skipping SJVN [week] — not enough data
+2026-08-09 16:50:07,187 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,187 [INFO]   Scanning IREDA…
+2026-08-09 16:50:07,192 [ERROR] Fetch failed — IREDA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5186817/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,192 [WARNING]   Skipping IREDA [day] — not enough data
+2026-08-09 16:50:07,198 [ERROR] Fetch failed — IREDA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5186817/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,198 [WARNING]   Skipping IREDA [week] — not enough data
+2026-08-09 16:50:07,198 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,199 [INFO]   Scanning NHPC…
+2026-08-09 16:50:07,203 [ERROR] Fetch failed — NHPC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3677697/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,203 [WARNING]   Skipping NHPC [day] — not enough data
+2026-08-09 16:50:07,208 [ERROR] Fetch failed — NHPC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3677697/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,208 [WARNING]   Skipping NHPC [week] — not enough data
+2026-08-09 16:50:07,208 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,208 [INFO]   Scanning ASHOKLEY…
+2026-08-09 16:50:07,215 [ERROR] Fetch failed — ASHOKLEY [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/54273/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,215 [WARNING]   Skipping ASHOKLEY [day] — not enough data
+2026-08-09 16:50:07,219 [ERROR] Fetch failed — ASHOKLEY [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/54273/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,219 [WARNING]   Skipping ASHOKLEY [week] — not enough data
+2026-08-09 16:50:07,219 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,219 [INFO]   Scanning AUROPHARMA…
+2026-08-09 16:50:07,224 [ERROR] Fetch failed — AUROPHARMA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/70401/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,224 [WARNING]   Skipping AUROPHARMA [day] — not enough data
+2026-08-09 16:50:07,231 [ERROR] Fetch failed — AUROPHARMA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/70401/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,231 [WARNING]   Skipping AUROPHARMA [week] — not enough data
+2026-08-09 16:50:07,231 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,231 [INFO]   Scanning BALKRISIND…
+2026-08-09 16:50:07,234 [ERROR] Fetch failed — BALKRISIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1629185/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,235 [WARNING]   Skipping BALKRISIND [day] — not enough data
+2026-08-09 16:50:07,239 [ERROR] Fetch failed — BALKRISIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1629185/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,239 [WARNING]   Skipping BALKRISIND [week] — not enough data
+2026-08-09 16:50:07,239 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,239 [INFO]   Scanning BHARATFORG…
+2026-08-09 16:50:07,244 [ERROR] Fetch failed — BHARATFORG [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/108033/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,245 [WARNING]   Skipping BHARATFORG [day] — not enough data
+2026-08-09 16:50:07,250 [ERROR] Fetch failed — BHARATFORG [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/108033/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,250 [WARNING]   Skipping BHARATFORG [week] — not enough data
+2026-08-09 16:50:07,251 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,251 [INFO]   Scanning BIOCON…
+2026-08-09 16:50:07,254 [ERROR] Fetch failed — BIOCON [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2911489/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,255 [WARNING]   Skipping BIOCON [day] — not enough data
+2026-08-09 16:50:07,259 [ERROR] Fetch failed — BIOCON [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2911489/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,259 [WARNING]   Skipping BIOCON [week] — not enough data
+2026-08-09 16:50:07,259 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,260 [INFO]   Scanning COLPAL…
+2026-08-09 16:50:07,266 [ERROR] Fetch failed — COLPAL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3876097/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,266 [WARNING]   Skipping COLPAL [day] — not enough data
+2026-08-09 16:50:07,269 [ERROR] Fetch failed — COLPAL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3876097/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,269 [WARNING]   Skipping COLPAL [week] — not enough data
+2026-08-09 16:50:07,270 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,270 [INFO]   Scanning ESCORTS…
+2026-08-09 16:50:07,275 [ERROR] Fetch failed — ESCORTS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/245249/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,275 [WARNING]   Skipping ESCORTS [day] — not enough data
+2026-08-09 16:50:07,279 [ERROR] Fetch failed — ESCORTS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/245249/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,280 [WARNING]   Skipping ESCORTS [week] — not enough data
+2026-08-09 16:50:07,280 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,280 [INFO]   Scanning EXIDEIND…
+2026-08-09 16:50:07,284 [ERROR] Fetch failed — EXIDEIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/173057/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,284 [WARNING]   Skipping EXIDEIND [day] — not enough data
+2026-08-09 16:50:07,289 [ERROR] Fetch failed — EXIDEIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/173057/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,289 [WARNING]   Skipping EXIDEIND [week] — not enough data
+2026-08-09 16:50:07,290 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,290 [INFO]   Scanning GUJGASLTD…
+2026-08-09 16:50:07,295 [ERROR] Fetch failed — GUJGASLTD [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2730497/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,295 [WARNING]   Skipping GUJGASLTD [day] — not enough data
+2026-08-09 16:50:07,299 [ERROR] Fetch failed — GUJGASLTD [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2730497/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,299 [WARNING]   Skipping GUJGASLTD [week] — not enough data
+2026-08-09 16:50:07,299 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,299 [INFO]   Scanning ADANIPORTS…
+2026-08-09 16:50:07,303 [ERROR] Fetch failed — ADANIPORTS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3861249/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,303 [WARNING]   Skipping ADANIPORTS [day] — not enough data
+2026-08-09 16:50:07,308 [ERROR] Fetch failed — ADANIPORTS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3861249/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,309 [WARNING]   Skipping ADANIPORTS [week] — not enough data
+2026-08-09 16:50:07,309 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,309 [INFO]   Scanning IPCALAB…
+2026-08-09 16:50:07,316 [ERROR] Fetch failed — IPCALAB [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/418049/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,316 [WARNING]   Skipping IPCALAB [day] — not enough data
+2026-08-09 16:50:07,322 [ERROR] Fetch failed — IPCALAB [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/418049/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,323 [WARNING]   Skipping IPCALAB [week] — not enough data
+2026-08-09 16:50:07,323 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,323 [INFO]   Scanning JINDALSTEL…
+2026-08-09 16:50:07,330 [ERROR] Fetch failed — JINDALSTEL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1723649/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,330 [WARNING]   Skipping JINDALSTEL [day] — not enough data
+2026-08-09 16:50:07,337 [ERROR] Fetch failed — JINDALSTEL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1723649/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,337 [WARNING]   Skipping JINDALSTEL [week] — not enough data
+2026-08-09 16:50:07,337 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,337 [INFO]   Scanning JUBLFOOD…
+2026-08-09 16:50:07,342 [ERROR] Fetch failed — JUBLFOOD [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4632577/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,343 [WARNING]   Skipping JUBLFOOD [day] — not enough data
+2026-08-09 16:50:07,352 [ERROR] Fetch failed — JUBLFOOD [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4632577/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,352 [WARNING]   Skipping JUBLFOOD [week] — not enough data
+2026-08-09 16:50:07,352 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,353 [INFO]   Scanning LICHSGFIN…
+2026-08-09 16:50:07,357 [ERROR] Fetch failed — LICHSGFIN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/511233/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,358 [WARNING]   Skipping LICHSGFIN [day] — not enough data
+2026-08-09 16:50:07,365 [ERROR] Fetch failed — LICHSGFIN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/511233/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,365 [WARNING]   Skipping LICHSGFIN [week] — not enough data
+2026-08-09 16:50:07,365 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,365 [INFO]   Scanning LUPIN…
+2026-08-09 16:50:07,372 [ERROR] Fetch failed — LUPIN [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1640193/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,372 [WARNING]   Skipping LUPIN [day] — not enough data
+2026-08-09 16:50:07,377 [ERROR] Fetch failed — LUPIN [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1640193/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,377 [WARNING]   Skipping LUPIN [week] — not enough data
+2026-08-09 16:50:07,378 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,378 [INFO]   Scanning MRF…
+2026-08-09 16:50:07,385 [ERROR] Fetch failed — MRF [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/582913/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,386 [WARNING]   Skipping MRF [day] — not enough data
+2026-08-09 16:50:07,392 [ERROR] Fetch failed — MRF [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/582913/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,392 [WARNING]   Skipping MRF [week] — not enough data
+2026-08-09 16:50:07,392 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,392 [INFO]   Scanning PAGEIND…
+2026-08-09 16:50:07,403 [ERROR] Fetch failed — PAGEIND [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3689729/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,403 [WARNING]   Skipping PAGEIND [day] — not enough data
+2026-08-09 16:50:07,410 [ERROR] Fetch failed — PAGEIND [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3689729/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,410 [WARNING]   Skipping PAGEIND [week] — not enough data
+2026-08-09 16:50:07,410 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,410 [INFO]   Scanning SUNTV…
+2026-08-09 16:50:07,418 [ERROR] Fetch failed — SUNTV [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3431425/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,419 [WARNING]   Skipping SUNTV [day] — not enough data
+2026-08-09 16:50:07,423 [ERROR] Fetch failed — SUNTV [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3431425/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,424 [WARNING]   Skipping SUNTV [week] — not enough data
+2026-08-09 16:50:07,424 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,424 [INFO]   Scanning TATAELXSI…
+2026-08-09 16:50:07,432 [ERROR] Fetch failed — TATAELXSI [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/873217/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,432 [WARNING]   Skipping TATAELXSI [day] — not enough data
+2026-08-09 16:50:07,437 [ERROR] Fetch failed — TATAELXSI [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/873217/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,437 [WARNING]   Skipping TATAELXSI [week] — not enough data
+2026-08-09 16:50:07,437 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,437 [INFO]   Scanning UBL…
+2026-08-09 16:50:07,442 [ERROR] Fetch failed — UBL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4278529/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,443 [WARNING]   Skipping UBL [day] — not enough data
+2026-08-09 16:50:07,449 [ERROR] Fetch failed — UBL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4278529/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,449 [WARNING]   Skipping UBL [week] — not enough data
+2026-08-09 16:50:07,449 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,449 [INFO]   Scanning YESBANK…
+2026-08-09 16:50:07,453 [ERROR] Fetch failed — YESBANK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3050241/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,453 [WARNING]   Skipping YESBANK [day] — not enough data
+2026-08-09 16:50:07,459 [ERROR] Fetch failed — YESBANK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3050241/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,459 [WARNING]   Skipping YESBANK [week] — not enough data
+2026-08-09 16:50:07,459 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,459 [INFO]   Scanning SUZLON…
+2026-08-09 16:50:07,465 [ERROR] Fetch failed — SUZLON [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3076609/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,466 [WARNING]   Skipping SUZLON [day] — not enough data
+2026-08-09 16:50:07,471 [ERROR] Fetch failed — SUZLON [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/3076609/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,471 [WARNING]   Skipping SUZLON [week] — not enough data
+2026-08-09 16:50:07,471 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,471 [INFO]   Scanning TRIDENT…
+2026-08-09 16:50:07,478 [ERROR] Fetch failed — TRIDENT [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2479361/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,478 [WARNING]   Skipping TRIDENT [day] — not enough data
+2026-08-09 16:50:07,483 [ERROR] Fetch failed — TRIDENT [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2479361/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,483 [WARNING]   Skipping TRIDENT [week] — not enough data
+2026-08-09 16:50:07,483 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,483 [INFO]   Scanning RTNINDIA…
+2026-08-09 16:50:07,488 [ERROR] Fetch failed — RTNINDIA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/6988033/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,488 [WARNING]   Skipping RTNINDIA [day] — not enough data
+2026-08-09 16:50:07,494 [ERROR] Fetch failed — RTNINDIA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/6988033/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,495 [WARNING]   Skipping RTNINDIA [week] — not enough data
+2026-08-09 16:50:07,495 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,495 [INFO]   Scanning SOUTHBANK…
+2026-08-09 16:50:07,500 [ERROR] Fetch failed — SOUTHBANK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1522689/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,500 [WARNING]   Skipping SOUTHBANK [day] — not enough data
+2026-08-09 16:50:07,504 [ERROR] Fetch failed — SOUTHBANK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1522689/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,505 [WARNING]   Skipping SOUTHBANK [week] — not enough data
+2026-08-09 16:50:07,505 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,505 [INFO]   Scanning HFCL…
+2026-08-09 16:50:07,510 [ERROR] Fetch failed — HFCL [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5619457/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,510 [WARNING]   Skipping HFCL [day] — not enough data
+2026-08-09 16:50:07,516 [ERROR] Fetch failed — HFCL [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5619457/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,517 [WARNING]   Skipping HFCL [week] — not enough data
+2026-08-09 16:50:07,517 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,517 [INFO]   Scanning ZENSARTECH…
+2026-08-09 16:50:07,523 [ERROR] Fetch failed — ZENSARTECH [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/275457/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,523 [WARNING]   Skipping ZENSARTECH [day] — not enough data
+2026-08-09 16:50:07,530 [ERROR] Fetch failed — ZENSARTECH [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/275457/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,530 [WARNING]   Skipping ZENSARTECH [week] — not enough data
+2026-08-09 16:50:07,530 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,530 [INFO]   Scanning SONATSOFTW…
+2026-08-09 16:50:07,537 [ERROR] Fetch failed — SONATSOFTW [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1688577/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,537 [WARNING]   Skipping SONATSOFTW [day] — not enough data
+2026-08-09 16:50:07,543 [ERROR] Fetch failed — SONATSOFTW [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1688577/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,543 [WARNING]   Skipping SONATSOFTW [week] — not enough data
+2026-08-09 16:50:07,543 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,543 [INFO]   Scanning KARURVYSYA…
+2026-08-09 16:50:07,552 [ERROR] Fetch failed — KARURVYSYA [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/470529/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,552 [WARNING]   Skipping KARURVYSYA [day] — not enough data
+2026-08-09 16:50:07,559 [ERROR] Fetch failed — KARURVYSYA [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/470529/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,559 [WARNING]   Skipping KARURVYSYA [week] — not enough data
+2026-08-09 16:50:07,560 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,560 [INFO]   Scanning NBCC…
+2026-08-09 16:50:07,568 [ERROR] Fetch failed — NBCC [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/8042241/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,568 [WARNING]   Skipping NBCC [day] — not enough data
+2026-08-09 16:50:07,574 [ERROR] Fetch failed — NBCC [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/8042241/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,574 [WARNING]   Skipping NBCC [week] — not enough data
+2026-08-09 16:50:07,575 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,575 [INFO]   Scanning IRCON…
+2026-08-09 16:50:07,580 [ERROR] Fetch failed — IRCON [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1276417/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,581 [WARNING]   Skipping IRCON [day] — not enough data
+2026-08-09 16:50:07,588 [ERROR] Fetch failed — IRCON [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/1276417/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,588 [WARNING]   Skipping IRCON [week] — not enough data
+2026-08-09 16:50:07,588 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,588 [INFO]   Scanning HUDCO…
+2026-08-09 16:50:07,596 [ERROR] Fetch failed — HUDCO [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5331201/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,596 [WARNING]   Skipping HUDCO [day] — not enough data
+2026-08-09 16:50:07,604 [ERROR] Fetch failed — HUDCO [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/5331201/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,604 [WARNING]   Skipping HUDCO [week] — not enough data
+2026-08-09 16:50:07,605 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,605 [INFO]   Scanning MAHABANK…
+2026-08-09 16:50:07,611 [ERROR] Fetch failed — MAHABANK [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2912513/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,611 [WARNING]   Skipping MAHABANK [day] — not enough data
+2026-08-09 16:50:07,618 [ERROR] Fetch failed — MAHABANK [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/2912513/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,618 [WARNING]   Skipping MAHABANK [week] — not enough data
+2026-08-09 16:50:07,618 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,619 [INFO]   Scanning IFCI…
+2026-08-09 16:50:07,624 [ERROR] Fetch failed — IFCI [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/381697/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,624 [WARNING]   Skipping IFCI [day] — not enough data
+2026-08-09 16:50:07,630 [ERROR] Fetch failed — IFCI [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/381697/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,630 [WARNING]   Skipping IFCI [week] — not enough data
+2026-08-09 16:50:07,631 [INFO]   → 0 signal(s) found
+2026-08-09 16:50:07,631 [INFO]   Scanning ALOKINDS…
+2026-08-09 16:50:07,635 [ERROR] Fetch failed — ALOKINDS [day]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4524801/day?from=2026-02-10&to=2026-08-09&interval=day&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,635 [WARNING]   Skipping ALOKINDS [day] — not enough data
+2026-08-09 16:50:07,642 [ERROR] Fetch failed — ALOKINDS [week]: HTTPSConnectionPool(host='api.kite.trade', port=443): Max retries exceeded with url: /instruments/historical/4524801/week?from=2023-08-10&to=2026-08-09&interval=week&continuous=0&oi=0 (Caused by NameResolutionError("HTTPSConnection(host='api.kite.trade', port=443): Failed to resolve 'api.kite.trade' ([Errno 8] nodename nor servname provided, or not known)"))
+2026-08-09 16:50:07,642 [WARNING]   Skipping ALOKINDS [week] — not enough data
+2026-08-09 16:50:07,642 [INFO]   → 0 signal(s) found

@@ -1,0 +1,1 @@
+from strategies.adx_crossover import ADXCrossoverStrategy
