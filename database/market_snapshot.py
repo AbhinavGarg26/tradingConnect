@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
-from sqlalchemy.orm import Session
-from sqlalchemy import text, bindparam
+from zoneinfo import ZoneInfo
+from sqlalchemy import text
 import pandas as pd
 
 from indicators.calculate_basic_indicator import calculate_basic_indicators
@@ -9,33 +9,88 @@ from market.historical_candles import fetch_historical_candles, get_target_candl
 
 logger = logging.getLogger(__name__)
 
+MARKET_TIMEZONE = ZoneInfo("Asia/Kolkata")
+CANDLE_FINALIZATION_GRACE = timedelta(seconds=5)
 
-def get_existing_timestamps(symbol, db: Session, timeframe: str, timestamps: list) -> set:
-    """Queries database to return timestamps that are already persisted."""
-    if not timestamps:
-        return set()
 
-    formatted_ts = tuple(ts.strftime("%Y-%m-%d %H:%M:%S") for ts in timestamps)
+def _aggregate_three_hour_candles(df: pd.DataFrame) -> pd.DataFrame:
+    """Build NSE-session-aligned 3h candles from Kite's 60-minute candles."""
+    if df.empty:
+        return df.copy()
 
-    # Adjust SQL syntax based on ORM/driver (SQLAlchemy / psycopg2 / etc.)
-    query = text("""
-        SELECT captured_at 
-        FROM market_snapshots 
-        WHERE symbol = :symbol 
-          AND timeframe = :timeframe 
-          AND captured_at IN :timestamps
-    """).bindparams(bindparam("timestamps", expanding=True))
+    result = df.copy()
+    result["date"] = pd.to_datetime(result["date"])
+    local_dates = result["date"]
+    if local_dates.dt.tz is not None:
+        local_dates = local_dates.dt.tz_convert(MARKET_TIMEZONE)
 
-    result = db.execute(
-        query,
-        {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "timestamps": [ts.strftime("%Y-%m-%d %H:%M:%S") for ts in timestamps]  # List instead of tuple
-        }
-    ).fetchall()
+    session_open = local_dates.dt.normalize() + pd.Timedelta(hours=9, minutes=15)
+    session_close = local_dates.dt.normalize() + pd.Timedelta(hours=15, minutes=30)
+    in_session = (local_dates >= session_open) & (local_dates < session_close)
+    result = result.loc[in_session].copy()
+    local_dates = local_dates.loc[in_session]
+    session_open = session_open.loc[in_session]
 
-    return {row[0].strftime("%Y-%m-%d %H:%M:%S") if isinstance(row[0], datetime) else str(row[0]) for row in result}
+    if result.empty:
+        return result
+
+    result["_trade_date"] = local_dates.dt.date
+    result["_bucket"] = ((local_dates - session_open).dt.total_seconds() // (3 * 60 * 60)).astype(int)
+
+    return (
+        result.groupby(["_trade_date", "_bucket"], sort=True, as_index=False)
+        .agg({
+            "date": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        })
+        .drop(columns=["_trade_date", "_bucket"])
+    )
+
+
+def _completed_candles_only(
+    df: pd.DataFrame,
+    timeframe: str,
+    now: datetime | None = None,
+) -> pd.DataFrame:
+    """Return candles whose NSE session-adjusted closing time has passed."""
+    if df.empty:
+        return df.copy()
+
+    durations = {
+        "15m": pd.Timedelta(minutes=15),
+        "1h": pd.Timedelta(hours=1),
+        "3h": pd.Timedelta(hours=3),
+    }
+    if timeframe not in durations:
+        raise ValueError(f"Unsupported database timeframe: {timeframe}")
+
+    result = df.copy()
+    result["date"] = pd.to_datetime(result["date"])
+    candle_dates = result["date"]
+    candle_timezone = candle_dates.dt.tz
+
+    if now is None:
+        comparison_now = pd.Timestamp.now(tz=candle_timezone) if candle_timezone else pd.Timestamp.now()
+    else:
+        comparison_now = pd.Timestamp(now)
+        if candle_timezone is not None:
+            if comparison_now.tzinfo is None:
+                comparison_now = comparison_now.tz_localize(MARKET_TIMEZONE)
+            comparison_now = comparison_now.tz_convert(candle_timezone)
+        elif comparison_now.tzinfo is not None:
+            comparison_now = comparison_now.tz_convert(MARKET_TIMEZONE).tz_localize(None)
+
+    session_close = candle_dates.dt.normalize() + pd.Timedelta(hours=15, minutes=30)
+    candle_close = (candle_dates + durations[timeframe]).where(
+        candle_dates + durations[timeframe] <= session_close,
+        session_close,
+    )
+    cutoff = comparison_now - CANDLE_FINALIZATION_GRACE
+    return result.loc[candle_close <= cutoff].copy()
 
 
 def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timeframe_label: str):
@@ -46,19 +101,17 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
         logger.warning(f"No candle data returned for interval {interval}.")
         return
 
-    # 2. Resample if 3h timeframe
+    # 2. Aggregate 3h candles on NSE's 09:15 session boundary, not midnight.
     if db_timeframe_label == "3h":
-        df_raw.set_index('date', inplace=True)
-        df_resampled = df_raw.resample('3h').agg({
-            'open': 'first',
-            'high': 'max',
-            'low': 'min',
-            'close': 'last',
-            'volume': 'sum'
-        }).dropna().reset_index()
-        df = df_resampled
+        df = _aggregate_three_hour_candles(df_raw)
     else:
-        df = df_raw
+        df = df_raw.copy()
+
+    # Never let an active candle affect stored OHLC values or indicators.
+    df = _completed_candles_only(df, db_timeframe_label)
+    if df.empty:
+        logger.info(f"[{db_timeframe_label}] No completed candles available yet.")
+        return
 
     # 3. Calculate technical indicators (VWAP, EMA 20/50, RSI 14) BEFORE slicing data
     df = calculate_basic_indicators(df)
@@ -68,16 +121,11 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     if target_df.empty:
         return
 
-    # 5. Check existing records in DB
-    target_timestamps = target_df['date'].tolist()
-    saved_timestamps = get_existing_timestamps(symbol, db, db_timeframe_label, target_timestamps)
-
-    # 6. Insert missing snapshots with calculated values
-    inserted_count = 0
+    # 5. Upsert completed snapshots. This also repairs a candle that may have
+    # previously been persisted before it was final.
+    upserted_count = 0
     for _, row in target_df.iterrows():
         ts_str = row['date'].strftime("%Y-%m-%d %H:%M:%S")
-        if ts_str in saved_timestamps:
-            continue
 
         day_change = round(((row['close'] - row['open']) / row['open']) * 100, 2)
         trend = "bullish" if row['close'] >= row['open'] else "bearish"
@@ -136,11 +184,24 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
                     :trend_direction, :mood_label, :mood_score, :volume, :avg_volume_20d,
                     :trade_signals, :captured_at, :created_at, :updated_at
                 )
-                ON CONFLICT (symbol, timeframe, captured_at) DO NOTHING;
+                ON CONFLICT (symbol, timeframe, captured_at) DO UPDATE SET
+                    ltp = EXCLUDED.ltp,
+                    open_price = EXCLUDED.open_price,
+                    high_price = EXCLUDED.high_price,
+                    low_price = EXCLUDED.low_price,
+                    close_price = EXCLUDED.close_price,
+                    day_change_pct = EXCLUDED.day_change_pct,
+                    vwap = EXCLUDED.vwap,
+                    ema_20 = EXCLUDED.ema_20,
+                    ema_50 = EXCLUDED.ema_50,
+                    rsi_14 = EXCLUDED.rsi_14,
+                    trend_direction = EXCLUDED.trend_direction,
+                    volume = EXCLUDED.volume,
+                    updated_at = EXCLUDED.updated_at;
                 """),
             snapshot_data
         )
-        inserted_count += 1
+        upserted_count += 1
 
     db.commit()
-    logger.info(f"[{db_timeframe_label}] Processed {len(target_df)} candles. Inserted {inserted_count} new records.")
+    logger.info(f"[{db_timeframe_label}] Upserted {upserted_count} completed candles.")
