@@ -15,6 +15,7 @@ SOFT_BREACH_WINDOW = timedelta(seconds=15)
 @dataclass
 class PositionStopState:
     peak_pnl_pct: float
+    worst_pnl_pct: float
     soft_breached_at: Optional[datetime] = None
 
 
@@ -38,9 +39,10 @@ class PositionStopTracker:
         now = now or datetime.now(timezone.utc)
         state = self._states.setdefault(
             position_key,
-            PositionStopState(peak_pnl_pct=pnl_pct),
+            PositionStopState(peak_pnl_pct=pnl_pct, worst_pnl_pct=pnl_pct),
         )
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
+        state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
         locked_profit = self._locked_profit_pct(state.peak_pnl_pct)
         if locked_profit is not None and pnl_pct <= locked_profit:
@@ -63,6 +65,19 @@ class PositionStopTracker:
         if now - state.soft_breached_at >= SOFT_BREACH_WINDOW:
             return "SOFT_STOP_TIMEOUT"
         return None
+
+    def snapshot(self, position_key: str) -> Optional[dict]:
+        state = self._states.get(position_key)
+        if state is None:
+            return None
+        return {
+            "peak_pnl_pct": state.peak_pnl_pct,
+            "worst_pnl_pct": state.worst_pnl_pct,
+            "soft_breached_at": (
+                state.soft_breached_at.isoformat() if state.soft_breached_at else None
+            ),
+            "locked_profit_pct": self._locked_profit_pct(state.peak_pnl_pct),
+        }
 
     @staticmethod
     def _locked_profit_pct(peak_pnl_pct: float) -> Optional[float]:

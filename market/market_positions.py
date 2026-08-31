@@ -1,4 +1,9 @@
 from database.market_price import get_buy_average_price
+from database.live_market_state import (
+    prune_inactive_position_risk,
+    sync_instrument_live_state,
+    sync_position_risk_state,
+)
 from market.market_exit import MarketExitExecutor
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
@@ -44,10 +49,19 @@ def process_open_positions(
     price_stream: PositionLtpStream,
     stop_tracker: PositionStopTracker,
     exit_executor: MarketExitExecutor,
+    publish_live_state: bool = False,
 ):
     positions_response = kite.positions()
     net_positions = positions_response.get("net", [])
     open_positions = [position for position in net_positions if position["quantity"] > 0]
+    active_keys = {_position_key(position) for position in open_positions}
+
+    if publish_live_state:
+        try:
+            with db.begin_nested():
+                prune_inactive_position_risk(db, active_keys)
+        except Exception as exc:
+            logger.error("Live position-state cleanup failed: %s", exc)
 
     if not open_positions:
         price_stream.update_tokens([])
@@ -68,7 +82,6 @@ def process_open_positions(
         except Exception as exc:
             logger.error("Fresh REST LTP fallback failed: %s", exc)
 
-    active_keys = {_position_key(position) for position in open_positions}
     stop_tracker.remove_missing(active_keys)
     exit_executor.remove_missing(active_keys)
 
@@ -106,5 +119,29 @@ def process_open_positions(
         )
         if exit_reason:
             exit_executor.exit_position(position, exit_reason)
+
+        if publish_live_state:
+            try:
+                with db.begin_nested():
+                    sync_instrument_live_state(
+                        db,
+                        price_stream,
+                        entity_key=f"{position['exchange']}:{symbol}",
+                        instrument_token=token,
+                    )
+                    stop_state = stop_tracker.snapshot(_position_key(position))
+                    if stop_state:
+                        sync_position_risk_state(
+                            db,
+                            position=position,
+                            ltp=ltp,
+                            buy_price=buy_price,
+                            pnl_pct=pnl_pct,
+                            soft_loss_pct=pct_loss,
+                            stop_state=stop_state,
+                            exit_reason=exit_reason,
+                        )
+            except Exception as exc:
+                logger.error("[%s] Live-state publish failed: %s", symbol, exc)
 
     return len(open_positions)
