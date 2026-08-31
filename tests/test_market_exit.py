@@ -27,6 +27,12 @@ class FakeKite:
         self.placed.append(kwargs)
         return "ORDER1"
 
+    def cancel_order(self, variety, order_id, parent_order_id=None):
+        for order in self.order_book:
+            if order["order_id"] == order_id:
+                order["status"] = "CANCELLED"
+        return order_id
+
 
 POSITION = {
     "exchange": "NFO",
@@ -52,6 +58,30 @@ class MarketExitExecutorTests(unittest.TestCase):
         self.assertEqual(payload["order_type"], "MARKET")
         self.assertEqual(payload["quantity"], 75)
         self.assertNotIn("market_protection", payload)
+
+    def test_conflicting_limit_order_is_cancelled_before_market_exit(self):
+        kite = FakeKite()
+        kite.order_book = [{
+            "order_id": "LIMIT1",
+            "variety": "regular",
+            "parent_order_id": None,
+            "exchange": POSITION["exchange"],
+            "tradingsymbol": POSITION["tradingsymbol"],
+            "product": POSITION["product"],
+            "transaction_type": "SELL",
+            "order_type": "LIMIT",
+            "status": "OPEN",
+            "tag": None,
+        }]
+        executor = MarketExitExecutor(kite, logging.getLogger("test"))
+
+        first = executor.exit_position(POSITION, "EMERGENCY_STOP")
+        second = executor.exit_position(POSITION, "EMERGENCY_STOP")
+
+        self.assertIsNone(first)
+        self.assertEqual(kite.order_book[0]["status"], "CANCELLED")
+        self.assertEqual(second, "ORDER1")
+        self.assertEqual(len(kite.placed), 1)
 
 
 if __name__ == "__main__":

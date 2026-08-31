@@ -20,6 +20,7 @@ class MarketExitExecutor:
         self._submitted_orders: dict[str, str] = {}
         self._attempts: dict[str, int] = {}
         self._last_attempt_at: dict[str, datetime] = {}
+        self._cancel_requested: set[str] = set()
 
     def remove_missing(self, active_keys: set[str]) -> None:
         """Forget exit ownership only after the broker no longer reports a position."""
@@ -109,6 +110,9 @@ class MarketExitExecutor:
                 )
                 return order.get("order_id")
 
+            if not self._conflicting_orders_are_cancelled(position, orders):
+                return None
+
             remaining = self._remaining_quantity(position)
             if remaining <= 0:
                 return None
@@ -136,6 +140,42 @@ class MarketExitExecutor:
         except Exception as exc:
             self.logger.exception("[%s] MARKET EXIT FAILED (%s): %s", symbol, reason, exc)
             return None
+
+    def _conflicting_orders_are_cancelled(self, position: dict, orders: list[dict]) -> bool:
+        """Cancel same-position pending orders and wait for terminal confirmation."""
+        symbol = position["tradingsymbol"]
+        exchange = position["exchange"]
+        product = position["product"]
+        conflicts = [
+            order for order in orders
+            if order.get("tradingsymbol") == symbol
+            and order.get("exchange") == exchange
+            and order.get("product") == product
+            and order.get("status") not in TERMINAL_STATUSES
+            and not str(order.get("tag") or "").startswith(EXIT_TAG_PREFIX)
+        ]
+        if not conflicts:
+            return True
+
+        for order in conflicts:
+            order_id = str(order["order_id"])
+            if order_id in self._cancel_requested:
+                self.logger.warning(
+                    "[%s] Waiting for cancellation of order %s (status=%s)",
+                    symbol, order_id, order.get("status"),
+                )
+                continue
+            self.kite.cancel_order(
+                variety=order.get("variety") or self.kite.VARIETY_REGULAR,
+                order_id=order_id,
+                parent_order_id=order.get("parent_order_id"),
+            )
+            self._cancel_requested.add(order_id)
+            self.logger.warning(
+                "[%s] Cancellation requested for conflicting %s order %s",
+                symbol, order.get("order_type"), order_id,
+            )
+        return False
 
     def _remaining_quantity(self, original_position: dict) -> int:
         for position in self.kite.positions().get("net", []):
