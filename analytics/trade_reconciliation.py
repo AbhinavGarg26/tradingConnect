@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from datetime import datetime, time
 import logging
 import re
@@ -208,6 +208,11 @@ def _signature(row: dict) -> tuple:
         row["entry_time"].replace(tzinfo=None, microsecond=0),
         row["exit_time"].replace(tzinfo=None, microsecond=0) if row.get("exit_time") else None,
     )
+
+
+def signatures_match(actual_rows: Iterable[dict], expected_rows: Iterable[dict]) -> bool:
+    """Compare duplicate-aware row signatures without ordering None and numbers."""
+    return Counter(map(_signature, actual_rows)) == Counter(map(_signature, expected_rows))
 
 
 def attach_order_charges(kite, order_executions: list[dict], raw_orders: Iterable[dict]) -> bool:
@@ -422,7 +427,7 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
     ).fetchall()]
     expected_repairable = [row for row in expected_rows if row["tradingsymbol"] in repairable]
 
-    if sorted(map(_signature, actual_rows)) == sorted(map(_signature, expected_repairable)):
+    if signatures_match(actual_rows, expected_repairable):
         logger.info("Trade reconciliation passed for %d symbols", len(repairable))
         audit_open_quantities(kite, db)
         return set()

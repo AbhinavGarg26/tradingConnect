@@ -1,10 +1,12 @@
 import unittest
+from datetime import datetime
 
 from analytics.trade_reconciliation import (
     aggregate_order_executions,
     attach_order_charges,
     build_fifo_trade_rows,
     compare_open_quantities,
+    signatures_match,
 )
 
 
@@ -23,6 +25,28 @@ def execution(order_id, trade_id, side, quantity, price, timestamp, symbol="NIFT
 
 
 class TradeReconciliationTests(unittest.TestCase):
+    def test_signature_comparison_handles_open_and_closed_optional_values(self):
+        base = {
+            "tradingsymbol": "NIFTY26AUG25000CE",
+            "trade_type": "BUY",
+            "quantity": 65,
+            "entry_price": 100.0,
+            "total_charges": 20.0,
+            "entry_order_id": "BUY1",
+            "entry_time": datetime(2026, 8, 31, 9, 20),
+        }
+        open_row = {
+            **base, "exit_price": None, "realized_pnl": None, "status": "OPEN",
+            "exit_order_id": None, "exit_time": None,
+        }
+        closed_row = {
+            **base, "exit_price": 105.0, "realized_pnl": 325.0, "status": "CLOSED",
+            "exit_order_id": "SELL1",
+            "exit_time": datetime(2026, 8, 31, 10, 20),
+        }
+
+        self.assertTrue(signatures_match([open_row, closed_row], [closed_row, open_row]))
+
     def test_partial_fills_of_same_order_are_not_lost(self):
         executions = [
             execution("BUY1", "T1", "BUY", 40, 100, "2026-08-31 09:20:00"),
