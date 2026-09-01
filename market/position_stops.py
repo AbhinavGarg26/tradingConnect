@@ -10,6 +10,7 @@ from typing import Iterable, Optional
 RECOVERY_BUFFER_PCT = 0.8
 EMERGENCY_BUFFER_PCT = 2.0
 SOFT_BREACH_WINDOW = timedelta(seconds=15)
+FIRST_PROFIT_LOCK_PCT = 2.5
 
 
 @dataclass
@@ -49,7 +50,7 @@ class PositionStopTracker:
 
         locked_profit = self._locked_profit_pct(state.peak_pnl_pct)
         if locked_profit is not None and pnl_pct <= locked_profit:
-            return f"PROFIT_LOCK_{locked_profit:.0f}PCT"
+            return f"PROFIT_LOCK_{locked_profit:g}PCT"
 
         emergency_loss_pct = soft_loss_pct + EMERGENCY_BUFFER_PCT
         if pnl_pct <= -emergency_loss_pct:
@@ -87,7 +88,7 @@ class PositionStopTracker:
         if peak_pnl_pct < 5.0:
             return None
         if peak_pnl_pct < 10.0:
-            return 1.0
+            return FIRST_PROFIT_LOCK_PCT
         return 5.0 + (int((peak_pnl_pct - 10.0) // 5.0) * 5.0)
 
     @staticmethod

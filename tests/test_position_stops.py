@@ -39,6 +39,17 @@ class PositionStopTrackerTests(unittest.TestCase):
         reason = tracker.evaluate("NFO:X", 4.9, 5.8, [110, 108, 105], NOW + timedelta(seconds=1))
         self.assertEqual(reason, "PROFIT_LOCK_5PCT")
 
+    def test_first_profit_tier_locks_two_and_half_percent(self):
+        tracker = PositionStopTracker()
+        self.assertIsNone(tracker.evaluate("NFO:X", 5.2, 5.8, [100, 105], NOW))
+        self.assertIsNone(
+            tracker.evaluate("NFO:X", 2.6, 5.8, [105, 103], NOW + timedelta(seconds=1))
+        )
+        reason = tracker.evaluate(
+            "NFO:X", 2.5, 5.8, [105, 102.5], NOW + timedelta(seconds=2)
+        )
+        self.assertEqual(reason, "PROFIT_LOCK_2.5PCT")
+
 
 if __name__ == "__main__":
     unittest.main()
