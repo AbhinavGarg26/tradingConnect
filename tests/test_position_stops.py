@@ -37,43 +37,43 @@ class PositionStopTrackerTests(unittest.TestCase):
         tracker = PositionStopTracker()
         self.assertIsNone(tracker.evaluate("NFO:X", 10.2, 5.8, [100, 105, 110], NOW))
         self.assertIsNone(
-            tracker.evaluate("NFO:X", 4.9, 5.8, [110, 108, 105], NOW + timedelta(seconds=1))
+            tracker.evaluate("NFO:X", 9.6, 5.8, [110, 108, 105], NOW + timedelta(seconds=1))
         )
-        reason = tracker.evaluate(
-            "NFO:X", 4.9, 5.8, [110, 108, 105], NOW + timedelta(seconds=6)
-        )
-        self.assertEqual(reason, "PROFIT_LOCK_5PCT")
+        self.assertIsNone(tracker.evaluate(
+            "NFO:X", 9.6, 5.8, [110, 108, 105], NOW + timedelta(seconds=4)
+        ))
+        self.assertEqual(tracker.snapshot("NFO:X")["profit_ladder_stage"], 1)
 
     def test_first_profit_tier_locks_two_and_half_percent(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", 5.2, 5.8, [100, 105], NOW))
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 2.6, 5.8, [105, 103], NOW + timedelta(seconds=1))
-        )
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 2.5, 5.8, [105, 102.5], NOW + timedelta(seconds=2))
-        )
-        reason = tracker.evaluate(
-            "NFO:X", 2.5, 5.8, [105, 102.5], NOW + timedelta(seconds=7)
-        )
+        tracker.evaluate("NFO:X", 6.0, 5.8, [100, 106], NOW)
+        # Confirm each floor and continue holding through the first three.
+        for start, floor, expected_stage in (
+            (1, 5.5, 1), (5, 4.5, 2), (9, 3.5, 3)
+        ):
+            self.assertIsNone(tracker.evaluate("NFO:X", floor, 5.8, [], NOW + timedelta(seconds=start)))
+            self.assertIsNone(tracker.evaluate("NFO:X", floor, 5.8, [], NOW + timedelta(seconds=start + 3)))
+            self.assertEqual(tracker.snapshot("NFO:X")["profit_ladder_stage"], expected_stage)
+        self.assertIsNone(tracker.evaluate("NFO:X", 2.5, 5.8, [], NOW + timedelta(seconds=13)))
+        reason = tracker.evaluate("NFO:X", 2.5, 5.8, [], NOW + timedelta(seconds=16))
         self.assertEqual(reason, "PROFIT_LOCK_2.5PCT")
 
     def test_soft_profit_lock_cancels_when_price_recovers(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 5.5, 5.8, [100, 105.5], NOW)
+        tracker.evaluate("NFO:X", 6.0, 5.8, [100, 106], NOW)
         self.assertIsNone(
-            tracker.evaluate("NFO:X", 2.4, 5.8, [105.5, 102.4], NOW + timedelta(seconds=1))
+            tracker.evaluate("NFO:X", 5.4, 5.8, [106, 105.4], NOW + timedelta(seconds=1))
         )
         self.assertIsNone(
-            tracker.evaluate("NFO:X", 3.0, 5.8, [102.4, 103], NOW + timedelta(seconds=3))
+            tracker.evaluate("NFO:X", 5.6, 5.8, [105.4, 105.6], NOW + timedelta(seconds=3))
         )
         self.assertIsNone(
-            tracker.evaluate("NFO:X", 2.4, 5.8, [103, 102.4], NOW + timedelta(seconds=7))
+            tracker.evaluate("NFO:X", 5.4, 5.8, [105.6, 105.4], NOW + timedelta(seconds=7))
         )
 
     def test_profit_lock_hard_floor_exits_immediately(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 5.5, 5.8, [100, 105.5], NOW)
+        tracker.evaluate("NFO:X", 6.0, 5.8, [100, 106], NOW)
         reason = tracker.evaluate(
             "NFO:X", 1.0, 5.8, [105.5, 101], NOW + timedelta(seconds=1)
         )
