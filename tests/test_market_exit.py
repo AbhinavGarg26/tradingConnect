@@ -57,7 +57,7 @@ class MarketExitExecutorTests(unittest.TestCase):
         payload = kite.placed[0]
         self.assertEqual(payload["order_type"], "MARKET")
         self.assertEqual(payload["quantity"], 75)
-        self.assertNotIn("market_protection", payload)
+        self.assertEqual(payload["market_protection"], -1)
 
     def test_conflicting_limit_order_is_cancelled_before_market_exit(self):
         kite = FakeKite()

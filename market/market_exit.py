@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import logging
 
+from market.kite_orders import place_protected_market_order
+
 
 EXIT_TAG_PREFIX = "MBX"
 TERMINAL_STATUSES = {"COMPLETE", "CANCELLED", "REJECTED"}
@@ -120,7 +122,8 @@ class MarketExitExecutor:
             tag = f"{EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
             self._attempts[position_key] = attempts + 1
             self._last_attempt_at[position_key] = now
-            order_id = self.kite.place_order(
+            order_id = place_protected_market_order(
+                self.kite,
                 variety=self.kite.VARIETY_REGULAR,
                 exchange=exchange,
                 tradingsymbol=symbol,

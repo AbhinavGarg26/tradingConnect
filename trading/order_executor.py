@@ -38,6 +38,7 @@ from trading.alerts import Alerter
 from trading.database import get_db
 from trading.exchange_link import ExchangeLinkRepo
 from trading.models import OrderEvent, Trade
+from market.kite_orders import place_protected_market_order
 from trading.repositories import MarketConfigRepo, TradeRepo
 from trading.strategy_engine import OrderSignal, SignalType
 
@@ -215,7 +216,7 @@ class OrderExecutor:
         for attempt in range(1, 3):   # max 2 attempts
             try:
                 kite = self._get_kite()
-                order_id = kite.place_order(
+                order_params = dict(
                     variety=variety,
                     exchange=trade.instrument.exchange,
                     tradingsymbol=trade.instrument.symbol,
@@ -226,6 +227,10 @@ class OrderExecutor:
                     price=float(price),
                     tag=tag[:20] if tag else None,
                 )
+                if order_type in {KiteConnect.ORDER_TYPE_MARKET, KiteConnect.ORDER_TYPE_SLM}:
+                    order_id = place_protected_market_order(kite, **order_params)
+                else:
+                    order_id = kite.place_order(**order_params)
 
                 logger.info(
                     "Order placed — kite_order_id=%s trade_id=%s attempt=%d",
