@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from engines.sr_engine import compute_sr_levels
 from db_values          import normalize_db_params
+from indicators.calculate_basic_indicator import calculate_basic_indicators
 from trading.database   import get_db
 from trading.user_token import fetch_user_token
 
@@ -135,7 +136,7 @@ def get_watchlist_instruments(db: Session) -> list[dict]:
         SELECT id, symbol, exchange, instrument_type,
                support_level, resistance_level
           FROM instrument_watchlists
-         WHERE status != 'exited'
+         WHERE status NOT IN ('exited', 'disabled')
     """))
     cols = list(result.keys())
     return [dict(zip(cols, row)) for row in result.fetchall()]
@@ -149,6 +150,25 @@ def save_watchlist_backtest_summary(db: Session, instrument_id: int, summary: di
              WHERE id = :id
         """),
         {"results": json.dumps(summary), "id": instrument_id}
+    )
+    db.commit()
+
+
+def save_watchlist_indicators(db: Session, instrument_id: int, indicators: dict) -> None:
+    """Persist one internally consistent intraday indicator snapshot."""
+    db.execute(
+        text("""
+            UPDATE instrument_watchlists
+               SET rsi_14 = :rsi_14,
+                   adx_14 = :adx_14,
+                   macd_value = :macd_value,
+                   macd_signal = :macd_signal,
+                   vwap = :vwap,
+                   indicators_captured_at = :captured_at,
+                   last_refreshed_at = NOW()
+             WHERE id = :id
+        """),
+        {**normalize_db_params(indicators), "id": instrument_id},
     )
     db.commit()
 
@@ -246,6 +266,38 @@ def fetch_intraday_candles(kite, token: int, from_date: date, to_date: date) -> 
     df = pd.DataFrame(candles)
     df["date"] = pd.to_datetime(df["date"])
     return df.sort_values("date").reset_index(drop=True)
+
+
+def latest_intraday_indicators(df: pd.DataFrame, now: Optional[datetime] = None) -> Optional[dict]:
+    """Calculate tracker readings from completed 15-minute candles only."""
+    if df.empty:
+        return None
+
+    completed = df.copy()
+    completed["date"] = pd.to_datetime(completed["date"])
+    cutoff = pd.Timestamp(now or datetime.now(IST)) - pd.Timedelta(seconds=5)
+    candle_dates = completed["date"]
+    if candle_dates.dt.tz is None and cutoff.tzinfo is not None:
+        cutoff = cutoff.tz_localize(None)
+    elif candle_dates.dt.tz is not None and cutoff.tzinfo is None:
+        cutoff = cutoff.tz_localize(IST)
+    if candle_dates.dt.tz is not None:
+        cutoff = cutoff.tz_convert(candle_dates.dt.tz)
+
+    completed = completed.loc[candle_dates + pd.Timedelta(minutes=15) <= cutoff]
+    if len(completed) < 35:
+        return None
+
+    enriched = calculate_basic_indicators(completed)
+    latest = enriched.iloc[-1]
+    return {
+        "rsi_14": _safe(latest.get("rsi")),
+        "adx_14": _safe(latest.get("adx")),
+        "macd_value": _safe(latest.get("macd_line")),
+        "macd_signal": _safe(latest.get("signal_line")),
+        "vwap": _safe(latest.get("vwap")),
+        "captured_at": latest.get("date"),
+    }
 
 
 # ── Row builder ───────────────────────────────────────────────────────────────
@@ -442,6 +494,17 @@ def backfill_watchlist(kite, db: Session, backfill_from: date, backfill_to: date
         df = compute_daily_indicators(df)
 
         df_15min = fetch_intraday_candles(kite, token, intraday_from, backfill_to)
+
+        indicator_snapshot = latest_intraday_indicators(df_15min)
+        if indicator_snapshot:
+            save_watchlist_indicators(db, inst_id, indicator_snapshot)
+            log.info(
+                f"  [{symbol}] Indicators saved — "
+                f"RSI={indicator_snapshot['rsi_14']} ADX={indicator_snapshot['adx_14']} "
+                f"MACD={indicator_snapshot['macd_value']} VWAP={indicator_snapshot['vwap']}"
+            )
+        else:
+            log.warning(f"  [{symbol}] Not enough completed intraday candles for indicators")
 
         ref_price = float(df[df["date"].dt.date <= backfill_to]["close"].iloc[-1])
         sr_levels = compute_sr_levels(
