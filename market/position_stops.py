@@ -10,10 +10,10 @@ from typing import Iterable, Optional
 RECOVERY_BUFFER_PCT = 0.8
 EMERGENCY_BUFFER_PCT = 2.0
 SOFT_BREACH_WINDOW = timedelta(seconds=15)
-PROFIT_ACTIVATION_PCT = 6.0
-PROFIT_LADDER_OFFSETS = (0.5, 1.5, 2.5, 3.5)
-PROFIT_LOCK_CONFIRMATION_WINDOW = timedelta(seconds=3)
-PROFIT_LOCK_HARD_GIVEBACK_PCT = 1.5
+PROFIT_ACTIVATION_PCT = 8.0
+PROFIT_TRAIL_FROM_PEAK_PCT = 2.5
+PROFIT_TRAIL_CONFIRMATION_WINDOW = timedelta(seconds=5)
+PROFIT_HARD_FLOOR_PCT = 2.5
 
 
 @dataclass
@@ -23,8 +23,6 @@ class PositionStopState:
     soft_breached_at: Optional[datetime] = None
     profit_breached_at: Optional[datetime] = None
     profit_breach_level: Optional[float] = None
-    profit_ladder_peak: Optional[float] = None
-    profit_ladder_stage: int = 0
 
 
 class PositionStopTracker:
@@ -92,15 +90,14 @@ class PositionStopTracker:
             "profit_breached_at": (
                 state.profit_breached_at.isoformat() if state.profit_breached_at else None
             ),
-            "profit_ladder_peak_pct": state.profit_ladder_peak,
-            "profit_ladder_stage": state.profit_ladder_stage,
+            "profit_mode_active": state.peak_pnl_pct >= PROFIT_ACTIVATION_PCT,
         }
 
     @staticmethod
     def _locked_profit_pct(peak_pnl_pct: float) -> Optional[float]:
         if peak_pnl_pct < PROFIT_ACTIVATION_PCT:
             return None
-        return max(0.0, peak_pnl_pct - PROFIT_LADDER_OFFSETS[-1])
+        return max(PROFIT_HARD_FLOOR_PCT, peak_pnl_pct - PROFIT_TRAIL_FROM_PEAK_PCT)
 
     @staticmethod
     def _evaluate_profit_lock(
@@ -112,43 +109,21 @@ class PositionStopTracker:
         if locked_profit is None:
             state.profit_breached_at = None
             state.profit_breach_level = None
-            state.profit_ladder_peak = None
-            state.profit_ladder_stage = 0
             return None
 
-        if state.profit_ladder_peak is None or state.peak_pnl_pct > state.profit_ladder_peak:
-            state.profit_ladder_peak = state.peak_pnl_pct
-            state.profit_ladder_stage = 0
-            state.profit_breached_at = None
-        ladder = [
-            max(locked_profit, state.profit_ladder_peak - offset)
-            for offset in PROFIT_LADDER_OFFSETS
-        ]
-        # Remove duplicates when the charge/minimum floor clips later stages.
-        ladder = list(dict.fromkeys(ladder))
-        state.profit_ladder_stage = min(state.profit_ladder_stage, len(ladder) - 1)
-        current_floor = ladder[state.profit_ladder_stage]
-        state.profit_breach_level = current_floor
-
-        if pnl_pct > current_floor:
+        state.profit_breach_level = locked_profit
+        if pnl_pct > locked_profit:
             state.profit_breached_at = None
             return None
 
-        final_floor = ladder[-1]
-        reason = f"PROFIT_LOCK_{final_floor:g}PCT"
-        hard_floor = final_floor - PROFIT_LOCK_HARD_GIVEBACK_PCT
-        if pnl_pct <= hard_floor:
-            return f"{reason}_HARD"
+        reason = "PROFIT_TRAIL_2.5PCT"
+        if pnl_pct <= PROFIT_HARD_FLOOR_PCT:
+            return f"{reason}_HARD_FLOOR"
 
         if state.profit_breached_at is None:
             state.profit_breached_at = now
             return None
-        if now - state.profit_breached_at >= PROFIT_LOCK_CONFIRMATION_WINDOW:
-            if state.profit_ladder_stage < len(ladder) - 1:
-                state.profit_ladder_stage += 1
-                state.profit_breached_at = None
-                state.profit_breach_level = ladder[state.profit_ladder_stage]
-                return None
+        if now - state.profit_breached_at >= PROFIT_TRAIL_CONFIRMATION_WINDOW:
             return reason
         return None
 
