@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import logging
+from decimal import Decimal, ROUND_CEILING
 
 from market.kite_orders import place_protected_market_order
 
 
-EXIT_TAG_PREFIX = "MBX"
+EXIT_TAG_PREFIX = "MB"
+MARKET_EXIT_TAG_PREFIX = "MBX"
+LIMIT_EXIT_TAG_PREFIX = "MBL"
 TERMINAL_STATUSES = {"COMPLETE", "CANCELLED", "REJECTED"}
 MAX_EXIT_ATTEMPTS = 3
 EXIT_RETRY_DELAY = timedelta(seconds=2)
+PROFIT_LIMIT_WAIT = timedelta(seconds=2)
+OPTION_TICK_SIZE = Decimal("0.05")
 
 
 class MarketExitExecutor:
@@ -23,6 +28,9 @@ class MarketExitExecutor:
         self._attempts: dict[str, int] = {}
         self._last_attempt_at: dict[str, datetime] = {}
         self._cancel_requested: set[str] = set()
+        self._submitted_at: dict[str, datetime] = {}
+        self._submitted_order_types: dict[str, str] = {}
+        self._market_fallback_required: set[str] = set()
 
     def remove_missing(self, active_keys: set[str]) -> None:
         """Forget exit ownership only after the broker no longer reports a position."""
@@ -31,12 +39,18 @@ class MarketExitExecutor:
             self._legacy_gtt_cleaned.discard(key)
             self._attempts.pop(key, None)
             self._last_attempt_at.pop(key, None)
+            self._submitted_at.pop(key, None)
+            self._submitted_order_types.pop(key, None)
+            self._market_fallback_required.discard(key)
 
     def reset_position(self, position_key: str) -> None:
         """Clear order ownership when the same symbol starts a new entry lifecycle."""
         self._submitted_orders.pop(position_key, None)
         self._attempts.pop(position_key, None)
         self._last_attempt_at.pop(position_key, None)
+        self._submitted_at.pop(position_key, None)
+        self._submitted_order_types.pop(position_key, None)
+        self._market_fallback_required.discard(position_key)
         self._cancel_requested.clear()
 
     def remove_legacy_gtts(self, position: dict) -> bool:
@@ -66,13 +80,19 @@ class MarketExitExecutor:
             self.logger.critical("[%s] Cannot remove legacy GTT: %s", symbol, exc)
             return False
 
-    def exit_position(self, position: dict, reason: str) -> str | None:
+    def exit_position(
+        self,
+        position: dict,
+        reason: str,
+        reference_price: float | None = None,
+    ) -> str | None:
         """Place at most one live exit order for a position and return its ID."""
         symbol = position["tradingsymbol"]
         exchange = position["exchange"]
         product = position["product"]
         position_key = self._position_key(position)
         try:
+            now = datetime.now(timezone.utc)
             orders = self.kite.orders()
             owned_order_id = self._submitted_orders.get(position_key)
             if owned_order_id:
@@ -82,7 +102,29 @@ class MarketExitExecutor:
                         "[%s] Exit order %s ended as %s: %s",
                         symbol, owned_order_id, owned.get("status"), owned.get("status_message"),
                     )
+                    submitted_type = self._submitted_order_types.pop(position_key, None)
                     self._submitted_orders.pop(position_key, None)
+                    self._submitted_at.pop(position_key, None)
+                    if submitted_type == self.kite.ORDER_TYPE_LIMIT:
+                        self._market_fallback_required.add(position_key)
+                elif (
+                    owned
+                    and self._submitted_order_types.get(position_key) == self.kite.ORDER_TYPE_LIMIT
+                    and now - self._submitted_at.get(position_key, now) >= PROFIT_LIMIT_WAIT
+                ):
+                    if owned_order_id not in self._cancel_requested:
+                        self.kite.cancel_order(
+                            variety=owned.get("variety") or self.kite.VARIETY_REGULAR,
+                            order_id=owned_order_id,
+                            parent_order_id=owned.get("parent_order_id"),
+                        )
+                        self._cancel_requested.add(owned_order_id)
+                        self._market_fallback_required.add(position_key)
+                        self.logger.warning(
+                            "[%s] Profit LIMIT %s not filled in %.1fs; cancellation requested",
+                            symbol, owned_order_id, PROFIT_LIMIT_WAIT.total_seconds(),
+                        )
+                    return owned_order_id
                 else:
                     self.logger.warning(
                         "[%s] Exit order %s already submitted (status=%s)",
@@ -92,7 +134,6 @@ class MarketExitExecutor:
 
             attempts = self._attempts.get(position_key, 0)
             last_attempt = self._last_attempt_at.get(position_key)
-            now = datetime.now(timezone.utc)
             if attempts >= MAX_EXIT_ATTEMPTS:
                 self.logger.critical(
                     "[%s] Maximum market-exit attempts reached; MANUAL EXIT REQUIRED",
@@ -126,7 +167,39 @@ class MarketExitExecutor:
             if remaining <= 0:
                 return None
 
-            tag = f"{EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
+            use_profit_limit = (
+                self._is_soft_profit_exit(reason)
+                and position_key not in self._market_fallback_required
+                and reference_price is not None
+                and reference_price > 0
+            )
+            if use_profit_limit:
+                limit_price = self._one_tick_above(reference_price)
+                tag = f"{LIMIT_EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
+                order_id = self.kite.place_order(
+                    variety=self.kite.VARIETY_REGULAR,
+                    exchange=exchange,
+                    tradingsymbol=symbol,
+                    transaction_type=self.kite.TRANSACTION_TYPE_SELL,
+                    quantity=remaining,
+                    product=product,
+                    order_type=self.kite.ORDER_TYPE_LIMIT,
+                    price=limit_price,
+                    validity=self.kite.VALIDITY_DAY,
+                    tag=tag,
+                )
+                self._submitted_orders[position_key] = order_id
+                self._submitted_at[position_key] = now
+                self._submitted_order_types[position_key] = self.kite.ORDER_TYPE_LIMIT
+                self.logger.critical(
+                    "[%s] PROFIT LIMIT submitted: order=%s qty=%s price=₹%.2f "
+                    "wait=%.1fs reason=%s",
+                    symbol, order_id, remaining, limit_price,
+                    PROFIT_LIMIT_WAIT.total_seconds(), reason,
+                )
+                return order_id
+
+            tag = f"{MARKET_EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
             self._attempts[position_key] = attempts + 1
             self._last_attempt_at[position_key] = now
             order_id = place_protected_market_order(
@@ -142,6 +215,9 @@ class MarketExitExecutor:
                 tag=tag,
             )
             self._submitted_orders[position_key] = order_id
+            self._submitted_at[position_key] = now
+            self._submitted_order_types[position_key] = self.kite.ORDER_TYPE_MARKET
+            self._market_fallback_required.discard(position_key)
             self.logger.critical(
                 "[%s] MARKET EXIT submitted: order=%s qty=%s reason=%s",
                 symbol, order_id, remaining, reason,
@@ -150,6 +226,19 @@ class MarketExitExecutor:
         except Exception as exc:
             self.logger.exception("[%s] MARKET EXIT FAILED (%s): %s", symbol, reason, exc)
             return None
+
+    @staticmethod
+    def _is_soft_profit_exit(reason: str) -> bool:
+        return (
+            reason.startswith(("PRE_PROFIT_", "PROFIT_"))
+            and "HARD_FLOOR" not in reason
+        )
+
+    @staticmethod
+    def _one_tick_above(reference_price: float) -> float:
+        price = Decimal(str(reference_price)) + OPTION_TICK_SIZE
+        ticks = (price / OPTION_TICK_SIZE).to_integral_value(rounding=ROUND_CEILING)
+        return float(ticks * OPTION_TICK_SIZE)
 
     def _conflicting_orders_are_cancelled(self, position: dict, orders: list[dict]) -> bool:
         """Cancel same-position pending orders and wait for terminal confirmation."""

@@ -1,5 +1,6 @@
 import logging
 import unittest
+from datetime import timedelta
 
 from market.market_exit import MarketExitExecutor
 
@@ -8,6 +9,7 @@ class FakeKite:
     TRANSACTION_TYPE_SELL = "SELL"
     VARIETY_REGULAR = "regular"
     ORDER_TYPE_MARKET = "MARKET"
+    ORDER_TYPE_LIMIT = "LIMIT"
     VALIDITY_DAY = "DAY"
 
     def __init__(self):
@@ -82,6 +84,47 @@ class MarketExitExecutorTests(unittest.TestCase):
         self.assertEqual(kite.order_book[0]["status"], "CANCELLED")
         self.assertEqual(second, "ORDER1")
         self.assertEqual(len(kite.placed), 1)
+
+    def test_profit_exit_tries_higher_limit_then_falls_back_to_market(self):
+        kite = FakeKite()
+        executor = MarketExitExecutor(kite, logging.getLogger("test"))
+
+        limit_id = executor.exit_position(
+            POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.30
+        )
+        self.assertEqual(limit_id, "ORDER1")
+        self.assertEqual(kite.placed[0]["order_type"], "LIMIT")
+        self.assertEqual(kite.placed[0]["price"], 42.35)
+
+        kite.order_book = [{
+            "order_id": "ORDER1",
+            "variety": "regular",
+            "exchange": POSITION["exchange"],
+            "tradingsymbol": POSITION["tradingsymbol"],
+            "product": POSITION["product"],
+            "transaction_type": "SELL",
+            "order_type": "LIMIT",
+            "status": "OPEN",
+            "tag": "MBL12345",
+        }]
+        key = executor._position_key(POSITION)
+        executor._submitted_at[key] -= timedelta(seconds=3)
+        executor.exit_position(POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.10)
+        self.assertEqual(kite.order_book[0]["status"], "CANCELLED")
+
+        kite.placed.clear()
+        market_id = executor.exit_position(
+            POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.10
+        )
+        self.assertEqual(market_id, "ORDER1")
+        self.assertEqual(kite.placed[0]["order_type"], "MARKET")
+        self.assertEqual(kite.placed[0]["market_protection"], -1)
+
+    def test_emergency_exit_skips_profit_limit(self):
+        kite = FakeKite()
+        executor = MarketExitExecutor(kite, logging.getLogger("test"))
+        executor.exit_position(POSITION, "EMERGENCY_STOP", reference_price=42.30)
+        self.assertEqual(kite.placed[0]["order_type"], "MARKET")
 
 
 if __name__ == "__main__":

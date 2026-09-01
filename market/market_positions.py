@@ -164,7 +164,7 @@ def process_open_positions(
             atr_trail_distance_pct=atr_trail_distance_pct,
         )
         if exit_reason:
-            exit_executor.exit_position(position, exit_reason)
+            exit_executor.exit_position(position, exit_reason, reference_price=ltp)
 
         if publish_live_state:
             try:
