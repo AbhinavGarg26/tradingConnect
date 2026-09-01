@@ -27,6 +27,9 @@ class PositionStopTracker:
         for key in set(self._states) - active_keys:
             self._states.pop(key, None)
 
+    def reset(self, position_key: str) -> None:
+        self._states.pop(position_key, None)
+
     def evaluate(
         self,
         position_key: str,

@@ -1,10 +1,10 @@
-from database.market_price import get_buy_average_price
 from database.live_market_state import (
     prune_inactive_position_risk,
     sync_instrument_live_state,
     sync_position_risk_state,
 )
 from market.market_exit import MarketExitExecutor
+from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
 
@@ -49,6 +49,7 @@ def process_open_positions(
     price_stream: PositionLtpStream,
     stop_tracker: PositionStopTracker,
     exit_executor: MarketExitExecutor,
+    entry_price_tracker: CurrentEntryPriceTracker,
     publish_live_state: bool = False,
 ):
     positions_response = kite.positions()
@@ -84,6 +85,7 @@ def process_open_positions(
 
     stop_tracker.remove_missing(active_keys)
     exit_executor.remove_missing(active_keys)
+    entry_price_tracker.remove_missing(active_keys)
 
     for position in open_positions:
         symbol = str(position["tradingsymbol"]).strip().upper()
@@ -101,9 +103,16 @@ def process_open_positions(
             logger.critical("[%s] No fresh WebSocket or REST LTP; stop cannot be evaluated", symbol)
             continue
 
-        buy_price = get_buy_average_price(logger, db, symbol, position["average_price"])
-        if buy_price <= 0:
+        position_key = _position_key(position)
+        try:
+            buy_price, entry_changed = entry_price_tracker.resolve(kite, position)
+        except Exception as exc:
+            logger.critical("[%s] Cannot resolve execution-derived entry price: %s", symbol, exc)
             continue
+        if entry_changed:
+            stop_tracker.reset(position_key)
+            exit_executor.reset_position(position_key)
+            logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
 
         pnl_pct = ((ltp - buy_price) / buy_price) * 100
         logger.info(
@@ -112,7 +121,7 @@ def process_open_positions(
         )
 
         exit_reason = stop_tracker.evaluate(
-            position_key=_position_key(position),
+            position_key=position_key,
             pnl_pct=pnl_pct,
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),

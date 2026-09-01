@@ -32,6 +32,13 @@ class MarketExitExecutor:
             self._attempts.pop(key, None)
             self._last_attempt_at.pop(key, None)
 
+    def reset_position(self, position_key: str) -> None:
+        """Clear order ownership when the same symbol starts a new entry lifecycle."""
+        self._submitted_orders.pop(position_key, None)
+        self._attempts.pop(position_key, None)
+        self._last_attempt_at.pop(position_key, None)
+        self._cancel_requested.clear()
+
     def remove_legacy_gtts(self, position: dict) -> bool:
         """Delete old active GTTs before this process assumes exit ownership."""
         key = self._position_key(position)

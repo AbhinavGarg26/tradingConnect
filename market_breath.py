@@ -12,6 +12,7 @@ from database.live_market_state import (
 from market.candle_complete import CandleCompletionScheduler
 from market.market import is_market_open
 from market.market_exit import MarketExitExecutor
+from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.market_positions import process_open_positions
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     )
     stop_tracker = PositionStopTracker()
     exit_executor = MarketExitExecutor(kite, logger)
+    entry_price_tracker = CurrentEntryPriceTracker()
     price_stream.start()
     pos_count = 0
     last_live_state_sync = 0.0
@@ -101,6 +103,7 @@ if __name__ == "__main__":
                         price_stream,
                         stop_tracker,
                         exit_executor,
+                        entry_price_tracker,
                         publish_live_state,
                     )
 
