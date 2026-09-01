@@ -47,8 +47,49 @@ class PositionStopTrackerTests(unittest.TestCase):
 
     def test_profit_mode_does_not_activate_before_eight_percent(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", 7.9, 5.8, [], NOW))
+        self.assertIsNone(tracker.evaluate("NFO:X", 5.9, 5.8, [], NOW))
         self.assertIsNone(tracker.snapshot("NFO:X")["locked_profit_pct"])
+
+    def test_six_percent_peak_arms_charge_aware_floor(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 6.0, 5.8, [], charge_floor_pct=3.48, now=NOW)
+        snapshot = tracker.snapshot("NFO:X")
+        self.assertAlmostEqual(snapshot["locked_profit_pct"], 3.48)
+        self.assertTrue(snapshot["pre_profit_mode_active"])
+        self.assertFalse(snapshot["profit_mode_active"])
+
+        self.assertIsNone(tracker.evaluate(
+            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.48,
+            now=NOW + timedelta(seconds=1),
+        ))
+        reason = tracker.evaluate(
+            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.48,
+            now=NOW + timedelta(seconds=6),
+        )
+        self.assertEqual(reason, "PRE_PROFIT_CHARGE_FLOOR")
+
+    def test_charge_floor_breach_is_cancelled_on_recovery(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 7.0, 5.8, [], charge_floor_pct=3.5, now=NOW)
+        tracker.evaluate(
+            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.5,
+            now=NOW + timedelta(seconds=1),
+        )
+        self.assertIsNone(tracker.evaluate(
+            "NFO:X", 3.6, 5.8, [], charge_floor_pct=3.5,
+            now=NOW + timedelta(seconds=4),
+        ))
+        self.assertIsNone(tracker.snapshot("NFO:X")["profit_breached_at"])
+
+    def test_expensive_charge_floor_delays_pre_profit_activation(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 6.0, 5.8, [], charge_floor_pct=6.14, now=NOW)
+        self.assertIsNone(tracker.snapshot("NFO:X")["locked_profit_pct"])
+        tracker.evaluate(
+            "NFO:X", 6.64, 5.8, [], charge_floor_pct=6.14,
+            now=NOW + timedelta(seconds=1),
+        )
+        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 6.14)
 
     def test_profit_trail_confirmation_cancels_when_price_recovers(self):
         tracker = PositionStopTracker()

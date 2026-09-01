@@ -11,9 +11,11 @@ RECOVERY_BUFFER_PCT = 0.8
 EMERGENCY_BUFFER_PCT = 2.0
 SOFT_BREACH_WINDOW = timedelta(seconds=15)
 PROFIT_ACTIVATION_PCT = 8.0
+PRE_PROFIT_ACTIVATION_PCT = 6.0
 PROFIT_TRAIL_FROM_PEAK_PCT = 2.5
 PROFIT_TRAIL_CONFIRMATION_WINDOW = timedelta(seconds=5)
 PROFIT_HARD_FLOOR_PCT = 2.5
+PRE_PROFIT_ARMING_BUFFER_PCT = 0.5
 
 
 @dataclass
@@ -43,6 +45,7 @@ class PositionStopTracker:
         soft_loss_pct: float,
         recent_prices: Iterable[float],
         now: Optional[datetime] = None,
+        charge_floor_pct: float = PROFIT_HARD_FLOOR_PCT,
     ) -> Optional[str]:
         """Return an exit reason, or None when the position should remain open."""
         now = now or datetime.now(timezone.utc)
@@ -53,8 +56,10 @@ class PositionStopTracker:
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
-        locked_profit = self._locked_profit_pct(state.peak_pnl_pct)
-        profit_exit = self._evaluate_profit_lock(state, pnl_pct, locked_profit, now)
+        locked_profit = self._locked_profit_pct(state.peak_pnl_pct, charge_floor_pct)
+        profit_exit = self._evaluate_profit_lock(
+            state, pnl_pct, locked_profit, charge_floor_pct, now
+        )
         if profit_exit:
             return profit_exit
 
@@ -86,17 +91,30 @@ class PositionStopTracker:
             "soft_breached_at": (
                 state.soft_breached_at.isoformat() if state.soft_breached_at else None
             ),
-            "locked_profit_pct": self._locked_profit_pct(state.peak_pnl_pct),
+            "locked_profit_pct": state.profit_breach_level,
             "profit_breached_at": (
                 state.profit_breached_at.isoformat() if state.profit_breached_at else None
             ),
             "profit_mode_active": state.peak_pnl_pct >= PROFIT_ACTIVATION_PCT,
+            "pre_profit_mode_active": (
+                state.profit_breach_level is not None
+                and state.peak_pnl_pct < PROFIT_ACTIVATION_PCT
+            ),
         }
 
     @staticmethod
-    def _locked_profit_pct(peak_pnl_pct: float) -> Optional[float]:
-        if peak_pnl_pct < PROFIT_ACTIVATION_PCT:
+    def _locked_profit_pct(
+        peak_pnl_pct: float,
+        charge_floor_pct: float = PROFIT_HARD_FLOOR_PCT,
+    ) -> Optional[float]:
+        pre_profit_trigger = max(
+            PRE_PROFIT_ACTIVATION_PCT,
+            charge_floor_pct + PRE_PROFIT_ARMING_BUFFER_PCT,
+        )
+        if peak_pnl_pct < pre_profit_trigger:
             return None
+        if peak_pnl_pct < PROFIT_ACTIVATION_PCT:
+            return charge_floor_pct
         return max(PROFIT_HARD_FLOOR_PCT, peak_pnl_pct - PROFIT_TRAIL_FROM_PEAK_PCT)
 
     @staticmethod
@@ -104,6 +122,7 @@ class PositionStopTracker:
         state: PositionStopState,
         pnl_pct: float,
         locked_profit: Optional[float],
+        charge_floor_pct: float,
         now: datetime,
     ) -> Optional[str]:
         if locked_profit is None:
@@ -116,8 +135,13 @@ class PositionStopTracker:
             state.profit_breached_at = None
             return None
 
-        reason = "PROFIT_TRAIL_2.5PCT"
-        if pnl_pct <= PROFIT_HARD_FLOOR_PCT:
+        full_profit_mode = state.peak_pnl_pct >= PROFIT_ACTIVATION_PCT
+        reason = (
+            "PROFIT_TRAIL_2.5PCT"
+            if full_profit_mode
+            else "PRE_PROFIT_CHARGE_FLOOR"
+        )
+        if full_profit_mode and pnl_pct <= max(PROFIT_HARD_FLOOR_PCT, charge_floor_pct):
             return f"{reason}_HARD_FLOOR"
 
         if state.profit_breached_at is None:

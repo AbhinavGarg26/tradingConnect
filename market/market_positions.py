@@ -9,6 +9,10 @@ from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
 
 
+ESTIMATED_ROUND_TRIP_CHARGES = 55.0
+CHARGE_FLOOR_SAFETY_BUFFER_PCT = 0.5
+
+
 def _position_key(position: dict) -> str:
     return ":".join([
         str(position.get("exchange", "")),
@@ -115,6 +119,11 @@ def process_open_positions(
             logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
 
         pnl_pct = ((ltp - buy_price) / buy_price) * 100
+        position_value = buy_price * int(position["quantity"])
+        charge_floor_pct = (
+            (ESTIMATED_ROUND_TRIP_CHARGES / position_value) * 100
+            + CHARGE_FLOOR_SAFETY_BUFFER_PCT
+        )
         logger.info(
             "[%s] Qty: %s | Buy Avg: ₹%.2f | Live LTP: ₹%.2f | P&L: %.2f%%",
             symbol, position["quantity"], buy_price, ltp, pnl_pct,
@@ -125,6 +134,7 @@ def process_open_positions(
             pnl_pct=pnl_pct,
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
+            charge_floor_pct=charge_floor_pct,
         )
         if exit_reason:
             exit_executor.exit_position(position, exit_reason)
