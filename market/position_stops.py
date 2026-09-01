@@ -11,6 +11,8 @@ RECOVERY_BUFFER_PCT = 0.8
 EMERGENCY_BUFFER_PCT = 2.0
 SOFT_BREACH_WINDOW = timedelta(seconds=15)
 FIRST_PROFIT_LOCK_PCT = 2.5
+PROFIT_LOCK_CONFIRMATION_WINDOW = timedelta(seconds=5)
+PROFIT_LOCK_HARD_GIVEBACK_PCT = 1.5
 
 
 @dataclass
@@ -18,6 +20,8 @@ class PositionStopState:
     peak_pnl_pct: float
     worst_pnl_pct: float
     soft_breached_at: Optional[datetime] = None
+    profit_breached_at: Optional[datetime] = None
+    profit_breach_level: Optional[float] = None
 
 
 class PositionStopTracker:
@@ -49,8 +53,9 @@ class PositionStopTracker:
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
         locked_profit = self._locked_profit_pct(state.peak_pnl_pct)
-        if locked_profit is not None and pnl_pct <= locked_profit:
-            return f"PROFIT_LOCK_{locked_profit:g}PCT"
+        profit_exit = self._evaluate_profit_lock(state, pnl_pct, locked_profit, now)
+        if profit_exit:
+            return profit_exit
 
         emergency_loss_pct = soft_loss_pct + EMERGENCY_BUFFER_PCT
         if pnl_pct <= -emergency_loss_pct:
@@ -81,6 +86,9 @@ class PositionStopTracker:
                 state.soft_breached_at.isoformat() if state.soft_breached_at else None
             ),
             "locked_profit_pct": self._locked_profit_pct(state.peak_pnl_pct),
+            "profit_breached_at": (
+                state.profit_breached_at.isoformat() if state.profit_breached_at else None
+            ),
         }
 
     @staticmethod
@@ -90,6 +98,38 @@ class PositionStopTracker:
         if peak_pnl_pct < 10.0:
             return FIRST_PROFIT_LOCK_PCT
         return 5.0 + (int((peak_pnl_pct - 10.0) // 5.0) * 5.0)
+
+    @staticmethod
+    def _evaluate_profit_lock(
+        state: PositionStopState,
+        pnl_pct: float,
+        locked_profit: Optional[float],
+        now: datetime,
+    ) -> Optional[str]:
+        if locked_profit is None:
+            state.profit_breached_at = None
+            state.profit_breach_level = None
+            return None
+
+        if state.profit_breach_level != locked_profit:
+            state.profit_breached_at = None
+            state.profit_breach_level = locked_profit
+
+        if pnl_pct > locked_profit:
+            state.profit_breached_at = None
+            return None
+
+        reason = f"PROFIT_LOCK_{locked_profit:g}PCT"
+        hard_floor = locked_profit - PROFIT_LOCK_HARD_GIVEBACK_PCT
+        if pnl_pct <= hard_floor:
+            return f"{reason}_HARD"
+
+        if state.profit_breached_at is None:
+            state.profit_breached_at = now
+            return None
+        if now - state.profit_breached_at >= PROFIT_LOCK_CONFIRMATION_WINDOW:
+            return reason
+        return None
 
     @staticmethod
     def _has_positive_momentum(prices: Iterable[float]) -> bool:
