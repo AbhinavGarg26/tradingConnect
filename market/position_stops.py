@@ -11,6 +11,7 @@ RECOVERY_BUFFER_PCT = 0.8
 EMERGENCY_BUFFER_PCT = 2.0
 SOFT_BREACH_WINDOW = timedelta(seconds=15)
 PROFIT_ACTIVATION_PCT = 8.0
+ATR_PROFIT_ACTIVATION_PCT = 15.0
 PRE_PROFIT_ACTIVATION_PCT = 6.0
 PROFIT_TRAIL_FROM_PEAK_PCT = 2.5
 PROFIT_TRAIL_CONFIRMATION_WINDOW = timedelta(seconds=5)
@@ -25,6 +26,8 @@ class PositionStopState:
     soft_breached_at: Optional[datetime] = None
     profit_breached_at: Optional[datetime] = None
     profit_breach_level: Optional[float] = None
+    atr_trail_active: bool = False
+    atr_trail_distance_pct: Optional[float] = None
 
 
 class PositionStopTracker:
@@ -46,6 +49,7 @@ class PositionStopTracker:
         recent_prices: Iterable[float],
         now: Optional[datetime] = None,
         charge_floor_pct: float = PROFIT_HARD_FLOOR_PCT,
+        atr_trail_distance_pct: Optional[float] = None,
     ) -> Optional[str]:
         """Return an exit reason, or None when the position should remain open."""
         now = now or datetime.now(timezone.utc)
@@ -56,7 +60,17 @@ class PositionStopTracker:
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
-        locked_profit = self._locked_profit_pct(state.peak_pnl_pct, charge_floor_pct)
+        if (
+            state.peak_pnl_pct >= ATR_PROFIT_ACTIVATION_PCT
+            and atr_trail_distance_pct is not None
+        ):
+            state.atr_trail_active = True
+            state.atr_trail_distance_pct = atr_trail_distance_pct
+        locked_profit = self._locked_profit_pct(
+            state.peak_pnl_pct,
+            charge_floor_pct,
+            state.atr_trail_distance_pct if state.atr_trail_active else None,
+        )
         profit_exit = self._evaluate_profit_lock(
             state, pnl_pct, locked_profit, charge_floor_pct, now
         )
@@ -100,12 +114,15 @@ class PositionStopTracker:
                 state.profit_breach_level is not None
                 and state.peak_pnl_pct < PROFIT_ACTIVATION_PCT
             ),
+            "atr_trail_active": state.atr_trail_active,
+            "atr_trail_distance_pct": state.atr_trail_distance_pct,
         }
 
     @staticmethod
     def _locked_profit_pct(
         peak_pnl_pct: float,
         charge_floor_pct: float = PROFIT_HARD_FLOOR_PCT,
+        atr_trail_distance_pct: Optional[float] = None,
     ) -> Optional[float]:
         pre_profit_trigger = max(
             PRE_PROFIT_ACTIVATION_PCT,
@@ -115,7 +132,10 @@ class PositionStopTracker:
             return None
         if peak_pnl_pct < PROFIT_ACTIVATION_PCT:
             return charge_floor_pct
-        return max(PROFIT_HARD_FLOOR_PCT, peak_pnl_pct - PROFIT_TRAIL_FROM_PEAK_PCT)
+        trail_distance = PROFIT_TRAIL_FROM_PEAK_PCT
+        if peak_pnl_pct >= ATR_PROFIT_ACTIVATION_PCT and atr_trail_distance_pct is not None:
+            trail_distance = max(PROFIT_TRAIL_FROM_PEAK_PCT, atr_trail_distance_pct)
+        return max(PROFIT_HARD_FLOOR_PCT, peak_pnl_pct - trail_distance)
 
     @staticmethod
     def _evaluate_profit_lock(
@@ -130,14 +150,21 @@ class PositionStopTracker:
             state.profit_breach_level = None
             return None
 
-        state.profit_breach_level = locked_profit
-        if pnl_pct > locked_profit:
+        # A volatility increase must never loosen profit already protected.
+        if state.profit_breach_level is None:
+            state.profit_breach_level = locked_profit
+        else:
+            state.profit_breach_level = max(state.profit_breach_level, locked_profit)
+        active_floor = state.profit_breach_level
+        if pnl_pct > active_floor:
             state.profit_breached_at = None
             return None
 
         full_profit_mode = state.peak_pnl_pct >= PROFIT_ACTIVATION_PCT
         reason = (
-            "PROFIT_TRAIL_2.5PCT"
+            "PROFIT_TRAIL_ATR"
+            if state.atr_trail_active
+            else "PROFIT_TRAIL_2.5PCT"
             if full_profit_mode
             else "PRE_PROFIT_CHARGE_FLOOR"
         )

@@ -11,6 +11,29 @@ from market.position_stops import PositionStopTracker
 
 ESTIMATED_ROUND_TRIP_CHARGES = 55.0
 CHARGE_FLOOR_SAFETY_BUFFER_PCT = 0.5
+ATR_MULTIPLIER = 1.5
+MIN_ATR_CANDLES = 3
+
+
+def _atr_trail_distance_pct(candles: list[dict], entry_price: float) -> float | None:
+    """Return 1.5x ATR as entry-price percentage using completed 1m candles only."""
+    completed = [candle for candle in candles if candle.get("is_complete")]
+    if len(completed) < MIN_ATR_CANDLES or entry_price <= 0:
+        return None
+
+    true_ranges = []
+    previous_close = None
+    for candle in completed:
+        high = float(candle["high"])
+        low = float(candle["low"])
+        ranges = [high - low]
+        if previous_close is not None:
+            ranges.extend((abs(high - previous_close), abs(low - previous_close)))
+        true_ranges.append(max(ranges))
+        previous_close = float(candle["close"])
+
+    atr = sum(true_ranges) / len(true_ranges)
+    return max(2.5, (ATR_MULTIPLIER * atr / entry_price) * 100)
 
 
 def _position_key(position: dict) -> str:
@@ -124,6 +147,9 @@ def process_open_positions(
             (ESTIMATED_ROUND_TRIP_CHARGES / position_value) * 100
             + CHARGE_FLOOR_SAFETY_BUFFER_PCT
         )
+        atr_trail_distance_pct = _atr_trail_distance_pct(
+            price_stream.candle_snapshots(token, 1), buy_price
+        )
         logger.info(
             "[%s] Qty: %s | Buy Avg: ₹%.2f | Live LTP: ₹%.2f | P&L: %.2f%%",
             symbol, position["quantity"], buy_price, ltp, pnl_pct,
@@ -135,6 +161,7 @@ def process_open_positions(
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
             charge_floor_pct=charge_floor_pct,
+            atr_trail_distance_pct=atr_trail_distance_pct,
         )
         if exit_reason:
             exit_executor.exit_position(position, exit_reason)

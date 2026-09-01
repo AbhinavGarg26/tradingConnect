@@ -118,6 +118,26 @@ class PositionStopTrackerTests(unittest.TestCase):
         )
         self.assertEqual(reason, "PROFIT_TRAIL_2.5PCT_HARD_FLOOR")
 
+    def test_atr_trail_activates_at_fifteen_percent(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate(
+            "NFO:X", 15.0, 5.8, [], now=NOW, atr_trail_distance_pct=4.0
+        )
+        snapshot = tracker.snapshot("NFO:X")
+        self.assertTrue(snapshot["atr_trail_active"])
+        self.assertEqual(snapshot["atr_trail_distance_pct"], 4.0)
+        self.assertEqual(snapshot["locked_profit_pct"], 11.0)
+
+    def test_atr_trail_never_lowers_an_existing_floor(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 14.9, 5.8, [], now=NOW)
+        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 12.4)
+        tracker.evaluate(
+            "NFO:X", 15.0, 5.8, [], now=NOW + timedelta(seconds=1),
+            atr_trail_distance_pct=5.0,
+        )
+        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 12.4)
+
 
 if __name__ == "__main__":
     unittest.main()
