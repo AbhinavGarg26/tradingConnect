@@ -1,6 +1,5 @@
 import logging
 import unittest
-from datetime import timedelta
 
 from market.market_exit import MarketExitExecutor
 
@@ -85,16 +84,19 @@ class MarketExitExecutorTests(unittest.TestCase):
         self.assertEqual(second, "ORDER1")
         self.assertEqual(len(kite.placed), 1)
 
-    def test_profit_exit_tries_higher_limit_then_falls_back_to_market(self):
+    def test_soft_profit_limit_stays_open_until_hard_floor(self):
         kite = FakeKite()
         executor = MarketExitExecutor(kite, logging.getLogger("test"))
 
         limit_id = executor.exit_position(
-            POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.30
+            POSITION,
+            "PROFIT_5PCT_RECOVERY_LIMIT",
+            reference_price=42.30,
+            limit_price=43.68,
         )
         self.assertEqual(limit_id, "ORDER1")
         self.assertEqual(kite.placed[0]["order_type"], "LIMIT")
-        self.assertEqual(kite.placed[0]["price"], 42.35)
+        self.assertEqual(kite.placed[0]["price"], 43.70)
 
         kite.order_book = [{
             "order_id": "ORDER1",
@@ -107,15 +109,22 @@ class MarketExitExecutorTests(unittest.TestCase):
             "status": "OPEN",
             "tag": "MBL12345",
         }]
-        key = executor._position_key(POSITION)
-        executor._submitted_at[key] -= timedelta(seconds=3)
-        executor.exit_position(POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.10)
+        executor.exit_position(
+            POSITION,
+            "PROFIT_5PCT_RECOVERY_LIMIT",
+            reference_price=41.00,
+            limit_price=43.68,
+        )
+        self.assertEqual(kite.order_book[0]["status"], "OPEN")
+        self.assertEqual(len(kite.placed), 1)
+
+        executor.exit_position(
+            POSITION, "PROFIT_HARD_FLOOR", reference_price=40.00
+        )
         self.assertEqual(kite.order_book[0]["status"], "CANCELLED")
 
         kite.placed.clear()
-        market_id = executor.exit_position(
-            POSITION, "PROFIT_TRAIL_2.5PCT", reference_price=42.10
-        )
+        market_id = executor.exit_position(POSITION, "PROFIT_HARD_FLOOR")
         self.assertEqual(market_id, "ORDER1")
         self.assertEqual(kite.placed[0]["order_type"], "MARKET")
         self.assertEqual(kite.placed[0]["market_protection"], -1)

@@ -1,7 +1,8 @@
 """
 alerts.py — Telegram notification helper.
 
-Reads bot_token + chat_id from system_configs table (via MarketConfigRepo).
+Reads telegram_bot_token + telegram_chat_id from the market_configs table
+(via MarketConfigRepo), scoped to the active Kite user.
 Falls back to ENV vars if DB config is missing.
 
 Usage:
@@ -16,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -111,3 +113,24 @@ class Alerter:
             f"❌ <b>Order Rejected</b> — {symbol}\n"
             f"Reason: {reason}"
         )
+
+    def volume_surges(self, surges: list[dict], captured_at: datetime) -> None:
+        """Send one consolidated alert for an hourly watchlist scan."""
+        if not surges:
+            return
+
+        lines = [
+            "🔊 <b>Hourly Volume Surge Alert</b>",
+            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
+            "",
+        ]
+        for surge in sorted(surges, key=lambda item: item["volume_ratio"], reverse=True):
+            direction = "🟢" if surge["day_pct"] >= 0 else "🔴"
+            lines.append(
+                f"{direction} <b>{surge['symbol']}</b> | "
+                f"LTP: {surge['ltp']:.2f} | "
+                f"Day: {surge['day_pct']:+.2f}% | "
+                f"Volume: {surge['volume_ratio']:.2f}x"
+            )
+
+        self.send("\n".join(lines))

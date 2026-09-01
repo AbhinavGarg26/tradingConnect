@@ -39,6 +39,7 @@ from sqlalchemy     import text
 from sqlalchemy.orm import Session
 
 from engines.sr_engine import compute_sr_levels
+from db_values          import normalize_db_params
 from trading.database   import get_db
 from trading.user_token import fetch_user_token
 
@@ -96,6 +97,12 @@ def insert_snapshots_batch(db: Session, rows: list[dict]) -> None:
     """
     if not rows:
         return
+
+    # psycopg2 does not reliably adapt NumPy scalar types. In particular, a
+    # numpy.float64 can be rendered as ``np.float64(...)`` and PostgreSQL then
+    # interprets ``np`` as a schema name. Normalise every value at the DB
+    # boundary so values produced by pandas/NumPy/SR calculations are safe.
+    rows = [normalize_db_params(row) for row in rows]
 
     CHUNK   = 200
     columns = list(rows[0].keys())
@@ -287,10 +294,10 @@ def build_snapshot_rows(
 
         # S/R from sr_engine — computed once per symbol, applied to all rows
         sr = {
-            "support_1":    sr_levels.get("support_1")    if sr_levels else None,
-            "support_2":    sr_levels.get("support_2")    if sr_levels else None,
-            "resistance_1": sr_levels.get("resistance_1") if sr_levels else None,
-            "resistance_2": sr_levels.get("resistance_2") if sr_levels else None,
+            "support_1":    _safe(sr_levels.get("support_1"))    if sr_levels else None,
+            "support_2":    _safe(sr_levels.get("support_2"))    if sr_levels else None,
+            "resistance_1": _safe(sr_levels.get("resistance_1")) if sr_levels else None,
+            "resistance_2": _safe(sr_levels.get("resistance_2")) if sr_levels else None,
         }
 
         rsi       = _safe(row.get("rsi_14"))

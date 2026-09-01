@@ -15,7 +15,6 @@ LIMIT_EXIT_TAG_PREFIX = "MBL"
 TERMINAL_STATUSES = {"COMPLETE", "CANCELLED", "REJECTED"}
 MAX_EXIT_ATTEMPTS = 3
 EXIT_RETRY_DELAY = timedelta(seconds=2)
-PROFIT_LIMIT_WAIT = timedelta(seconds=2)
 OPTION_TICK_SIZE = Decimal("0.05")
 
 
@@ -30,7 +29,6 @@ class MarketExitExecutor:
         self._cancel_requested: set[str] = set()
         self._submitted_at: dict[str, datetime] = {}
         self._submitted_order_types: dict[str, str] = {}
-        self._market_fallback_required: set[str] = set()
 
     def remove_missing(self, active_keys: set[str]) -> None:
         """Forget exit ownership only after the broker no longer reports a position."""
@@ -41,7 +39,6 @@ class MarketExitExecutor:
             self._last_attempt_at.pop(key, None)
             self._submitted_at.pop(key, None)
             self._submitted_order_types.pop(key, None)
-            self._market_fallback_required.discard(key)
 
     def reset_position(self, position_key: str) -> None:
         """Clear order ownership when the same symbol starts a new entry lifecycle."""
@@ -50,7 +47,6 @@ class MarketExitExecutor:
         self._last_attempt_at.pop(position_key, None)
         self._submitted_at.pop(position_key, None)
         self._submitted_order_types.pop(position_key, None)
-        self._market_fallback_required.discard(position_key)
         self._cancel_requested.clear()
 
     def remove_legacy_gtts(self, position: dict) -> bool:
@@ -85,6 +81,7 @@ class MarketExitExecutor:
         position: dict,
         reason: str,
         reference_price: float | None = None,
+        limit_price: float | None = None,
     ) -> str | None:
         """Place at most one live exit order for a position and return its ID."""
         symbol = position["tradingsymbol"]
@@ -94,6 +91,7 @@ class MarketExitExecutor:
         try:
             now = datetime.now(timezone.utc)
             orders = self.kite.orders()
+            force_market = self._is_hard_exit(reason)
             owned_order_id = self._submitted_orders.get(position_key)
             if owned_order_id:
                 owned = next((o for o in orders if o.get("order_id") == owned_order_id), None)
@@ -105,12 +103,10 @@ class MarketExitExecutor:
                     submitted_type = self._submitted_order_types.pop(position_key, None)
                     self._submitted_orders.pop(position_key, None)
                     self._submitted_at.pop(position_key, None)
-                    if submitted_type == self.kite.ORDER_TYPE_LIMIT:
-                        self._market_fallback_required.add(position_key)
                 elif (
                     owned
+                    and force_market
                     and self._submitted_order_types.get(position_key) == self.kite.ORDER_TYPE_LIMIT
-                    and now - self._submitted_at.get(position_key, now) >= PROFIT_LIMIT_WAIT
                 ):
                     if owned_order_id not in self._cancel_requested:
                         self.kite.cancel_order(
@@ -119,10 +115,9 @@ class MarketExitExecutor:
                             parent_order_id=owned.get("parent_order_id"),
                         )
                         self._cancel_requested.add(owned_order_id)
-                        self._market_fallback_required.add(position_key)
                         self.logger.warning(
-                            "[%s] Profit LIMIT %s not filled in %.1fs; cancellation requested",
-                            symbol, owned_order_id, PROFIT_LIMIT_WAIT.total_seconds(),
+                            "[%s] Hard floor reached; cancellation requested for profit LIMIT %s",
+                            symbol, owned_order_id,
                         )
                     return owned_order_id
                 else:
@@ -154,6 +149,20 @@ class MarketExitExecutor:
             pending = [o for o in matching if o.get("status") not in TERMINAL_STATUSES]
             if pending:
                 order = pending[-1]
+                if force_market and order.get("order_type") == self.kite.ORDER_TYPE_LIMIT:
+                    order_id = str(order["order_id"])
+                    if order_id not in self._cancel_requested:
+                        self.kite.cancel_order(
+                            variety=order.get("variety") or self.kite.VARIETY_REGULAR,
+                            order_id=order_id,
+                            parent_order_id=order.get("parent_order_id"),
+                        )
+                        self._cancel_requested.add(order_id)
+                        self.logger.warning(
+                            "[%s] Hard floor reached; cancellation requested for profit LIMIT %s",
+                            symbol, order_id,
+                        )
+                    return order_id
                 self.logger.warning(
                     "[%s] Exit order %s still %s; not placing a duplicate",
                     symbol, order.get("order_id"), order.get("status"),
@@ -169,12 +178,15 @@ class MarketExitExecutor:
 
             use_profit_limit = (
                 self._is_soft_profit_exit(reason)
-                and position_key not in self._market_fallback_required
-                and reference_price is not None
-                and reference_price > 0
+                and (limit_price is not None or reference_price is not None)
             )
             if use_profit_limit:
-                limit_price = self._one_tick_above(reference_price)
+                requested_price = (
+                    limit_price
+                    if limit_price is not None
+                    else float(reference_price) + float(OPTION_TICK_SIZE)
+                )
+                rounded_limit_price = self._round_up_to_tick(requested_price)
                 tag = f"{LIMIT_EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
                 order_id = self.kite.place_order(
                     variety=self.kite.VARIETY_REGULAR,
@@ -184,7 +196,7 @@ class MarketExitExecutor:
                     quantity=remaining,
                     product=product,
                     order_type=self.kite.ORDER_TYPE_LIMIT,
-                    price=limit_price,
+                    price=rounded_limit_price,
                     validity=self.kite.VALIDITY_DAY,
                     tag=tag,
                 )
@@ -192,10 +204,8 @@ class MarketExitExecutor:
                 self._submitted_at[position_key] = now
                 self._submitted_order_types[position_key] = self.kite.ORDER_TYPE_LIMIT
                 self.logger.critical(
-                    "[%s] PROFIT LIMIT submitted: order=%s qty=%s price=₹%.2f "
-                    "wait=%.1fs reason=%s",
-                    symbol, order_id, remaining, limit_price,
-                    PROFIT_LIMIT_WAIT.total_seconds(), reason,
+                    "[%s] PROFIT LIMIT submitted: order=%s qty=%s price=₹%.2f reason=%s",
+                    symbol, order_id, remaining, rounded_limit_price, reason,
                 )
                 return order_id
 
@@ -217,7 +227,6 @@ class MarketExitExecutor:
             self._submitted_orders[position_key] = order_id
             self._submitted_at[position_key] = now
             self._submitted_order_types[position_key] = self.kite.ORDER_TYPE_MARKET
-            self._market_fallback_required.discard(position_key)
             self.logger.critical(
                 "[%s] MARKET EXIT submitted: order=%s qty=%s reason=%s",
                 symbol, order_id, remaining, reason,
@@ -235,8 +244,12 @@ class MarketExitExecutor:
         )
 
     @staticmethod
-    def _one_tick_above(reference_price: float) -> float:
-        price = Decimal(str(reference_price)) + OPTION_TICK_SIZE
+    def _is_hard_exit(reason: str) -> bool:
+        return reason in {"EMERGENCY_STOP", "PROFIT_HARD_FLOOR"}
+
+    @staticmethod
+    def _round_up_to_tick(reference_price: float) -> float:
+        price = Decimal(str(reference_price))
         ticks = (price / OPTION_TICK_SIZE).to_integral_value(rounding=ROUND_CEILING)
         return float(ticks * OPTION_TICK_SIZE)
 

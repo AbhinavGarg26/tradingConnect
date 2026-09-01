@@ -9,8 +9,6 @@ from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
 
 
-ESTIMATED_ROUND_TRIP_CHARGES = 55.0
-CHARGE_FLOOR_SAFETY_BUFFER_PCT = 0.5
 ATR_MULTIPLIER = 1.5
 MIN_ATR_CANDLES = 3
 
@@ -142,11 +140,6 @@ def process_open_positions(
             logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
 
         pnl_pct = ((ltp - buy_price) / buy_price) * 100
-        position_value = buy_price * int(position["quantity"])
-        charge_floor_pct = (
-            (ESTIMATED_ROUND_TRIP_CHARGES / position_value) * 100
-            + CHARGE_FLOOR_SAFETY_BUFFER_PCT
-        )
         atr_trail_distance_pct = _atr_trail_distance_pct(
             price_stream.candle_snapshots(token, 1), buy_price
         )
@@ -160,11 +153,22 @@ def process_open_positions(
             pnl_pct=pnl_pct,
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
-            charge_floor_pct=charge_floor_pct,
             atr_trail_distance_pct=atr_trail_distance_pct,
         )
         if exit_reason:
-            exit_executor.exit_position(position, exit_reason, reference_price=ltp)
+            stop_state = stop_tracker.snapshot(position_key) or {}
+            target_pct = stop_state.get("profit_limit_target_pct")
+            limit_price = (
+                buy_price * (1 + float(target_pct) / 100)
+                if target_pct is not None
+                else None
+            )
+            exit_executor.exit_position(
+                position,
+                exit_reason,
+                reference_price=ltp,
+                limit_price=limit_price,
+            )
 
         if publish_live_state:
             try:

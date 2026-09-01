@@ -1,142 +1,60 @@
 import unittest
-from datetime import datetime, timedelta, timezone
 
 from market.position_stops import PositionStopTracker
 
 
-NOW = datetime(2026, 8, 31, 10, 0, tzinfo=timezone.utc)
-
-
 class PositionStopTrackerTests(unittest.TestCase):
-    def test_soft_breach_can_recover_with_hysteresis_and_momentum(self):
+    def test_only_hard_loss_exits_with_market_instruction(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", -5.8, 5.8, [100, 99, 98], NOW))
-        self.assertIsNone(
-            tracker.evaluate(
-                "NFO:X", -4.9, 5.8, [98, 98.2, 98.1, 98.4, 98.7], NOW + timedelta(seconds=5)
-            )
-        )
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", -5.8, 5.8, [100, 99, 98], NOW + timedelta(seconds=6))
+        self.assertIsNone(tracker.evaluate("NFO:X", -5.8, 5.8, []))
+        self.assertEqual(
+            tracker.evaluate("NFO:X", -7.8, 5.8, []),
+            "EMERGENCY_STOP",
         )
 
-    def test_soft_breach_exits_after_timeout(self):
+    def test_five_percent_peak_places_four_percent_limit_after_two_percent_pullback(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", -5.8, 5.8, [100, 99, 98], NOW)
-        reason = tracker.evaluate(
-            "NFO:X", -5.7, 5.8, [98, 98.1, 98], NOW + timedelta(seconds=15)
-        )
-        self.assertEqual(reason, "SOFT_STOP_TIMEOUT")
-
-    def test_emergency_stop_does_not_wait(self):
-        tracker = PositionStopTracker()
-        reason = tracker.evaluate("NFO:X", -7.8, 5.8, [100, 95, 90], NOW)
-        self.assertEqual(reason, "EMERGENCY_STOP")
-
-    def test_profit_trail_uses_peak_and_never_moves_down(self):
-        tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", 10.2, 5.8, [100, 105, 110], NOW))
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 7.6, 5.8, [110, 108, 105], NOW + timedelta(seconds=1))
-        )
-        reason = tracker.evaluate(
-            "NFO:X", 7.6, 5.8, [110, 108, 105], NOW + timedelta(seconds=6)
-        )
-        self.assertEqual(reason, "PROFIT_TRAIL_2.5PCT")
-        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 7.7)
-
-    def test_profit_mode_does_not_activate_before_eight_percent(self):
-        tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", 5.9, 5.8, [], NOW))
-        self.assertIsNone(tracker.snapshot("NFO:X")["locked_profit_pct"])
-
-    def test_six_percent_peak_arms_charge_aware_floor(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 6.0, 5.8, [], charge_floor_pct=3.48, now=NOW)
+        tracker.evaluate("NFO:X", 5.0, 5.8, [])
+        reason = tracker.evaluate("NFO:X", 2.0, 5.8, [])
+        self.assertEqual(reason, "PROFIT_5PCT_RECOVERY_LIMIT")
         snapshot = tracker.snapshot("NFO:X")
-        self.assertAlmostEqual(snapshot["locked_profit_pct"], 3.48)
-        self.assertTrue(snapshot["pre_profit_mode_active"])
-        self.assertFalse(snapshot["profit_mode_active"])
+        self.assertEqual(snapshot["locked_profit_pct"], 2.0)
+        self.assertEqual(snapshot["profit_limit_target_pct"], 4.0)
 
-        self.assertIsNone(tracker.evaluate(
-            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.48,
-            now=NOW + timedelta(seconds=1),
-        ))
-        reason = tracker.evaluate(
-            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.48,
-            now=NOW + timedelta(seconds=6),
-        )
-        self.assertEqual(reason, "PRE_PROFIT_CHARGE_FLOOR")
-
-    def test_charge_floor_breach_is_cancelled_on_recovery(self):
+    def test_ten_percent_peak_places_seven_percent_limit_after_four_percent_pullback(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 7.0, 5.8, [], charge_floor_pct=3.5, now=NOW)
-        tracker.evaluate(
-            "NFO:X", 3.4, 5.8, [], charge_floor_pct=3.5,
-            now=NOW + timedelta(seconds=1),
-        )
-        self.assertIsNone(tracker.evaluate(
-            "NFO:X", 3.6, 5.8, [], charge_floor_pct=3.5,
-            now=NOW + timedelta(seconds=4),
-        ))
-        self.assertIsNone(tracker.snapshot("NFO:X")["profit_breached_at"])
-
-    def test_expensive_charge_floor_delays_pre_profit_activation(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 6.0, 5.8, [], charge_floor_pct=6.14, now=NOW)
-        self.assertIsNone(tracker.snapshot("NFO:X")["locked_profit_pct"])
-        tracker.evaluate(
-            "NFO:X", 6.64, 5.8, [], charge_floor_pct=6.14,
-            now=NOW + timedelta(seconds=1),
-        )
-        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 6.14)
-
-    def test_profit_trail_confirmation_cancels_when_price_recovers(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 10.0, 5.8, [100, 110], NOW)
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 7.4, 5.8, [110, 107.4], NOW + timedelta(seconds=1))
-        )
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 7.6, 5.8, [107.4, 107.6], NOW + timedelta(seconds=4))
-        )
-        self.assertIsNone(
-            tracker.evaluate("NFO:X", 7.4, 5.8, [107.6, 107.4], NOW + timedelta(seconds=7))
-        )
-
-    def test_new_peak_raises_trailing_floor(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 8.0, 5.8, [], NOW)
-        tracker.evaluate("NFO:X", 12.0, 5.8, [], NOW + timedelta(seconds=1))
-        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 9.5)
-
-    def test_profit_hard_floor_exits_immediately(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 8.0, 5.8, [100, 108], NOW)
-        reason = tracker.evaluate(
-            "NFO:X", 2.5, 5.8, [108, 102.5], NOW + timedelta(seconds=1)
-        )
-        self.assertEqual(reason, "PROFIT_TRAIL_2.5PCT_HARD_FLOOR")
-
-    def test_atr_trail_activates_at_fifteen_percent(self):
-        tracker = PositionStopTracker()
-        tracker.evaluate(
-            "NFO:X", 15.0, 5.8, [], now=NOW, atr_trail_distance_pct=4.0
-        )
+        tracker.evaluate("NFO:X", 10.0, 5.8, [])
+        reason = tracker.evaluate("NFO:X", 4.0, 5.8, [])
+        self.assertEqual(reason, "PROFIT_10PCT_RECOVERY_LIMIT")
         snapshot = tracker.snapshot("NFO:X")
+        self.assertEqual(snapshot["locked_profit_pct"], 4.0)
+        self.assertEqual(snapshot["profit_limit_target_pct"], 7.0)
+
+    def test_ten_percent_peak_permanently_arms_two_percent_hard_floor(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 10.0, 5.8, [])
+        self.assertEqual(
+            tracker.evaluate("NFO:X", 2.0, 5.8, []),
+            "PROFIT_HARD_FLOOR",
+        )
+
+    def test_above_ten_percent_uses_atr_and_targets_four_points_above_trigger(self):
+        tracker = PositionStopTracker()
+        tracker.evaluate("NFO:X", 12.0, 5.8, [], atr_trail_distance_pct=4.0)
+        reason = tracker.evaluate(
+            "NFO:X", 8.0, 5.8, [], atr_trail_distance_pct=4.0
+        )
+        self.assertEqual(reason, "PROFIT_ATR_RECOVERY_LIMIT")
+        snapshot = tracker.snapshot("NFO:X")
+        self.assertEqual(snapshot["locked_profit_pct"], 8.0)
+        self.assertEqual(snapshot["profit_limit_target_pct"], 12.0)
         self.assertTrue(snapshot["atr_trail_active"])
-        self.assertEqual(snapshot["atr_trail_distance_pct"], 4.0)
-        self.assertEqual(snapshot["locked_profit_pct"], 11.0)
 
-    def test_atr_trail_never_lowers_an_existing_floor(self):
+    def test_atr_floor_never_moves_down(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 14.9, 5.8, [], now=NOW)
-        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 12.4)
-        tracker.evaluate(
-            "NFO:X", 15.0, 5.8, [], now=NOW + timedelta(seconds=1),
-            atr_trail_distance_pct=5.0,
-        )
-        self.assertAlmostEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 12.4)
+        tracker.evaluate("NFO:X", 15.0, 5.8, [], atr_trail_distance_pct=4.0)
+        tracker.evaluate("NFO:X", 14.0, 5.8, [], atr_trail_distance_pct=6.0)
+        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 11.0)
 
 
 if __name__ == "__main__":

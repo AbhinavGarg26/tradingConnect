@@ -4,7 +4,7 @@ kite_market_fetcher.py
 Fetches Nifty / BankNifty / VIX market data via Kite Connect and writes
 MarketSnapshot + InstrumentWatchlist live-price rows to the shared PostgreSQL DB.
 
-Runs via APScheduler every 60 seconds during market hours.
+Runs via APScheduler once per hour during market hours.
 Project path: /Users/abhinavgarg/Documents/Projects/kiteConnect/
 
 Requirements:
@@ -22,12 +22,14 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv         import load_dotenv
 
 from engines.sr_engine import compute_sr_levels
+from db_values          import normalize_db_params
 
 load_dotenv()
 from sqlalchemy     import text
 from sqlalchemy.orm import Session
 
 from trading.database   import get_db
+from trading.alerts     import Alerter
 from trading.user_token import fetch_user_token
 
 try:
@@ -64,11 +66,16 @@ SR_DAILY_LOOKBACK_DAYS    = 60
 # Days of 15-min candles for volume profile
 SR_INTRADAY_LOOKBACK_DAYS = 30
 
+# A current 5-minute candle at or above this multiple of the preceding
+# 20-candle average is treated as a volume surge.
+VOLUME_SURGE_RATIO = 1.5
+
 
 # ── DB helpers — all accept SQLAlchemy Session ────────────────────────────────
 
 def insert_market_snapshot(db: Session, data: dict) -> None:
     """Insert a new snapshot row (keeps full history for chart sparklines)."""
+    data = normalize_db_params(data)
     cols = ", ".join(data.keys())
     ph   = ", ".join(f":{k}" for k in data.keys())
     db.execute(text(f"INSERT INTO market_snapshots ({cols}) VALUES ({ph})"), data)
@@ -145,7 +152,11 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
         ema20 = pta.ema(c, length=20).iloc[-1]
         ema50 = pta.ema(c, length=50).iloc[-1]
 
-    avg_vol = v.tail(20).mean()
+    # Compare the latest completed candle with the preceding 20 candles. If
+    # the current candle were included in its own baseline, large surges would
+    # be understated.
+    baseline_volumes = v.iloc[:-1].tail(20)
+    avg_vol = baseline_volumes.mean() if not baseline_volumes.empty else float("nan")
 
     # VWAP resets at market open each day — filter to today's session only
     if "date" not in candles.columns:
@@ -245,6 +256,22 @@ def generate_trade_signals(snap: dict) -> list:
     return signals
 
 
+def quote_is_current_session(quote: dict, now: datetime) -> bool:
+    """Return False when Kite is serving a stale quote on a market holiday."""
+    quote_time = quote.get("timestamp") or quote.get("last_trade_time")
+    if quote_time is None:
+        # Some quote modes omit timestamps. Allow the fetch and rely on the
+        # weekday/time guard instead of treating missing metadata as failure.
+        return True
+
+    parsed = pd.Timestamp(quote_time)
+    if parsed.tzinfo is None:
+        parsed = parsed.tz_localize(IST)
+    else:
+        parsed = parsed.tz_convert(IST)
+    return parsed.date() == now.date()
+
+
 # ── Main fetch + write job ────────────────────────────────────────────────────
 
 def fetch_and_write():
@@ -265,18 +292,21 @@ def fetch_and_write():
 
     try:
         with get_db() as db:
-            _run_fetch(kite, db, now)
+            _run_fetch(kite, db, now, user_id)
     except Exception as e:
         log.error(f"fetch_and_write error: {e}", exc_info=True)
 
 
-def _run_fetch(kite, db: Session, now: datetime) -> None:
+def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     """Core fetch logic — separated so get_db() context wraps the whole run."""
 
     # ── NIFTY 50 — full indicator + S/R fetch ────────────────────────────────
     token     = INSTRUMENT_TOKENS["NIFTY 50"]
     quote_key = QUOTE_KEYS["NIFTY 50"]
     quote     = kite.quote([quote_key])[quote_key]
+    if not quote_is_current_session(quote, now):
+        log.info("No current-session Kite quote — market holiday or stale feed; skipping")
+        return
     ohlc    = quote["ohlc"]
 
     from_5min = (now - timedelta(days=2)).replace(hour=9, minute=15, second=0, microsecond=0)
@@ -384,6 +414,7 @@ def _run_fetch(kite, db: Session, now: datetime) -> None:
         })
 
     # ── Watchlist live price refresh ─────────────────────────────────────────
+    surge_alerts: list[dict] = []
     for inst in get_active_watchlist(db):
         wsymbol   = inst["symbol"]
         w_support = inst.get("support_level")
@@ -420,15 +451,37 @@ def _run_fetch(kite, db: Session, now: datetime) -> None:
 
             update_watchlist_prices(db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio)
 
+            if wvol_ratio is not None and wvol_ratio >= VOLUME_SURGE_RATIO:
+                surge_alerts.append({
+                    "symbol": wsymbol,
+                    "ltp": w_ltp,
+                    "day_pct": w_dpct,
+                    "volume_ratio": wvol_ratio,
+                })
+
         except Exception as e:
             log.warning(f"Watchlist update failed for {wsymbol}: {e}")
+
+    if surge_alerts:
+        Alerter.from_db(db, user_id).volume_surges(surge_alerts, now)
+        log.info("Sent volume-surge alert for %d instrument(s)", len(surge_alerts))
 
 
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
-    log.info("Starting kite_market_fetcher (60s interval, market hours only)")
-    fetch_and_write()   # run immediately on startup
+    log.info("Starting kite_market_fetcher (hourly at :15, market hours only)")
+    fetch_and_write()   # run immediately; guard skips if market is closed
 
     scheduler = BlockingScheduler(timezone=IST)
-    scheduler.add_job(fetch_and_write, "interval", seconds=60, id="market_fetch")
+    scheduler.add_job(
+        fetch_and_write,
+        "cron",
+        day_of_week="mon-fri",
+        hour="9-15",
+        minute=15,
+        id="market_fetch_hourly",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
     scheduler.start()
