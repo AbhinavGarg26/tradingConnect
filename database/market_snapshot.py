@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import logging
+import json
 from zoneinfo import ZoneInfo
 from sqlalchemy import text
 import pandas as pd
@@ -163,7 +164,13 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
             "mood_score": 0,
             "volume": int(row.get('volume', 0)),
             "avg_volume_20d": 0,
-            "trade_signals": "[]",
+            "trade_signals": json.dumps({
+                "adx_14": clean_val(row.get('adx')),
+                "plus_di": clean_val(row.get('plus_di')),
+                "minus_di": clean_val(row.get('minus_di')),
+                "macd_value": clean_val(row.get('macd_line'), 4),
+                "macd_signal": clean_val(row.get('signal_line'), 4),
+            }),
             "captured_at": ts_str,
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -195,6 +202,7 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
                     ema_20 = EXCLUDED.ema_20,
                     ema_50 = EXCLUDED.ema_50,
                     rsi_14 = EXCLUDED.rsi_14,
+                    trade_signals = EXCLUDED.trade_signals,
                     trend_direction = EXCLUDED.trend_direction,
                     volume = EXCLUDED.volume,
                     updated_at = EXCLUDED.updated_at;

@@ -23,6 +23,8 @@ from dotenv         import load_dotenv
 
 from engines.sr_engine import compute_sr_levels
 from db_values          import normalize_db_params
+from indicators.adx     import compute_adx
+from indicators.macd    import calculate_macd
 
 load_dotenv()
 from sqlalchemy     import text
@@ -70,6 +72,14 @@ SR_INTRADAY_LOOKBACK_DAYS = 30
 # 20-candle average is treated as a volume surge.
 VOLUME_SURGE_RATIO = 1.5
 
+# market_breath.py owns NIFTY 50 snapshot persistence. A single writer avoids
+# overlapping rows created at slightly different timestamps.
+MARKET_BREATH_OWNED_SYMBOLS = {"NIFTY 50"}
+
+
+def should_persist_market_snapshot(symbol: str) -> bool:
+    return symbol not in MARKET_BREATH_OWNED_SYMBOLS
+
 
 # ── DB helpers — all accept SQLAlchemy Session ────────────────────────────────
 
@@ -89,6 +99,10 @@ def update_watchlist_prices(
     day_pct:          float,
     rsi:              Optional[float],
     vol_ratio:        Optional[float],
+    adx:              Optional[float],
+    macd:             Optional[float],
+    macd_signal:      Optional[float],
+    vwap:             Optional[float],
 ) -> None:
     db.execute(
         text("""
@@ -96,6 +110,11 @@ def update_watchlist_prices(
                SET ltp               = :ltp,
                    day_change_pct    = :day_pct,
                    rsi_14            = :rsi,
+                   adx_14            = :adx,
+                   macd_value        = :macd,
+                   macd_signal       = :macd_signal,
+                   vwap              = :vwap,
+                   indicators_captured_at = NOW(),
                    volume_ratio      = :vol_ratio,
                    last_refreshed_at = NOW()
              WHERE symbol = :symbol
@@ -104,6 +123,10 @@ def update_watchlist_prices(
             "ltp":      ltp,
             "day_pct":  day_pct,
             "rsi":      rsi,
+            "adx":      adx,
+            "macd":     macd,
+            "macd_signal": macd_signal,
+            "vwap":     vwap,
             "vol_ratio":vol_ratio,
             "symbol":   symbol,
         }
@@ -115,7 +138,7 @@ def get_active_watchlist(db: Session) -> list[dict]:
     result = db.execute(text("""
         SELECT id, symbol, exchange, support_level, resistance_level
           FROM instrument_watchlists
-         WHERE status NOT IN ('exited')
+         WHERE status NOT IN ('exited', 'disabled')
     """))
     cols = list(result.keys())
     return [dict(zip(cols, row)) for row in result.fetchall()]
@@ -142,6 +165,10 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
     """
     c = candles["close"]
     v = candles["volume"]
+
+    enriched = calculate_macd(candles.copy())
+    enriched = compute_adx(enriched, period=14)
+    latest = enriched.iloc[-1]
 
     if USE_TALIB:
         rsi   = talib.RSI(c, timeperiod=14).iloc[-1]
@@ -183,6 +210,9 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
         "ema_20":        _safe(ema20),
         "ema_50":        _safe(ema50),
         "vwap":          _safe(vwap),
+        "adx_14":        _safe(latest.get("adx")),
+        "macd_value":    _safe(latest.get("macd_line")),
+        "macd_signal":   _safe(latest.get("signal_line")),
         "volume":        int(tv.iloc[-1]) if not today_candles.empty else int(v.iloc[-1]),
         "avg_volume_20d":int(avg_vol) if avg_vol == avg_vol else None,
     }
@@ -389,9 +419,12 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         "updated_at":  now,
     }
 
-    insert_market_snapshot(db, snap)
-    log.info(f"Snapshot written — NIFTY 50 LTP={ltp} mood={score} "
-             f"S1={sr_levels.get('support_1')} R1={sr_levels.get('resistance_1')}")
+    if should_persist_market_snapshot(snap["symbol"]):
+        insert_market_snapshot(db, snap)
+    else:
+        log.info(
+            "NIFTY 50 snapshot persistence skipped; market_breath is the designated writer"
+        )
 
     # ── BankNifty + VIX — LTP + day% only ───────────────────────────────────
     for label in ["NIFTY BANK", "INDIA VIX"]:
@@ -432,7 +465,7 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
             w_pc   = float(wqd["ohlc"]["close"])
             w_dpct = round((w_ltp - w_pc) / w_pc * 100, 2)
 
-            wrsi = wvol_ratio = None
+            wrsi = wvol_ratio = wadx = wmacd = wmacd_signal = wvwap = None
             try:
                 wc  = kite.historical_data(
                     wqd["instrument_token"],
@@ -443,13 +476,20 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
                     ind        = compute_indicators(wdf)
                     wrsi       = ind["rsi_14"]
                     wvol_ratio = round(ind["volume"] / ind["avg_volume_20d"], 2) if ind["avg_volume_20d"] else None
+                    wadx        = ind["adx_14"]
+                    wmacd       = ind["macd_value"]
+                    wmacd_signal = ind["macd_signal"]
+                    wvwap       = ind["vwap"]
             except Exception as e:
                 log.debug(f"  Indicator fetch skipped for {wsymbol}: {e}")
 
             pct_sup = round((w_ltp - float(w_support)) / float(w_support) * 100, 2) if w_support else None
             pct_res = round((float(w_resist) - w_ltp)  / float(w_resist)  * 100, 2) if w_resist  else None
 
-            update_watchlist_prices(db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio)
+            update_watchlist_prices(
+                db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio,
+                wadx, wmacd, wmacd_signal, wvwap,
+            )
 
             if wvol_ratio is not None and wvol_ratio >= VOLUME_SURGE_RATIO:
                 surge_alerts.append({
@@ -469,7 +509,7 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
 
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
-    log.info("Starting kite_market_fetcher (hourly at :15, market hours only)")
+    log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
     fetch_and_write()   # run immediately; guard skips if market is closed
 
     scheduler = BlockingScheduler(timezone=IST)
@@ -478,8 +518,8 @@ if __name__ == "__main__":
         "cron",
         day_of_week="mon-fri",
         hour="9-15",
-        minute=15,
-        id="market_fetch_hourly",
+        minute="*/15",
+        id="market_fetch_15_minutes",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=300,
