@@ -13,6 +13,8 @@ SYNC_GRACE_SECONDS = 5
 class CandleCompletionScheduler:
     def __init__(self):
         # Tracking variables to ensure we only trigger ONCE per boundary minute
+        self.last_triggered_1m = None
+        self.last_triggered_5m = None
         self.last_triggered_15m = None
         self.last_triggered_1h = None
         self.last_triggered_3h = None
@@ -27,6 +29,17 @@ class CandleCompletionScheduler:
         # Check only between market hours (9:15 AM to 3:35 PM)
         if not (hour == 9 and minute >= 15) and not (9 < hour < 15) and not (hour == 15 and minute <= 35):
             return
+
+        # -------------------------------------------------------------
+        # Replay candles are persisted only after their closing boundary.
+        # -------------------------------------------------------------
+        if minute % 5 == 0 and now.second >= SYNC_GRACE_SECONDS and self.last_triggered_1m != current_minute_str:
+            sync_timeframe_snapshots(kite, db, symbol, token, interval="minute", db_timeframe_label="1m")
+            self.last_triggered_1m = current_minute_str
+
+        if minute % 5 == 0 and now.second >= SYNC_GRACE_SECONDS and self.last_triggered_5m != current_minute_str:
+            sync_timeframe_snapshots(kite, db, symbol, token, interval="5minute", db_timeframe_label="5m")
+            self.last_triggered_5m = current_minute_str
 
         # -------------------------------------------------------------
         # 1. 15-MINUTE CANDLE CLOSING CHECK

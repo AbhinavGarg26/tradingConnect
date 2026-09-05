@@ -14,6 +14,35 @@ IST = ZoneInfo("Asia/Kolkata")
 
 
 class MarketSnapshotCandleTests(unittest.TestCase):
+    def test_active_one_minute_candle_is_excluded(self):
+        candles = pd.DataFrame({
+            "date": pd.to_datetime([
+                "2026-08-31 09:15:00+05:30",
+                "2026-08-31 09:16:00+05:30",
+            ])
+        })
+
+        result = _completed_candles_only(
+            candles,
+            "1m",
+            datetime(2026, 8, 31, 9, 16, 30, tzinfo=IST),
+        )
+
+        self.assertEqual(result["date"].dt.strftime("%H:%M").tolist(), ["09:15"])
+
+    def test_active_five_minute_candle_is_excluded(self):
+        candle = pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-31 09:15:00+05:30"])
+        })
+
+        result = _completed_candles_only(
+            candle,
+            "5m",
+            datetime(2026, 8, 31, 9, 19, 59, tzinfo=IST),
+        )
+
+        self.assertTrue(result.empty)
+
     def test_active_15_minute_candle_is_excluded(self):
         candles = pd.DataFrame({
             "date": pd.to_datetime([

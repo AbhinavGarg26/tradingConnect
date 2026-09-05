@@ -62,6 +62,8 @@ def _completed_candles_only(
         return df.copy()
 
     durations = {
+        "1m": pd.Timedelta(minutes=1),
+        "5m": pd.Timedelta(minutes=5),
         "15m": pd.Timedelta(minutes=15),
         "1h": pd.Timedelta(hours=1),
         "3h": pd.Timedelta(hours=3),
@@ -97,7 +99,10 @@ def _completed_candles_only(
 def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timeframe_label: str):
     """Fetches candles, calculates technical indicators, filters, and inserts missing snapshots."""
     # 1. Fetch deep historical candles (60 days back) for indicator warmup (EMA 50, RSI 14)
-    df_raw = fetch_historical_candles(kite, token, interval=interval, days_back=60)
+    # Intraday replay only needs several sessions, while larger timeframes need
+    # deeper history to warm EMA/RSI calculations.
+    days_back = 10 if db_timeframe_label in {"1m", "5m"} else 60
+    df_raw = fetch_historical_candles(kite, token, interval=interval, days_back=days_back)
     if df_raw.empty:
         logger.warning(f"No candle data returned for interval {interval}.")
         return
@@ -126,7 +131,10 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     # previously been persisted before it was final.
     upserted_count = 0
     for _, row in target_df.iterrows():
-        ts_str = row['date'].strftime("%Y-%m-%d %H:%M:%S")
+        captured_at = pd.Timestamp(row["date"])
+        if captured_at.tzinfo is None:
+            captured_at = captured_at.tz_localize(MARKET_TIMEZONE)
+        captured_at = captured_at.tz_convert("UTC").to_pydatetime()
 
         day_change = round(((row['close'] - row['open']) / row['open']) * 100, 2)
         trend = "bullish" if row['close'] >= row['open'] else "bearish"
@@ -171,7 +179,7 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
                 "macd_value": clean_val(row.get('macd_line'), 4),
                 "macd_signal": clean_val(row.get('signal_line'), 4),
             }),
-            "captured_at": ts_str,
+            "captured_at": captured_at,
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }

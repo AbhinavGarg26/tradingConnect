@@ -32,6 +32,8 @@ PCT_LOSS = 5.8
 IGNORE_SYMBOL = []
 
 timeframe_mappings = [
+            ("minute", "1m"),
+            ("5minute", "5m"),
             ("15minute", "15m"),
             ("60minute", "1h"),
             ("60minute", "3h")
