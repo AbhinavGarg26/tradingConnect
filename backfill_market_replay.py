@@ -14,18 +14,24 @@ import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from dotenv         import load_dotenv
+load_dotenv()
+
 import pandas as pd
 from sqlalchemy import text
-
 from db_values import normalize_db_params
 from indicators.calculate_basic_indicator import calculate_basic_indicators
 from trading.database import get_db
+
+
 from trading.user_token import fetch_user_token
 
 IST = ZoneInfo("Asia/Kolkata")
 INSTRUMENTS = {"NIFTY 50": 256265, "NIFTY BANK": 260105}
 TIMEFRAMES = {"1m": "minute", "5m": "5minute", "15m": "15minute"}
 log = logging.getLogger(__name__)
+
+
 
 
 def safe(value, digits=2):
