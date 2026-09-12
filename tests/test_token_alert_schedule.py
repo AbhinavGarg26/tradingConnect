@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
+from utilities.alerts.token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
 
 
 NOW = datetime(2026, 9, 12, 9, 0, tzinfo=timezone.utc)

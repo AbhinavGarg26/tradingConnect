@@ -17,7 +17,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from trading.database import get_db
-from token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
+from utilities.alerts.token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
 
 
 class ServiceRuntimeMonitor:
