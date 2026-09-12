@@ -156,3 +156,21 @@ class Alerter:
             )
 
         self.send("\n".join(lines))
+
+    def proximity_alerts(self, alerts: list[dict], captured_at: datetime) -> bool:
+        """Send support/resistance and daily-EMA proximity conditions together."""
+        if not alerts:
+            return False
+        lines = [
+            "🎯 <b>Price Proximity Alert</b>",
+            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
+            "",
+        ]
+        for alert in alerts:
+            lines.append(
+                f"<b>{alert['symbol']}</b> · {alert['label']}\n"
+                f"LTP: {alert['ltp']:.2f} | Level: {alert['reference']:.2f} | "
+                f"Distance: {alert['distance_pct']:+.2f}% | "
+                f"Alert {alert['alert_count'] + 1}/2"
+            )
+        return self.send("\n\n".join(lines))

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import html
+import json
 import logging
 import os
 import re
@@ -15,6 +17,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from trading.database import get_db
+from token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
 
 
 class ServiceRuntimeMonitor:
@@ -168,7 +171,7 @@ class ServiceRuntimeMonitor:
         heartbeat_only: bool = False,
     ):
         token_status, token_expires_at = self._token_state(db, user_id)
-        return db.execute(text("""
+        status_id = db.execute(text("""
             INSERT INTO service_runtime_statuses (
                 user_id, service_name, status, pid, host_name,
                 current_activity, last_heartbeat_at, last_started_at,
@@ -212,6 +215,106 @@ class ServiceRuntimeMonitor:
             "token_status": token_status,
             "token_expires_at": token_expires_at,
         }).scalar_one()
+        self._maybe_alert_invalid_token(db, user_id, token_status, token_expires_at)
+        return status_id
+
+    def _maybe_alert_invalid_token(
+        self,
+        db,
+        user_id: int,
+        token_status: str,
+        token_expires_at: Optional[datetime],
+    ) -> None:
+        """Coordinate one persistent invalid-token reminder stream per user."""
+        entity_key = str(user_id)
+        if token_status not in {"expired", "missing"}:
+            db.execute(text("""
+                DELETE FROM market_live_state
+                WHERE entity_type = 'USER' AND entity_key = :entity_key
+                  AND metric_type = 'TOKEN_ALERT' AND metric_key = 'kite_session'
+            """), {"entity_key": entity_key})
+            return
+
+        # market_breath and kite_market_fetcher heartbeat concurrently. A
+        # transaction advisory lock ensures only one of them sends each stage.
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+            {"lock_key": f"kite-token-alert:{user_id}"},
+        )
+        state = db.execute(text("""
+            SELECT payload
+            FROM market_live_state
+            WHERE entity_type = 'USER' AND entity_key = :entity_key
+              AND metric_type = 'TOKEN_ALERT' AND metric_key = 'kite_session'
+            FOR UPDATE
+        """), {"entity_key": entity_key}).scalar()
+
+        now = datetime.now(timezone.utc)
+        state = state or {}
+        invalid_since = self._parse_time(state.get("invalid_since")) or now
+        last_alert_at = self._parse_time(state.get("last_alert_at"))
+        last_stage = int(state.get("last_stage", -1))
+        stage = due_alert_stage(now, invalid_since, last_stage, last_alert_at)
+        if stage is None:
+            return
+
+        from trading.alerts import Alerter
+
+        expiry = (
+            token_expires_at.astimezone(timezone.utc).strftime("%d %b %Y, %I:%M %p UTC")
+            if token_expires_at else "Not available"
+        )
+        message = (
+            "🚨 <b>Kite session token invalid</b>\n"
+            f"Status: <b>{html.escape(token_status.title())}</b>\n"
+            f"Expiry: {html.escape(expiry)}\n"
+            f"Detected by: {html.escape(self.service_name)}\n"
+            f"Next reminder: {next_alert_label(stage)}\n\n"
+            "Refresh the Kite session from the Rails Token refresh page."
+        )
+        if not Alerter.from_db(db, user_id).send(message):
+            self.logger.warning("Invalid Kite token alert could not be delivered")
+            return
+
+        payload = {
+            "token_status": token_status,
+            "token_expires_at": token_expires_at.isoformat() if token_expires_at else None,
+            "invalid_since": invalid_since.isoformat(),
+            "last_alert_at": now.isoformat(),
+            "last_stage": stage,
+            "next_alert": next_alert_label(stage),
+            "next_alert_at": next_alert_at(now, invalid_since, stage).isoformat(),
+            "last_sender": self.service_name,
+        }
+        db.execute(text("""
+            INSERT INTO market_live_state (
+                entity_type, entity_key, metric_type, metric_key,
+                numeric_value, payload, event_time, is_complete,
+                created_at, updated_at
+            ) VALUES (
+                'USER', :entity_key, 'TOKEN_ALERT', 'kite_session',
+                :stage, CAST(:payload AS JSONB), :event_time, TRUE, NOW(), NOW()
+            )
+            ON CONFLICT (entity_type, entity_key, metric_type, metric_key)
+            DO UPDATE SET
+                numeric_value = EXCLUDED.numeric_value,
+                payload = EXCLUDED.payload,
+                event_time = EXCLUDED.event_time,
+                is_complete = TRUE,
+                updated_at = NOW()
+        """), {
+            "entity_key": entity_key,
+            "stage": stage,
+            "payload": json.dumps(payload),
+            "event_time": now,
+        })
+
+    @staticmethod
+    def _parse_time(value) -> Optional[datetime]:
+        if not value:
+            return None
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
 
     @staticmethod
     def _redact(value: str) -> str:

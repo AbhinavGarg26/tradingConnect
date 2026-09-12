@@ -26,6 +26,7 @@ from db_values          import normalize_db_params
 from indicators.adx     import compute_adx
 from indicators.macd    import calculate_macd
 from price_movement     import track_price_movement
+from proximity_alerts   import ALERT_WINDOW, alert_is_due, proximity_condition
 
 load_dotenv()
 from sqlalchemy     import text
@@ -34,6 +35,7 @@ from sqlalchemy.orm import Session
 from trading.database   import get_db
 from trading.alerts     import Alerter
 from trading.service_runtime import ServiceRuntimeMonitor
+from trading.repositories import MarketConfigRepo
 from trading.user_token import fetch_user_token
 
 try:
@@ -80,6 +82,7 @@ MOVEMENT_ALERT_PCT = 1.0
 # changes only after its symbol crosses the movement threshold.
 _movement_tracking_points: dict[str, float] = {}
 _known_watchlist_ids: set[str] = set()
+_daily_ema_cache: dict[tuple[int, object], dict] = {}
 
 # market_breath.py owns NIFTY 50 snapshot persistence. A single writer avoids
 # overlapping rows created at slightly different timestamps.
@@ -112,6 +115,7 @@ def update_watchlist_prices(
     macd:             Optional[float],
     macd_signal:      Optional[float],
     vwap:             Optional[float],
+    daily_emas:       dict,
 ) -> None:
     db.execute(
         text("""
@@ -126,6 +130,10 @@ def update_watchlist_prices(
                    indicators_captured_at = NOW(),
                    volume_ratio      = :vol_ratio,
                    last_refreshed_at = NOW()
+                 , ema_65            = :ema_65
+                 , ema_100           = :ema_100
+                 , ema_200           = :ema_200
+                 , daily_emas_captured_at = :daily_emas_captured_at
              WHERE symbol = :symbol
         """),
         {
@@ -138,6 +146,10 @@ def update_watchlist_prices(
             "vwap":     vwap,
             "vol_ratio":vol_ratio,
             "symbol":   symbol,
+            "ema_65": daily_emas.get(65),
+            "ema_100": daily_emas.get(100),
+            "ema_200": daily_emas.get(200),
+            "daily_emas_captured_at": daily_emas.get("captured_at"),
         }
     )
     db.commit()
@@ -145,7 +157,7 @@ def update_watchlist_prices(
 
 def get_active_watchlist(db: Session) -> list[dict]:
     result = db.execute(text("""
-        SELECT id, symbol, exchange, support_level, resistance_level
+        SELECT id, instrument_id, symbol, exchange, support_level, resistance_level
           FROM instrument_watchlists
          WHERE status NOT IN ('exited', 'disabled')
     """))
@@ -225,6 +237,92 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
         "volume":        int(tv.iloc[-1]) if not today_candles.empty else int(v.iloc[-1]),
         "avg_volume_20d":int(avg_vol) if avg_vol == avg_vol else None,
     }
+
+
+def get_daily_emas(kite, instrument_token: int, now: datetime) -> dict:
+    cache_key = (instrument_token, now.date())
+    if cache_key in _daily_ema_cache:
+        return _daily_ema_cache[cache_key]
+    candles = kite.historical_data(instrument_token, now - timedelta(days=450), now, "day")
+    closes = pd.Series([float(candle["close"]) for candle in candles], dtype="float64")
+    values = {
+        period: _safe(closes.ewm(span=period, adjust=False, min_periods=period).mean().iloc[-1])
+        if len(closes) >= period else None
+        for period in (65, 100, 200)
+    }
+    values["captured_at"] = now
+    _daily_ema_cache[cache_key] = values
+    return values
+
+
+def active_support_levels(db: Session, user_id: int, instrument_id) -> list[dict]:
+    if not instrument_id:
+        return []
+    return list(db.execute(text("""
+        SELECT id, level_type, price_level, zone_lower, zone_upper, timeframe
+        FROM support_levels
+        WHERE user_id = :user_id AND instrument_id = :instrument_id
+          AND is_active = TRUE
+          AND (valid_from IS NULL OR valid_from <= NOW())
+          AND (valid_until IS NULL OR valid_until >= NOW())
+        ORDER BY level_type, price_level
+    """), {"user_id": user_id, "instrument_id": instrument_id}).mappings())
+
+
+def due_proximity_alerts(db: Session, user_id: int, symbol: str, conditions: list[dict], now: datetime) -> list[dict]:
+    db.execute(text("""
+        DELETE FROM market_live_state
+        WHERE entity_type = 'INSTRUMENT' AND metric_type = 'PROXIMITY_ALERT'
+          AND payload->>'expires_at' IS NOT NULL
+          AND (payload->>'expires_at')::timestamptz <= NOW()
+    """))
+    due = []
+    for condition in conditions:
+        metric_key = f"{user_id}:{condition['key']}"
+        state = db.execute(text("""
+            SELECT payload FROM market_live_state
+            WHERE entity_type = 'INSTRUMENT' AND entity_key = :symbol
+              AND metric_type = 'PROXIMITY_ALERT' AND metric_key = :metric_key
+        """), {"symbol": symbol, "metric_key": metric_key}).scalar() or {}
+        last_alert_at = ServiceRuntimeMonitor._parse_time(state.get("last_alert_at"))
+        count = int(state.get("alert_count", 0))
+        expires_at = ServiceRuntimeMonitor._parse_time(state.get("expires_at")) or (now + ALERT_WINDOW)
+        if alert_is_due(now, count, last_alert_at):
+            due.append({
+                **condition, "symbol": symbol, "metric_key": metric_key,
+                "alert_count": count, "expires_at": expires_at,
+            })
+    return due
+
+
+def mark_proximity_alerts_sent(db: Session, alerts: list[dict], now: datetime) -> None:
+    for alert in alerts:
+        count = alert["alert_count"] + 1
+        payload = {
+            "condition_key": alert["key"],
+            "condition_label": alert["label"],
+            "alert_count": count,
+            "last_alert_at": now.isoformat(),
+            "expires_at": alert["expires_at"].isoformat(),
+            "reference": alert["reference"],
+            "ltp": alert["ltp"],
+        }
+        db.execute(text("""
+            INSERT INTO market_live_state (
+                entity_type, entity_key, metric_type, metric_key,
+                numeric_value, payload, event_time, is_complete, created_at, updated_at
+            ) VALUES (
+                'INSTRUMENT', :symbol, 'PROXIMITY_ALERT', :metric_key,
+                :count, CAST(:payload AS JSONB), :event_time, TRUE, NOW(), NOW()
+            )
+            ON CONFLICT (entity_type, entity_key, metric_type, metric_key)
+            DO UPDATE SET numeric_value = EXCLUDED.numeric_value,
+                payload = EXCLUDED.payload, event_time = EXCLUDED.event_time,
+                updated_at = NOW()
+        """), {
+            "symbol": alert["symbol"], "metric_key": alert["metric_key"],
+            "count": count, "payload": json.dumps(payload), "event_time": now,
+        })
 
 
 def compute_mood_score(day_pct, week_pct, month_pct, rsi, above_vwap, vol_ratio) -> int:
@@ -498,6 +596,10 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     # ── Watchlist live price refresh ─────────────────────────────────────────
     surge_alerts: list[dict] = []
     movement_alerts: list[dict] = []
+    proximity_alert_items: list[dict] = []
+    proximity_buffer_pct = float(
+        MarketConfigRepo.get(db, user_id, "support_zone_buffer", 0.3) or 0.3
+    )
     for inst in get_active_watchlist(db):
         wsymbol   = inst["symbol"]
         w_support = inst.get("support_level")
@@ -516,6 +618,7 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
             w_dpct = round((w_ltp - w_pc) / w_pc * 100, 2)
 
             wrsi = wvol_ratio = wadx = wmacd = wmacd_signal = wvwap = None
+            daily_emas = {}
             try:
                 wc  = kite.historical_data(
                     wqd["instrument_token"],
@@ -530,15 +633,22 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
                     wmacd       = ind["macd_value"]
                     wmacd_signal = ind["macd_signal"]
                     wvwap       = ind["vwap"]
+                    daily_emas = get_daily_emas(kite, int(wqd["instrument_token"]), now)
             except Exception as e:
                 log.debug(f"  Indicator fetch skipped for {wsymbol}: {e}")
+
+            if not daily_emas:
+                try:
+                    daily_emas = get_daily_emas(kite, int(wqd["instrument_token"]), now)
+                except Exception as e:
+                    log.warning("Daily EMA fetch skipped for %s: %s", wsymbol, e)
 
             pct_sup = round((w_ltp - float(w_support)) / float(w_support) * 100, 2) if w_support else None
             pct_res = round((float(w_resist) - w_ltp)  / float(w_resist)  * 100, 2) if w_resist  else None
 
             update_watchlist_prices(
                 db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio,
-                wadx, wmacd, wmacd_signal, wvwap,
+                wadx, wmacd, wmacd_signal, wvwap, daily_emas,
             )
             _known_watchlist_ids.add(str(inst["id"]))
 
@@ -551,6 +661,32 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
             if movement:
                 movement_alerts.append(movement)
 
+            conditions = []
+            for level in active_support_levels(db, user_id, inst.get("instrument_id")):
+                condition = proximity_condition(
+                    key=f"level:{level['id']}",
+                    label=f"{str(level['level_type']).replace('_', ' ').title()} ({level.get('timeframe') or 'all'})",
+                    ltp=w_ltp,
+                    reference=float(level["price_level"]),
+                    buffer_pct=proximity_buffer_pct,
+                    zone_lower=float(level["zone_lower"]) if level["zone_lower"] is not None else None,
+                    zone_upper=float(level["zone_upper"]) if level["zone_upper"] is not None else None,
+                )
+                if condition:
+                    conditions.append(condition)
+            for period in (65, 100, 200):
+                ema = daily_emas.get(period)
+                if ema:
+                    condition = proximity_condition(
+                        key=f"ema:{period}", label=f"Daily EMA {period}", ltp=w_ltp,
+                        reference=float(ema), buffer_pct=proximity_buffer_pct,
+                    )
+                    if condition:
+                        conditions.append(condition)
+            proximity_alert_items.extend(
+                due_proximity_alerts(db, user_id, wsymbol, conditions, now)
+            )
+
             if wvol_ratio is not None and wvol_ratio >= VOLUME_SURGE_RATIO:
                 surge_alerts.append({
                     "symbol": wsymbol,
@@ -562,7 +698,11 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         except Exception as e:
             log.warning(f"Watchlist update failed for {wsymbol}: {e}")
 
-    alerter = Alerter.from_db(db, user_id) if movement_alerts or surge_alerts else None
+    alerter = Alerter.from_db(db, user_id) if movement_alerts or surge_alerts or proximity_alert_items else None
+
+    if proximity_alert_items and alerter.proximity_alerts(proximity_alert_items, now):
+        mark_proximity_alerts_sent(db, proximity_alert_items, now)
+        log.info("Sent proximity alert for %d condition(s)", len(proximity_alert_items))
 
     if movement_alerts:
         alerter.price_movements(movement_alerts, now)
