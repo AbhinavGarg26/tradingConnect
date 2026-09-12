@@ -6,6 +6,7 @@ import pandas as pd
 
 from database.market_snapshot import (
     _aggregate_three_hour_candles,
+    _aggregate_weekly_candles,
     _completed_candles_only,
 )
 
@@ -14,6 +15,33 @@ IST = ZoneInfo("Asia/Kolkata")
 
 
 class MarketSnapshotCandleTests(unittest.TestCase):
+    def test_daily_candles_are_aggregated_into_monday_aligned_weeks(self):
+        candles = pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-31", "2026-09-01", "2026-09-04", "2026-09-07"]),
+            "open": [100, 102, 104, 110],
+            "high": [103, 105, 108, 113],
+            "low": [99, 101, 103, 109],
+            "close": [102, 104, 107, 112],
+            "volume": [10, 20, 30, 40],
+        })
+
+        result = _aggregate_weekly_candles(candles)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result.iloc[0]["open"], 100)
+        self.assertEqual(result.iloc[0]["high"], 108)
+        self.assertEqual(result.iloc[0]["close"], 107)
+        self.assertEqual(result.iloc[0]["volume"], 60)
+
+    def test_weekly_candle_completes_after_friday_close(self):
+        candle = pd.DataFrame({"date": pd.to_datetime(["2026-08-31 09:15:00+05:30"])})
+
+        before_close = _completed_candles_only(candle, "1w", datetime(2026, 9, 4, 15, 29, tzinfo=IST))
+        after_close = _completed_candles_only(candle, "1w", datetime(2026, 9, 4, 15, 31, tzinfo=IST))
+
+        self.assertTrue(before_close.empty)
+        self.assertEqual(len(after_close), 1)
+
     def test_active_one_minute_candle_is_excluded(self):
         candles = pd.DataFrame({
             "date": pd.to_datetime([

@@ -52,6 +52,32 @@ def _aggregate_three_hour_candles(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _aggregate_weekly_candles(df: pd.DataFrame) -> pd.DataFrame:
+    """Build Monday-aligned trading-week candles from Kite daily candles."""
+    if df.empty:
+        return df.copy()
+
+    result = df.copy()
+    result["date"] = pd.to_datetime(result["date"])
+    local_dates = result["date"]
+    if local_dates.dt.tz is not None:
+        local_dates = local_dates.dt.tz_convert(MARKET_TIMEZONE)
+    result["_week_start"] = (local_dates.dt.normalize() - pd.to_timedelta(local_dates.dt.weekday, unit="D")).dt.date
+
+    return (
+        result.groupby("_week_start", sort=True, as_index=False)
+        .agg({
+            "date": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        })
+        .drop(columns=["_week_start"])
+    )
+
+
 def _completed_candles_only(
     df: pd.DataFrame,
     timeframe: str,
@@ -67,6 +93,8 @@ def _completed_candles_only(
         "15m": pd.Timedelta(minutes=15),
         "1h": pd.Timedelta(hours=1),
         "3h": pd.Timedelta(hours=3),
+        "1d": pd.Timedelta(days=1),
+        "1w": pd.Timedelta(days=7),
     }
     if timeframe not in durations:
         raise ValueError(f"Unsupported database timeframe: {timeframe}")
@@ -88,10 +116,21 @@ def _completed_candles_only(
             comparison_now = comparison_now.tz_convert(MARKET_TIMEZONE).tz_localize(None)
 
     session_close = candle_dates.dt.normalize() + pd.Timedelta(hours=15, minutes=30)
-    candle_close = (candle_dates + durations[timeframe]).where(
-        candle_dates + durations[timeframe] <= session_close,
-        session_close,
-    )
+    if timeframe == "1d":
+        candle_close = session_close
+    elif timeframe == "1w":
+        local_dates = candle_dates
+        if local_dates.dt.tz is not None:
+            local_dates = local_dates.dt.tz_convert(MARKET_TIMEZONE)
+        week_start = local_dates.dt.normalize() - pd.to_timedelta(local_dates.dt.weekday, unit="D")
+        candle_close = week_start + pd.Timedelta(days=4, hours=15, minutes=30)
+        if candle_dates.dt.tz is not None:
+            candle_close = candle_close.dt.tz_convert(candle_dates.dt.tz)
+    else:
+        candle_close = (candle_dates + durations[timeframe]).where(
+            candle_dates + durations[timeframe] <= session_close,
+            session_close,
+        )
     cutoff = comparison_now - CANDLE_FINALIZATION_GRACE
     return result.loc[candle_close <= cutoff].copy()
 
@@ -101,7 +140,7 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     # 1. Fetch deep historical candles (60 days back) for indicator warmup (EMA 50, RSI 14)
     # Intraday replay only needs several sessions, while larger timeframes need
     # deeper history to warm EMA/RSI calculations.
-    days_back = 10 if db_timeframe_label in {"1m", "5m"} else 60
+    days_back = 500 if db_timeframe_label == "1w" else 180 if db_timeframe_label == "1d" else 10 if db_timeframe_label in {"1m", "5m"} else 60
     df_raw = fetch_historical_candles(kite, token, interval=interval, days_back=days_back)
     if df_raw.empty:
         logger.warning(f"No candle data returned for interval {interval}.")
@@ -110,6 +149,8 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     # 2. Aggregate 3h candles on NSE's 09:15 session boundary, not midnight.
     if db_timeframe_label == "3h":
         df = _aggregate_three_hour_candles(df_raw)
+    elif db_timeframe_label == "1w":
+        df = _aggregate_weekly_candles(df_raw)
     else:
         df = df_raw.copy()
 

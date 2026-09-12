@@ -38,7 +38,9 @@ timeframe_mappings = [
             ("5minute", "5m"),
             ("15minute", "15m"),
             ("60minute", "1h"),
-            ("60minute", "3h")
+            ("60minute", "3h"),
+            ("day", "1d"),
+            ("day", "1w")
         ]
 
 scheduler = CandleCompletionScheduler()

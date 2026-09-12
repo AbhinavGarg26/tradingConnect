@@ -78,15 +78,15 @@ INDEX_INSTRUMENTS = {
 
 # ── DB helpers — all accept a SQLAlchemy Session ──────────────────────────────
 
-def already_backfilled_dates(db: Session, symbol: str) -> set:
+def already_backfilled_dates(db: Session, symbol: str, timeframe: str = "1d") -> set:
     """Return set of date objects already present in market_snapshots for symbol."""
     result = db.execute(
         text("""
             SELECT captured_at::date
             FROM market_snapshots
-            WHERE symbol = :symbol
+            WHERE symbol = :symbol AND timeframe = :timeframe
         """),
-        {"symbol": symbol}
+        {"symbol": symbol, "timeframe": timeframe}
     )
     return {row[0] for row in result.fetchall()}
 
@@ -203,7 +203,27 @@ def compute_daily_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df["ema_50"] = pta.ema(c, length=50)
 
     df["avg_volume_20d"] = v.rolling(20).mean().round(0)
+    enriched = calculate_basic_indicators(df)
+    df["adx"] = enriched.get("adx")
+    df["plus_di"] = enriched.get("plus_di")
+    df["minus_di"] = enriched.get("minus_di")
+    df["macd_line"] = enriched.get("macd_line")
+    df["signal_line"] = enriched.get("signal_line")
     return df
+
+
+def aggregate_weekly_candles(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate daily candles into Monday-aligned trading weeks."""
+    if df.empty:
+        return df.copy()
+    weekly = df[["date", "open", "high", "low", "close", "volume"]].copy()
+    dates = pd.to_datetime(weekly["date"])
+    weekly["_week_start"] = (dates.dt.normalize() - pd.to_timedelta(dates.dt.weekday, unit="D")).dt.date
+    return (
+        weekly.groupby("_week_start", sort=True, as_index=False)
+        .agg({"date": "first", "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+        .drop(columns=["_week_start"])
+    )
 
 
 def compute_mood_score(day_pct, week_pct, month_pct, rsi, vol_ratio) -> int:
@@ -309,6 +329,7 @@ def build_snapshot_rows(
     backfill_to:    date,
     existing_dates: set,
     sr_levels:      Optional[dict] = None,
+    timeframe:      str = "1d",
 ) -> list[dict]:
     """
     Walk df (sorted ascending, full warmup window included) and return
@@ -364,11 +385,12 @@ def build_snapshot_rows(
 
         rows.append({
             "symbol":           symbol,
+            "timeframe":        timeframe,
             "ltp":              close,
             "open_price":       float(row["open"]),
             "high_price":       float(row["high"]),
             "low_price":        float(row["low"]),
-            "close_price":      prev_close,
+            "close_price":      close,
             "day_change_pct":   day_pct,
             "week_change_pct":  week_pct,
             "month_change_pct": month_pct,
@@ -382,7 +404,13 @@ def build_snapshot_rows(
             "mood_score":       score,
             "mood_label":       mood_label(score),
             "trend_direction":  trend_dir(score),
-            "trade_signals":    json.dumps([]),
+            "trade_signals":    json.dumps({
+                "adx_14": _safe(row.get("adx")),
+                "plus_di": _safe(row.get("plus_di")),
+                "minus_di": _safe(row.get("minus_di")),
+                "macd_value": _safe(row.get("macd_line")),
+                "macd_signal": _safe(row.get("signal_line")),
+            }),
             "captured_at":      cap_at,
             "created_at":       cap_at,
             "updated_at":       cap_at,
@@ -441,15 +469,25 @@ def backfill_indices(kite, db: Session, backfill_from: date, backfill_to: date):
             f"({len(sr_levels.get('sr_levels_detail', []))} raw levels)"
         )
 
-        existing = already_backfilled_dates(db, symbol)
+        existing = already_backfilled_dates(db, symbol, "1d")
         log.info(f"  [{symbol}] {len(existing)} dates already in DB")
 
-        rows = build_snapshot_rows(symbol, df, backfill_from, backfill_to, existing, sr_levels)
+        rows = build_snapshot_rows(symbol, df, backfill_from, backfill_to, existing, sr_levels, timeframe="1d")
         log.info(f"  [{symbol}] {len(rows)} new rows to insert")
 
         if rows:
             insert_snapshots_batch(db, rows)
             log.info(f"  [{symbol}] ✓ Done")
+
+        weekly_df = compute_daily_indicators(aggregate_weekly_candles(df))
+        weekly_existing = already_backfilled_dates(db, symbol, "1w")
+        weekly_rows = build_snapshot_rows(
+            symbol, weekly_df, backfill_from, backfill_to,
+            weekly_existing, sr_levels, timeframe="1w",
+        )
+        if weekly_rows:
+            insert_snapshots_batch(db, weekly_rows)
+            log.info(f"  [{symbol}] ✓ Inserted {len(weekly_rows)} weekly rows")
 
 
 # ── Phase 2: Watchlist backfill ───────────────────────────────────────────────
@@ -518,8 +556,8 @@ def backfill_watchlist(kite, db: Session, backfill_from: date, backfill_to: date
             f"R1={sr_levels['resistance_1']} R2={sr_levels['resistance_2']}"
         )
 
-        existing = already_backfilled_dates(db, symbol)
-        rows     = build_snapshot_rows(symbol, df, backfill_from, backfill_to, existing, sr_levels)
+        existing = already_backfilled_dates(db, symbol, "1d")
+        rows     = build_snapshot_rows(symbol, df, backfill_from, backfill_to, existing, sr_levels, timeframe="1d")
 
         # Augment rows with pct_from_support / pct_from_resist
         # (using the user's currently configured levels as the historical reference)
