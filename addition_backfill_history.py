@@ -39,7 +39,7 @@ from sqlalchemy     import text
 from sqlalchemy.orm import Session
 
 from engines.sr_engine import compute_sr_levels
-from db_values          import normalize_db_params
+from database.records_validation.db_values          import normalize_db_params
 from indicators.calculate_basic_indicator import calculate_basic_indicators
 from trading.database   import get_db
 from trading.user_token import fetch_user_token
@@ -67,6 +67,7 @@ IST = ZoneInfo("Asia/Kolkata")
 # ── Config ────────────────────────────────────────────────────────────────────
 MARKET_CLOSE          = time(15, 30)
 INDICATOR_WARMUP_DAYS = 80    # extra pre-window days so EMA-50/RSI-14 are warm
+MONTHLY_WARMUP_DAYS   = 2500  # enough completed months for EMA-50/ADX/MACD
 INTRADAY_WINDOW_DAYS  = 60    # 15-min candle window for volume profile S/R
 
 INDEX_INSTRUMENTS = {
@@ -223,6 +224,19 @@ def aggregate_weekly_candles(df: pd.DataFrame) -> pd.DataFrame:
         weekly.groupby("_week_start", sort=True, as_index=False)
         .agg({"date": "first", "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
         .drop(columns=["_week_start"])
+    )
+
+
+def aggregate_monthly_candles(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate daily candles into calendar months."""
+    if df.empty:
+        return df.copy()
+    monthly = df[["date", "open", "high", "low", "close", "volume"]].copy()
+    monthly["_month"] = pd.to_datetime(monthly["date"]).dt.strftime("%Y-%m")
+    return (
+        monthly.groupby("_month", sort=True, as_index=False)
+        .agg({"date": "first", "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+        .drop(columns=["_month"])
     )
 
 
@@ -439,7 +453,7 @@ def backfill_indices(kite, db: Session, backfill_from: date, backfill_to: date):
     log.info("PHASE 1 — Index snapshots: NIFTY 50 / BANK NIFTY / VIX")
     log.info("=" * 60)
 
-    fetch_from    = backfill_from - timedelta(days=INDICATOR_WARMUP_DAYS)
+    fetch_from    = backfill_from - timedelta(days=MONTHLY_WARMUP_DAYS)
     intraday_from = backfill_to   - timedelta(days=INTRADAY_WINDOW_DAYS)
 
     for symbol, token in tqdm(INDEX_INSTRUMENTS.items(), desc="Indices", total=3):
@@ -489,6 +503,16 @@ def backfill_indices(kite, db: Session, backfill_from: date, backfill_to: date):
             insert_snapshots_batch(db, weekly_rows)
             log.info(f"  [{symbol}] ✓ Inserted {len(weekly_rows)} weekly rows")
 
+        monthly_df = compute_daily_indicators(aggregate_monthly_candles(df))
+        monthly_existing = already_backfilled_dates(db, symbol, "1mo")
+        monthly_rows = build_snapshot_rows(
+            symbol, monthly_df, backfill_from, backfill_to,
+            monthly_existing, sr_levels, timeframe="1mo",
+        )
+        if monthly_rows:
+            insert_snapshots_batch(db, monthly_rows)
+            log.info(f"  [{symbol}] ✓ Inserted {len(monthly_rows)} monthly rows")
+
 
 # ── Phase 2: Watchlist backfill ───────────────────────────────────────────────
 
@@ -503,7 +527,7 @@ def backfill_watchlist(kite, db: Session, backfill_from: date, backfill_to: date
         return
 
     log.info(f"  {len(instruments)} instruments to process")
-    fetch_from    = backfill_from - timedelta(days=INDICATOR_WARMUP_DAYS)
+    fetch_from    = backfill_from - timedelta(days=MONTHLY_WARMUP_DAYS)
     intraday_from = backfill_to   - timedelta(days=INTRADAY_WINDOW_DAYS)
 
     for inst in tqdm(instruments, desc="Watchlist", total=len(instruments)):
@@ -579,6 +603,24 @@ def backfill_watchlist(kite, db: Session, backfill_from: date, backfill_to: date
         if rows:
             insert_snapshots_batch(db, rows)
             log.info(f"  [{symbol}] ✓ Inserted {len(rows)} rows")
+
+        weekly_df = compute_daily_indicators(aggregate_weekly_candles(df))
+        weekly_rows = build_snapshot_rows(
+            symbol, weekly_df, backfill_from, backfill_to,
+            already_backfilled_dates(db, symbol, "1w"), sr_levels, timeframe="1w",
+        )
+        if weekly_rows:
+            insert_snapshots_batch(db, weekly_rows)
+            log.info(f"  [{symbol}] ✓ Inserted {len(weekly_rows)} weekly rows")
+
+        monthly_df = compute_daily_indicators(aggregate_monthly_candles(df))
+        monthly_rows = build_snapshot_rows(
+            symbol, monthly_df, backfill_from, backfill_to,
+            already_backfilled_dates(db, symbol, "1mo"), sr_levels, timeframe="1mo",
+        )
+        if monthly_rows:
+            insert_snapshots_batch(db, monthly_rows)
+            log.info(f"  [{symbol}] ✓ Inserted {len(monthly_rows)} monthly rows")
 
         # Backtest summary
         valid_pcts = [p for p in pct_support_list if p is not None]

@@ -7,6 +7,7 @@ import pandas as pd
 from database.market_snapshot import (
     _aggregate_three_hour_candles,
     _aggregate_weekly_candles,
+    _aggregate_monthly_candles,
     _completed_candles_only,
 )
 
@@ -15,6 +16,18 @@ IST = ZoneInfo("Asia/Kolkata")
 
 
 class MarketSnapshotCandleTests(unittest.TestCase):
+    def test_daily_candles_are_aggregated_into_calendar_months(self):
+        candles = pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-03", "2026-08-31", "2026-09-01"]),
+            "open": [100, 104, 110], "high": [105, 109, 114], "low": [98, 103, 108],
+            "close": [104, 108, 113], "volume": [10, 20, 30],
+        })
+        result = _aggregate_monthly_candles(candles)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result.iloc[0]["open"], 100)
+        self.assertEqual(result.iloc[0]["close"], 108)
+        self.assertEqual(result.iloc[0]["volume"], 30)
+
     def test_daily_candles_are_aggregated_into_monday_aligned_weeks(self):
         candles = pd.DataFrame({
             "date": pd.to_datetime(["2026-08-31", "2026-09-01", "2026-09-04", "2026-09-07"]),

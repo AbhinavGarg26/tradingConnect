@@ -20,6 +20,7 @@ class CandleCompletionScheduler:
         self.last_triggered_3h = None
         self.last_triggered_1d = None
         self.last_triggered_1w = None
+        self.last_triggered_1mo = None
 
     def check_and_sync(self, kite, db, symbol: str, token: int):
         now = datetime.now(MARKET_TIMEZONE)
@@ -82,3 +83,7 @@ class CandleCompletionScheduler:
             logger.info(f"⏰ Weekly Candle Closed at {current_minute_str}. Syncing...")
             sync_timeframe_snapshots(kite, db, symbol, token, interval="day", db_timeframe_label="1w")
             self.last_triggered_1w = current_minute_str
+
+        if hour == 15 and minute == 30 and now.second >= SYNC_GRACE_SECONDS and self.last_triggered_1mo != current_minute_str:
+            sync_timeframe_snapshots(kite, db, symbol, token, interval="day", db_timeframe_label="1mo")
+            self.last_triggered_1mo = current_minute_str

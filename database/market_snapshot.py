@@ -78,6 +78,24 @@ def _aggregate_weekly_candles(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _aggregate_monthly_candles(df: pd.DataFrame) -> pd.DataFrame:
+    """Build calendar-month candles from Kite daily candles."""
+    if df.empty:
+        return df.copy()
+
+    result = df.copy()
+    result["date"] = pd.to_datetime(result["date"])
+    local_dates = result["date"]
+    if local_dates.dt.tz is not None:
+        local_dates = local_dates.dt.tz_convert(MARKET_TIMEZONE)
+    result["_month"] = local_dates.dt.strftime("%Y-%m")
+    return (
+        result.groupby("_month", sort=True, as_index=False)
+        .agg({"date": "first", "open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+        .drop(columns=["_month"])
+    )
+
+
 def _completed_candles_only(
     df: pd.DataFrame,
     timeframe: str,
@@ -95,6 +113,7 @@ def _completed_candles_only(
         "3h": pd.Timedelta(hours=3),
         "1d": pd.Timedelta(days=1),
         "1w": pd.Timedelta(days=7),
+        "1mo": pd.Timedelta(days=31),
     }
     if timeframe not in durations:
         raise ValueError(f"Unsupported database timeframe: {timeframe}")
@@ -126,6 +145,9 @@ def _completed_candles_only(
         candle_close = week_start + pd.Timedelta(days=4, hours=15, minutes=30)
         if candle_dates.dt.tz is not None:
             candle_close = candle_close.dt.tz_convert(candle_dates.dt.tz)
+    elif timeframe == "1mo":
+        candle_close = candle_dates + pd.offsets.MonthEnd(0)
+        candle_close = candle_close.dt.normalize() + pd.Timedelta(hours=15, minutes=30)
     else:
         candle_close = (candle_dates + durations[timeframe]).where(
             candle_dates + durations[timeframe] <= session_close,
@@ -140,7 +162,7 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     # 1. Fetch deep historical candles (60 days back) for indicator warmup (EMA 50, RSI 14)
     # Intraday replay only needs several sessions, while larger timeframes need
     # deeper history to warm EMA/RSI calculations.
-    days_back = 500 if db_timeframe_label == "1w" else 180 if db_timeframe_label == "1d" else 10 if db_timeframe_label in {"1m", "5m"} else 60
+    days_back = 2_500 if db_timeframe_label == "1mo" else 500 if db_timeframe_label == "1w" else 180 if db_timeframe_label == "1d" else 10 if db_timeframe_label in {"1m", "5m"} else 60
     df_raw = fetch_historical_candles(kite, token, interval=interval, days_back=days_back)
     if df_raw.empty:
         logger.warning(f"No candle data returned for interval {interval}.")
@@ -151,6 +173,8 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
         df = _aggregate_three_hour_candles(df_raw)
     elif db_timeframe_label == "1w":
         df = _aggregate_weekly_candles(df_raw)
+    elif db_timeframe_label == "1mo":
+        df = _aggregate_monthly_candles(df_raw)
     else:
         df = df_raw.copy()
 
