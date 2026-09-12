@@ -255,6 +255,28 @@ def update_watchlist_prices(
     db.commit()
 
 
+def update_watchlist_quote(
+    db: Session,
+    tracker_id,
+    ltp: float,
+    day_pct: float,
+) -> None:
+    """Persist a newly discovered instrument's quote before slower history work."""
+    db.execute(text("""
+        UPDATE instrument_watchlists
+           SET ltp = :ltp,
+               day_change_pct = :day_pct,
+               last_refreshed_at = NOW(),
+               updated_at = NOW()
+         WHERE id = :tracker_id
+    """), {
+        "tracker_id": tracker_id,
+        "ltp": ltp,
+        "day_pct": day_pct,
+    })
+    db.commit()
+
+
 def get_active_watchlist(db: Session) -> list[dict]:
     result = db.execute(text("""
         SELECT id, instrument_id, symbol, exchange, support_level, resistance_level
@@ -606,36 +628,78 @@ def fetch_and_write():
         runtime_monitor.exception(e, "Market and watchlist refresh")
 
 
+def refresh_new_watchlist_instrument(kite, db: Session, tracker: dict, now: datetime) -> bool:
+    """Link and hydrate one new tracker without running the full market pipeline."""
+    instrument_id = ensure_catalog_instrument(kite, db, tracker)
+    if instrument_id is None:
+        return False
+
+    token = db.execute(
+        text("SELECT instrument_token FROM instruments WHERE id = :id"),
+        {"id": instrument_id},
+    ).scalar()
+    if not token:
+        log.warning("No Kite token stored for new tracker %s", tracker["symbol"])
+        return False
+
+    exchange = str(tracker.get("exchange") or "NSE").upper()
+    symbol = str(tracker["symbol"]).upper()
+    quote_key = f"{exchange}:{symbol}"
+    quote = kite.quote([quote_key]).get(quote_key, {})
+    if not quote or quote.get("last_price") is None:
+        log.warning("Kite returned no quote for new tracker %s", quote_key)
+        return False
+
+    ltp = float(quote["last_price"])
+    previous_close = (quote.get("ohlc") or {}).get("close")
+    day_pct = (
+        round((ltp - float(previous_close)) / float(previous_close) * 100, 2)
+        if previous_close else 0.0
+    )
+
+    # Make the tracker useful immediately. Historical backfill can take several
+    # API calls, so it deliberately happens only after this transaction commits.
+    update_watchlist_quote(db, tracker["id"], ltp, day_pct)
+    _known_watchlist_ids.add(str(tracker["id"]))
+    log.info("New tracker %s quote saved at %.2f", quote_key, ltp)
+
+    hydrate_missing_analysis_snapshots(kite, db, symbol, int(token), now)
+    return True
+
+
 def discover_new_watchlist_instruments() -> None:
-    """Trigger a Kite refresh when a new active watchlist row appears."""
+    """Promptly link and hydrate newly added active watchlist rows."""
     now = datetime.now(IST)
-    if now.weekday() >= 5:
-        return
-    if not (9 * 60 + 15 <= now.hour * 60 + now.minute <= 15 * 60 + 35):
-        return
 
     try:
+        kite, _user_id = fetch_user_token(log)
         with get_db() as db:
             active = get_active_watchlist(db)
             active_ids = {str(inst["id"]) for inst in active}
+            # Forget removed/disabled rows so enabling one causes a fresh sync.
+            _known_watchlist_ids.intersection_update(active_ids)
+            new_instruments = [
+                inst for inst in active if str(inst["id"]) not in _known_watchlist_ids
+            ]
+            if not new_instruments:
+                return
 
-        # Forget removed/disabled rows so enabling or re-adding one can cause a
-        # fresh Kite hydration later.
-        _known_watchlist_ids.intersection_update(active_ids)
-        new_instruments = [
-            inst for inst in active if str(inst["id"]) not in _known_watchlist_ids
-        ]
-        if not new_instruments:
-            return
-
-        log.info(
-            "Discovered %d new watchlist instrument(s): %s",
-            len(new_instruments),
-            ", ".join(inst["symbol"] for inst in new_instruments),
-        )
-        # Reuse the established quote, indicator, DB update and alert pipeline.
-        # IDs are marked known only after their Kite quote is processed.
-        fetch_and_write()
+            log.info(
+                "Discovered %d new watchlist instrument(s): %s",
+                len(new_instruments),
+                ", ".join(inst["symbol"] for inst in new_instruments),
+            )
+            for tracker in new_instruments:
+                try:
+                    refresh_new_watchlist_instrument(kite, db, tracker, now)
+                except Exception as exc:
+                    # One bad symbol must not delay the remaining new trackers.
+                    log.warning(
+                        "New tracker refresh failed for %s: %s",
+                        tracker["symbol"], exc, exc_info=True,
+                    )
+    except SystemExit:
+        log.warning("Watchlist discovery skipped: Kite token is unavailable")
     except Exception as e:
         log.error("Watchlist discovery failed: %s", e, exc_info=True)
 
@@ -889,9 +953,6 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
 if __name__ == "__main__":
     log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
     runtime_monitor.start("Starting scheduler")
-    fetch_and_write()   # run immediately; guard skips if market is closed
-    hydrate_analysis_universe()  # historical API remains available after hours/weekends
-
     scheduler = BlockingScheduler(timezone=IST)
     scheduler.add_job(
         fetch_and_write,
@@ -907,11 +968,12 @@ if __name__ == "__main__":
     scheduler.add_job(
         discover_new_watchlist_instruments,
         "interval",
-        seconds=60,
+        seconds=15,
         id="watchlist_discovery",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+        next_run_time=datetime.now(IST),
     )
     scheduler.add_job(
         hydrate_analysis_universe,

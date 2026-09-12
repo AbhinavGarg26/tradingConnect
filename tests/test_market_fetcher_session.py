@@ -97,3 +97,33 @@ def test_weekend_does_not_make_friday_candles_stale():
 
     assert "15m" not in due
     assert analysis_freshness_reference(saturday).strftime("%a %H:%M") == "Fri 15:30"
+
+
+def test_new_instrument_discovery_uses_targeted_refresh_not_full_market_job():
+    discovery = next(
+        node for node in TREE.body
+        if isinstance(node, ast.FunctionDef) and node.name == "discover_new_watchlist_instruments"
+    )
+    calls = [
+        node.func.id if isinstance(node.func, ast.Name) else node.func.attr
+        for node in ast.walk(discovery)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, (ast.Name, ast.Attribute))
+    ]
+
+    assert "refresh_new_watchlist_instrument" in calls
+    assert "fetch_and_write" not in calls
+
+
+def test_new_instrument_quote_is_saved_before_history_hydration():
+    refresh = next(
+        node for node in TREE.body
+        if isinstance(node, ast.FunctionDef) and node.name == "refresh_new_watchlist_instrument"
+    )
+    calls = [
+        node.func.id
+        for node in ast.walk(refresh)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    ]
+
+    assert calls.index("update_watchlist_quote") < calls.index("hydrate_missing_analysis_snapshots")
