@@ -26,6 +26,7 @@ from database.records_validation.db_values          import normalize_db_params
 from indicators.adx     import compute_adx
 from indicators.macd    import calculate_macd
 from database.records_validation.instrument_catalog import catalog_values
+from database.market_snapshot import sync_timeframe_snapshots
 from market.tracks.price_movement     import track_price_movement
 from market.alerts.proximity_alerts   import ALERT_WINDOW, alert_is_due, proximity_condition
 
@@ -90,9 +91,59 @@ _instrument_master_cache: dict[tuple[str, object], list[dict]] = {}
 # overlapping rows created at slightly different timestamps.
 MARKET_BREATH_OWNED_SYMBOLS = {"NIFTY 50"}
 
+ANALYSIS_TIMEFRAMES = {
+    "15m": ("15minute", timedelta(minutes=30)),
+    "1h": ("60minute", timedelta(hours=2)),
+    "3h": ("60minute", timedelta(hours=4)),
+    "1d": ("day", timedelta(days=3)),
+    "1w": ("day", timedelta(days=10)),
+    "1mo": ("day", timedelta(days=40)),
+}
+MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT = 2
+
 
 def should_persist_market_snapshot(symbol: str) -> bool:
     return symbol not in MARKET_BREATH_OWNED_SYMBOLS
+
+
+def due_analysis_timeframes(latest_by_timeframe: dict, now: datetime) -> list[str]:
+    """Return missing/stale analysis candles in entry-to-regime priority order."""
+    due = []
+    for label, (_interval, freshness) in ANALYSIS_TIMEFRAMES.items():
+        captured_at = latest_by_timeframe.get(label)
+        if captured_at is None:
+            due.append(label)
+            continue
+        captured_at = pd.Timestamp(captured_at)
+        if captured_at.tzinfo is None:
+            captured_at = captured_at.tz_localize(IST)
+        else:
+            captured_at = captured_at.tz_convert(IST)
+        if pd.Timestamp(now) - captured_at > freshness:
+            due.append(label)
+    return due
+
+
+def hydrate_missing_analysis_snapshots(kite, db: Session, symbol: str, token: int, now: datetime) -> None:
+    """Backfill a bounded number of missing/stale analysis timeframes per cycle."""
+    rows = db.execute(text("""
+        SELECT timeframe, MAX(captured_at) AS captured_at
+          FROM market_snapshots
+         WHERE symbol = :symbol AND timeframe IN ('15m', '1h', '3h', '1d', '1w', '1mo')
+         GROUP BY timeframe
+    """), {"symbol": symbol}).fetchall()
+    latest = {row[0]: row[1] for row in rows}
+    due = due_analysis_timeframes(latest, now)[:MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT]
+    for label in due:
+        interval = ANALYSIS_TIMEFRAMES[label][0]
+        try:
+            sync_timeframe_snapshots(
+                kite, db, symbol, token,
+                interval=interval, db_timeframe_label=label,
+            )
+            log.info("Hydrated %s %s analysis candles", symbol, label)
+        except Exception as exc:
+            log.warning("%s %s analysis hydration failed: %s", symbol, label, exc)
 
 
 # ── DB helpers — all accept SQLAlchemy Session ────────────────────────────────
@@ -686,6 +737,10 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
             w_ltp  = float(wqd["last_price"])
             w_pc   = float(wqd["ohlc"]["close"])
             w_dpct = round((w_ltp - w_pc) / w_pc * 100, 2)
+
+            hydrate_missing_analysis_snapshots(
+                kite, db, wsymbol, int(wqd["instrument_token"]), now
+            )
 
             wrsi = wvol_ratio = wadx = wmacd = wmacd_signal = wvwap = None
             daily_emas = {}
