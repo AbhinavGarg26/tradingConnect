@@ -2,7 +2,11 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python_bin="$project_dir/venv/bin/python"
+if [[ -x "$project_dir/.venv/bin/python" ]]; then
+  python_bin="$project_dir/.venv/bin/python"
+else
+  python_bin="$project_dir/venv/bin/python"
+fi
 run_dir="$project_dir/tmp/pids"
 log_dir="$project_dir/log"
 
@@ -13,7 +17,7 @@ if [[ ! -x "$python_bin" ]]; then
   exit 1
 fi
 
-start_service() {
+restart_service() {
   local name="$1"
   local entrypoint="$2"
   local pid_file="$run_dir/$name.pid"
@@ -23,8 +27,16 @@ start_service() {
     local existing_pid
     existing_pid="$(<"$pid_file")"
     if kill -0 "$existing_pid" 2>/dev/null; then
-      echo "$name already running (PID $existing_pid)"
-      return
+      echo "Stopping $name (PID $existing_pid)..."
+      kill "$existing_pid"
+      for _ in {1..20}; do
+        kill -0 "$existing_pid" 2>/dev/null || break
+        sleep 0.25
+      done
+      if kill -0 "$existing_pid" 2>/dev/null; then
+        echo "$name did not stop cleanly; refusing to start a duplicate" >&2
+        exit 1
+      fi
     fi
     rm -f "$pid_file"
   fi
@@ -32,9 +44,16 @@ start_service() {
   local discovered_pid
   discovered_pid="$(pgrep -f "$project_dir/$entrypoint" | head -n 1 || true)"
   if [[ -n "$discovered_pid" ]]; then
-    echo "$discovered_pid" > "$pid_file"
-    echo "$name already running (PID $discovered_pid); PID file restored"
-    return
+    echo "Stopping discovered $name process (PID $discovered_pid)..."
+    kill "$discovered_pid"
+    for _ in {1..20}; do
+      kill -0 "$discovered_pid" 2>/dev/null || break
+      sleep 0.25
+    done
+    if kill -0 "$discovered_pid" 2>/dev/null; then
+      echo "$name did not stop cleanly; refusing to start a duplicate" >&2
+      exit 1
+    fi
   fi
 
   (
@@ -54,7 +73,7 @@ start_service() {
   fi
 }
 
-start_service "market_breath" "market_breath.py"
-start_service "kite_market_fetcher" "kite_market_fetcher.py"
+restart_service "market_breath" "market_breath.py"
+restart_service "kite_market_fetcher" "kite_market_fetcher.py"
 
 echo "Both market services are running in the background."
