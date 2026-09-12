@@ -134,3 +134,25 @@ class Alerter:
             )
 
         self.send("\n".join(lines))
+
+    def price_movements(self, movements: list[dict], captured_at: datetime) -> None:
+        """Send one consolidated alert for tracking-point price moves."""
+        if not movements:
+            return
+
+        lines = [
+            "📊 <b>Price Movement Alert</b>",
+            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
+            "",
+        ]
+        for movement in sorted(
+            movements, key=lambda item: abs(item["movement_pct"]), reverse=True
+        ):
+            direction = "🟢 ⬆️" if movement["movement_pct"] > 0 else "🔴 ⬇️"
+            lines.append(
+                f"{direction} <b>{movement['symbol']}</b> | "
+                f"{movement['tracking_ltp']:.2f} → {movement['ltp']:.2f} | "
+                f"Move: {movement['movement_pct']:+.2f}%"
+            )
+
+        self.send("\n".join(lines))

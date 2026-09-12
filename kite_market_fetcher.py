@@ -4,7 +4,7 @@ kite_market_fetcher.py
 Fetches Nifty / BankNifty / VIX market data via Kite Connect and writes
 MarketSnapshot + InstrumentWatchlist live-price rows to the shared PostgreSQL DB.
 
-Runs via APScheduler once per hour during market hours.
+Runs via APScheduler every 15 minutes during market hours.
 Project path: /Users/abhinavgarg/Documents/Projects/kiteConnect/
 
 Requirements:
@@ -25,6 +25,7 @@ from engines.sr_engine import compute_sr_levels
 from db_values          import normalize_db_params
 from indicators.adx     import compute_adx
 from indicators.macd    import calculate_macd
+from price_movement     import track_price_movement
 
 load_dotenv()
 from sqlalchemy     import text
@@ -32,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from trading.database   import get_db
 from trading.alerts     import Alerter
+from trading.service_runtime import ServiceRuntimeMonitor
 from trading.user_token import fetch_user_token
 
 try:
@@ -44,6 +46,7 @@ except ImportError:
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
+runtime_monitor = ServiceRuntimeMonitor("kite_market_fetcher", log)
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -71,6 +74,12 @@ SR_INTRADAY_LOOKBACK_DAYS = 30
 # A current 5-minute candle at or above this multiple of the preceding
 # 20-candle average is treated as a volume surge.
 VOLUME_SURGE_RATIO = 1.5
+MOVEMENT_ALERT_PCT = 1.0
+
+# Anchors live for the lifetime of the continuously running fetcher. An anchor
+# changes only after its symbol crosses the movement threshold.
+_movement_tracking_points: dict[str, float] = {}
+_known_watchlist_ids: set[str] = set()
 
 # market_breath.py owns NIFTY 50 snapshot persistence. A single writer avoids
 # overlapping rows created at slightly different timestamps.
@@ -316,15 +325,55 @@ def fetch_and_write():
 
     try:
         kite, user_id = fetch_user_token(log)
+    except SystemExit:
+        runtime_monitor.degraded("Kite token expired or missing")
+        return
     except Exception as e:
         log.error(f"fetch_user_token failed: {e}")
+        runtime_monitor.exception(e, "Creating Kite session")
         return
 
     try:
         with get_db() as db:
             _run_fetch(kite, db, now, user_id)
+        runtime_monitor.success("Market and watchlist refresh completed")
     except Exception as e:
         log.error(f"fetch_and_write error: {e}", exc_info=True)
+        runtime_monitor.exception(e, "Market and watchlist refresh")
+
+
+def discover_new_watchlist_instruments() -> None:
+    """Trigger a Kite refresh when a new active watchlist row appears."""
+    now = datetime.now(IST)
+    if now.weekday() >= 5:
+        return
+    if not (9 * 60 + 15 <= now.hour * 60 + now.minute <= 15 * 60 + 35):
+        return
+
+    try:
+        with get_db() as db:
+            active = get_active_watchlist(db)
+            active_ids = {str(inst["id"]) for inst in active}
+
+        # Forget removed/disabled rows so enabling or re-adding one can cause a
+        # fresh Kite hydration later.
+        _known_watchlist_ids.intersection_update(active_ids)
+        new_instruments = [
+            inst for inst in active if str(inst["id"]) not in _known_watchlist_ids
+        ]
+        if not new_instruments:
+            return
+
+        log.info(
+            "Discovered %d new watchlist instrument(s): %s",
+            len(new_instruments),
+            ", ".join(inst["symbol"] for inst in new_instruments),
+        )
+        # Reuse the established quote, indicator, DB update and alert pipeline.
+        # IDs are marked known only after their Kite quote is processed.
+        fetch_and_write()
+    except Exception as e:
+        log.error("Watchlist discovery failed: %s", e, exc_info=True)
 
 
 def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
@@ -448,6 +497,7 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
 
     # ── Watchlist live price refresh ─────────────────────────────────────────
     surge_alerts: list[dict] = []
+    movement_alerts: list[dict] = []
     for inst in get_active_watchlist(db):
         wsymbol   = inst["symbol"]
         w_support = inst.get("support_level")
@@ -490,6 +540,16 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
                 db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio,
                 wadx, wmacd, wmacd_signal, wvwap,
             )
+            _known_watchlist_ids.add(str(inst["id"]))
+
+            movement = track_price_movement(
+                _movement_tracking_points,
+                wqkey,
+                w_ltp,
+                MOVEMENT_ALERT_PCT,
+            )
+            if movement:
+                movement_alerts.append(movement)
 
             if wvol_ratio is not None and wvol_ratio >= VOLUME_SURGE_RATIO:
                 surge_alerts.append({
@@ -502,14 +562,21 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         except Exception as e:
             log.warning(f"Watchlist update failed for {wsymbol}: {e}")
 
+    alerter = Alerter.from_db(db, user_id) if movement_alerts or surge_alerts else None
+
+    if movement_alerts:
+        alerter.price_movements(movement_alerts, now)
+        log.info("Sent price-movement alert for %d instrument(s)", len(movement_alerts))
+
     if surge_alerts:
-        Alerter.from_db(db, user_id).volume_surges(surge_alerts, now)
+        alerter.volume_surges(surge_alerts, now)
         log.info("Sent volume-surge alert for %d instrument(s)", len(surge_alerts))
 
 
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
+    runtime_monitor.start("Starting scheduler")
     fetch_and_write()   # run immediately; guard skips if market is closed
 
     scheduler = BlockingScheduler(timezone=IST)
@@ -524,4 +591,16 @@ if __name__ == "__main__":
         coalesce=True,
         misfire_grace_time=300,
     )
-    scheduler.start()
+    scheduler.add_job(
+        discover_new_watchlist_instruments,
+        "interval",
+        seconds=60,
+        id="watchlist_discovery",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=30,
+    )
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        runtime_monitor.stop("Scheduler stopped")

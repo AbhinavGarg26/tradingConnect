@@ -21,10 +21,12 @@ load_dotenv()
 
 from trading.user_token import fetch_user_token
 from trading.database import get_db
+from trading.service_runtime import ServiceRuntimeMonitor
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+runtime_monitor = ServiceRuntimeMonitor("market_breath", logger)
 
 POLL_INTERVAL = 0.5  # Time in seconds
 PCT_LOSS = 5.8
@@ -46,7 +48,13 @@ NIFTY_SYMBOL = "NIFTY 50"
 NIFTY_TOKEN = 256265
 
 if __name__ == "__main__":
-    kite, user_id = fetch_user_token(logger)
+    runtime_monitor.start("Starting position manager")
+    try:
+        kite, user_id = fetch_user_token(logger)
+    except BaseException as exc:
+        runtime_monitor.exception(exc, "Creating Kite session")
+        runtime_monitor.stop("Unable to create Kite session")
+        raise
     price_stream = PositionLtpStream(
         kite.api_key,
         kite.access_token,
@@ -126,6 +134,7 @@ if __name__ == "__main__":
                             last_live_state_sync = now_monotonic
 
                     scheduler.check_and_sync(kite, db, NIFTY_SYMBOL, NIFTY_TOKEN)
+                    runtime_monitor.success("Position monitoring cycle completed")
 
                 if not is_market_open():
                     logger.info("Market is closed. Program Halted...")
@@ -133,8 +142,10 @@ if __name__ == "__main__":
 
             except Exception as e:
                 logger.exception("Error encountered during monitoring cycle: %s", e)
+                runtime_monitor.exception(e, "Position monitoring cycle")
 
             interval = POLL_INTERVAL * (10 if pos_count == 0 else 1)
             time.sleep(interval)
     finally:
         price_stream.stop()
+        runtime_monitor.stop("Position manager stopped")
