@@ -162,7 +162,7 @@ def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timefram
     # 1. Fetch deep historical candles (60 days back) for indicator warmup (EMA 50, RSI 14)
     # Intraday replay only needs several sessions, while larger timeframes need
     # deeper history to warm EMA/RSI calculations.
-    days_back = 2_500 if db_timeframe_label == "1mo" else 500 if db_timeframe_label == "1w" else 180 if db_timeframe_label == "1d" else 10 if db_timeframe_label in {"1m", "5m"} else 60
+    days_back = 1_900 if db_timeframe_label == "1mo" else 500 if db_timeframe_label == "1w" else 180 if db_timeframe_label == "1d" else 10 if db_timeframe_label in {"1m", "5m"} else 60
     df_raw = fetch_historical_candles(kite, token, interval=interval, days_back=days_back)
     if df_raw.empty:
         logger.warning(f"No candle data returned for interval {interval}.")

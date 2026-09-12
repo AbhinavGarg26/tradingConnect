@@ -67,7 +67,7 @@ IST = ZoneInfo("Asia/Kolkata")
 # ── Config ────────────────────────────────────────────────────────────────────
 MARKET_CLOSE          = time(15, 30)
 INDICATOR_WARMUP_DAYS = 80    # extra pre-window days so EMA-50/RSI-14 are warm
-MONTHLY_WARMUP_DAYS   = 2500  # enough completed months for EMA-50/ADX/MACD
+MONTHLY_WARMUP_DAYS   = 1900  # below Kite's 2000-day cap; ~60 months for EMA-50
 INTRADAY_WINDOW_DAYS  = 60    # 15-min candle window for volume profile S/R
 
 INDEX_INSTRUMENTS = {
