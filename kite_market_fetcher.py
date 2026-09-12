@@ -704,6 +704,94 @@ def discover_new_watchlist_instruments() -> None:
         log.error("Watchlist discovery failed: %s", e, exc_info=True)
 
 
+def process_instrument_catalog_requests() -> None:
+    """Resolve symbol lookups queued by the Rails Instrument Tracker form."""
+    try:
+        kite, _user_id = fetch_user_token(log)
+        with get_db() as db:
+            requests = list(db.execute(text("""
+                SELECT id, symbol, exchange
+                  FROM instrument_catalog_requests
+                 WHERE status = 'pending'
+                    OR (status = 'processing' AND updated_at < NOW() - INTERVAL '2 minutes')
+                 ORDER BY created_at ASC
+                 LIMIT 10
+                 FOR UPDATE SKIP LOCKED
+            """)).mappings())
+            for request in requests:
+                request_id = request["id"]
+                symbol = str(request["symbol"]).strip().upper()
+                exchange = str(request.get("exchange") or "NSE").strip().upper()
+                kite_exchange = "NFO" if exchange == "NFO" else exchange
+                db.execute(text("""
+                    UPDATE instrument_catalog_requests
+                       SET status = 'processing', error_message = NULL, updated_at = NOW()
+                     WHERE id = :id
+                """), {"id": request_id})
+                db.commit()
+
+                try:
+                    master_key = (kite_exchange, datetime.now(IST).date())
+                    if master_key not in _instrument_master_cache:
+                        _instrument_master_cache[master_key] = kite.instruments(kite_exchange)
+                    match = next((row for row in _instrument_master_cache[master_key]
+                        if str(row.get("tradingsymbol", "")).strip().upper() == symbol), None)
+                    if not match:
+                        db.execute(text("""
+                            UPDATE instrument_catalog_requests
+                               SET status = 'not_found',
+                                   error_message = :message,
+                                   updated_at = NOW()
+                             WHERE id = :id
+                        """), {"id": request_id,
+                               "message": f"{symbol} was not found in Kite's {kite_exchange} instrument catalog."})
+                        db.commit()
+                        continue
+
+                    values = catalog_values(match)
+                    instrument_id = db.execute(text("""
+                        INSERT INTO instruments (
+                            symbol, exchange, segment, instrument_type, instrument_token,
+                            lot_size, tick_size, expiry_date, strike_price, is_active,
+                            created_at, updated_at
+                        ) VALUES (
+                            :symbol, :exchange, :segment, :instrument_type, :instrument_token,
+                            :lot_size, :tick_size, :expiry_date, :strike_price, TRUE,
+                            NOW(), NOW()
+                        )
+                        ON CONFLICT (instrument_token) DO UPDATE SET
+                            symbol = EXCLUDED.symbol, exchange = EXCLUDED.exchange,
+                            segment = EXCLUDED.segment, instrument_type = EXCLUDED.instrument_type,
+                            lot_size = EXCLUDED.lot_size, tick_size = EXCLUDED.tick_size,
+                            expiry_date = EXCLUDED.expiry_date, strike_price = EXCLUDED.strike_price,
+                            is_active = TRUE, updated_at = NOW()
+                        RETURNING id
+                    """), values).scalar_one()
+                    db.execute(text("""
+                        UPDATE instrument_catalog_requests
+                           SET status = 'found', instrument_id = :instrument_id,
+                               error_message = NULL, updated_at = NOW()
+                         WHERE id = :id
+                    """), {"id": request_id, "instrument_id": instrument_id})
+                    db.commit()
+                    log.info("Catalog lookup resolved %s:%s as instrument id=%s",
+                             kite_exchange, symbol, instrument_id)
+                except Exception as exc:
+                    db.rollback()
+                    db.execute(text("""
+                        UPDATE instrument_catalog_requests
+                           SET status = 'error', error_message = :message, updated_at = NOW()
+                         WHERE id = :id
+                    """), {"id": request_id, "message": str(exc)[:250]})
+                    db.commit()
+                    log.warning("Catalog lookup failed for %s:%s: %s",
+                                kite_exchange, symbol, exc, exc_info=True)
+    except SystemExit:
+        log.warning("Catalog lookup skipped: Kite token is unavailable")
+    except Exception as exc:
+        log.error("Catalog request processing failed: %s", exc, exc_info=True)
+
+
 def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     """Core fetch logic — separated so get_db() context wraps the whole run."""
 
@@ -973,6 +1061,16 @@ if __name__ == "__main__":
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+        next_run_time=datetime.now(IST),
+    )
+    scheduler.add_job(
+        process_instrument_catalog_requests,
+        "interval",
+        seconds=3,
+        id="instrument_catalog_requests",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=15,
         next_run_time=datetime.now(IST),
     )
     scheduler.add_job(
