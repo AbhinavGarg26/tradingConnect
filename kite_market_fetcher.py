@@ -99,7 +99,7 @@ ANALYSIS_TIMEFRAMES = {
     "1w": ("day", timedelta(days=10)),
     "1mo": ("day", timedelta(days=40)),
 }
-MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT = 2
+MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT = 3
 
 
 def should_persist_market_snapshot(symbol: str) -> bool:
@@ -108,6 +108,7 @@ def should_persist_market_snapshot(symbol: str) -> bool:
 
 def due_analysis_timeframes(latest_by_timeframe: dict, now: datetime) -> list[str]:
     """Return missing/stale analysis candles in entry-to-regime priority order."""
+    reference = analysis_freshness_reference(now)
     due = []
     for label, (_interval, freshness) in ANALYSIS_TIMEFRAMES.items():
         captured_at = latest_by_timeframe.get(label)
@@ -119,9 +120,31 @@ def due_analysis_timeframes(latest_by_timeframe: dict, now: datetime) -> list[st
             captured_at = captured_at.tz_localize(IST)
         else:
             captured_at = captured_at.tz_convert(IST)
-        if pd.Timestamp(now) - captured_at > freshness:
+        if pd.Timestamp(reference) - captured_at > freshness:
             due.append(label)
     return due
+
+
+def analysis_freshness_reference(now: datetime) -> datetime:
+    """Return the latest plausible NSE candle time, ignoring closed-market hours."""
+    current = pd.Timestamp(now)
+    if current.tzinfo is None:
+        current = current.tz_localize(IST)
+    else:
+        current = current.tz_convert(IST)
+
+    while current.weekday() >= 5:
+        current = (current - pd.Timedelta(days=1)).normalize() + pd.Timedelta(hours=15, minutes=30)
+    market_open = current.normalize() + pd.Timedelta(hours=9, minutes=15)
+    market_close = current.normalize() + pd.Timedelta(hours=15, minutes=30)
+    if current < market_open:
+        current = current - pd.Timedelta(days=1)
+        while current.weekday() >= 5:
+            current -= pd.Timedelta(days=1)
+        return (current.normalize() + pd.Timedelta(hours=15, minutes=30)).to_pydatetime()
+    if current > market_close:
+        return market_close.to_pydatetime()
+    return current.to_pydatetime()
 
 
 def hydrate_missing_analysis_snapshots(kite, db: Session, symbol: str, token: int, now: datetime) -> None:
@@ -144,6 +167,30 @@ def hydrate_missing_analysis_snapshots(kite, db: Session, symbol: str, token: in
             log.info("Hydrated %s %s analysis candles", symbol, label)
         except Exception as exc:
             log.warning("%s %s analysis hydration failed: %s", symbol, label, exc)
+
+
+def hydrate_analysis_universe() -> None:
+    """Hydrate active watchlist history independently of live-market quote hours."""
+    now = datetime.now(IST)
+    try:
+        kite, _user_id = fetch_user_token(log)
+        with get_db() as db:
+            for tracker in get_active_watchlist(db):
+                instrument_id = ensure_catalog_instrument(kite, db, tracker)
+                if instrument_id is None:
+                    continue
+                token = db.execute(
+                    text("SELECT instrument_token FROM instruments WHERE id = :id"),
+                    {"id": instrument_id},
+                ).scalar()
+                if token:
+                    hydrate_missing_analysis_snapshots(
+                        kite, db, tracker["symbol"], int(token), now
+                    )
+    except SystemExit:
+        log.warning("Analysis hydration skipped: Kite token is unavailable")
+    except Exception as exc:
+        log.error("Analysis universe hydration failed: %s", exc, exc_info=True)
 
 
 # ── DB helpers — all accept SQLAlchemy Session ────────────────────────────────
@@ -843,6 +890,7 @@ if __name__ == "__main__":
     log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
     runtime_monitor.start("Starting scheduler")
     fetch_and_write()   # run immediately; guard skips if market is closed
+    hydrate_analysis_universe()  # historical API remains available after hours/weekends
 
     scheduler = BlockingScheduler(timezone=IST)
     scheduler.add_job(
@@ -864,6 +912,15 @@ if __name__ == "__main__":
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        hydrate_analysis_universe,
+        "interval",
+        minutes=30,
+        id="analysis_snapshot_hydration",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
     )
     try:
         scheduler.start()

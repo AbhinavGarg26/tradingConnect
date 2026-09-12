@@ -43,9 +43,14 @@ PLAN_FUNCTION = next(
     node for node in TREE.body
     if isinstance(node, ast.FunctionDef) and node.name == "due_analysis_timeframes"
 )
+REFERENCE_FUNCTION = next(
+    node for node in TREE.body
+    if isinstance(node, ast.FunctionDef) and node.name == "analysis_freshness_reference"
+)
 PLAN_NAMESPACE = {"timedelta": __import__("datetime").timedelta, "pd": pd, "IST": ZoneInfo("Asia/Kolkata"), "datetime": datetime}
-exec(compile(ast.Module(body=[PLAN_ASSIGNMENT, PLAN_FUNCTION], type_ignores=[]), "kite_market_fetcher.py", "exec"), PLAN_NAMESPACE)
+exec(compile(ast.Module(body=[PLAN_ASSIGNMENT, REFERENCE_FUNCTION, PLAN_FUNCTION], type_ignores=[]), "kite_market_fetcher.py", "exec"), PLAN_NAMESPACE)
 due_analysis_timeframes = PLAN_NAMESPACE["due_analysis_timeframes"]
+analysis_freshness_reference = PLAN_NAMESPACE["analysis_freshness_reference"]
 
 
 def test_quote_is_current_session_rejects_previous_trading_day():
@@ -82,3 +87,13 @@ def test_missing_and_stale_analysis_timeframes_are_due():
     assert "1d" in due
     assert "1w" in due
     assert "1mo" in due
+
+
+def test_weekend_does_not_make_friday_candles_stale():
+    saturday = datetime(2026, 9, 12, 14, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    friday_candle = datetime(2026, 9, 11, 15, 15, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+    due = due_analysis_timeframes({"15m": friday_candle}, saturday)
+
+    assert "15m" not in due
+    assert analysis_freshness_reference(saturday).strftime("%a %H:%M") == "Fri 15:30"
