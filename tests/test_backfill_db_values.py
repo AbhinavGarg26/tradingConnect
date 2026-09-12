@@ -1,6 +1,6 @@
 import numpy as np
 
-from db_values import normalize_db_params
+from database.records_validation.db_values import normalize_db_params
 
 
 def test_normalize_db_params_converts_numpy_scalars():

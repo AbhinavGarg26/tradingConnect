@@ -22,11 +22,12 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv         import load_dotenv
 
 from engines.sr_engine import compute_sr_levels
-from db_values          import normalize_db_params
+from database.records_validation.db_values          import normalize_db_params
 from indicators.adx     import compute_adx
 from indicators.macd    import calculate_macd
-from price_movement     import track_price_movement
-from proximity_alerts   import ALERT_WINDOW, alert_is_due, proximity_condition
+from database.records_validation.instrument_catalog import catalog_values
+from market.tracks.price_movement     import track_price_movement
+from market.alerts.proximity_alerts   import ALERT_WINDOW, alert_is_due, proximity_condition
 
 load_dotenv()
 from sqlalchemy     import text
@@ -83,6 +84,7 @@ MOVEMENT_ALERT_PCT = 1.0
 _movement_tracking_points: dict[str, float] = {}
 _known_watchlist_ids: set[str] = set()
 _daily_ema_cache: dict[tuple[int, object], dict] = {}
+_instrument_master_cache: dict[tuple[str, object], list[dict]] = {}
 
 # market_breath.py owns NIFTY 50 snapshot persistence. A single writer avoids
 # overlapping rows created at slightly different timestamps.
@@ -163,6 +165,72 @@ def get_active_watchlist(db: Session) -> list[dict]:
     """))
     cols = list(result.keys())
     return [dict(zip(cols, row)) for row in result.fetchall()]
+
+
+def ensure_catalog_instrument(kite, db: Session, tracker: dict) -> Optional[int]:
+    """Create and link an authoritative Kite instrument for an unlinked tracker."""
+    if tracker.get("instrument_id"):
+        return int(tracker["instrument_id"])
+
+    symbol = str(tracker["symbol"]).upper()
+    exchange = str(tracker.get("exchange") or "NSE").upper()
+    master_key = (exchange, datetime.now(IST).date())
+    if master_key not in _instrument_master_cache:
+        _instrument_master_cache[master_key] = kite.instruments(exchange)
+    matches = [
+        row for row in _instrument_master_cache[master_key]
+        if str(row.get("tradingsymbol", "")).upper() == symbol
+        and str(row.get("exchange", "")).upper() == exchange
+    ]
+    if not matches:
+        log.warning("Kite instrument master has no exact match for %s:%s", exchange, symbol)
+        return None
+
+    values = catalog_values(matches[0])
+    existing_id = db.execute(text("""
+        SELECT id FROM instruments
+        WHERE UPPER(symbol) = :symbol AND exchange = :exchange
+        ORDER BY is_active DESC, id ASC LIMIT 1
+    """), {"symbol": symbol, "exchange": exchange}).scalar()
+
+    if existing_id:
+        instrument_id = db.execute(text("""
+            UPDATE instruments SET
+                segment = :segment, instrument_type = :instrument_type,
+                instrument_token = :instrument_token, lot_size = :lot_size,
+                tick_size = :tick_size, expiry_date = :expiry_date,
+                strike_price = :strike_price, is_active = TRUE, updated_at = NOW()
+            WHERE id = :id RETURNING id
+        """), {**values, "id": existing_id}).scalar_one()
+    else:
+        instrument_id = db.execute(text("""
+            INSERT INTO instruments (
+                symbol, exchange, segment, instrument_type, instrument_token,
+                lot_size, tick_size, expiry_date, strike_price, is_active,
+                created_at, updated_at
+            ) VALUES (
+                :symbol, :exchange, :segment, :instrument_type, :instrument_token,
+                :lot_size, :tick_size, :expiry_date, :strike_price, TRUE,
+                NOW(), NOW()
+            )
+            ON CONFLICT (instrument_token) DO UPDATE SET
+                symbol = EXCLUDED.symbol, exchange = EXCLUDED.exchange,
+                segment = EXCLUDED.segment, instrument_type = EXCLUDED.instrument_type,
+                lot_size = EXCLUDED.lot_size, tick_size = EXCLUDED.tick_size,
+                expiry_date = EXCLUDED.expiry_date, strike_price = EXCLUDED.strike_price,
+                is_active = TRUE, updated_at = NOW()
+            RETURNING id
+        """), values).scalar_one()
+
+    db.execute(text("""
+        UPDATE instrument_watchlists
+        SET instrument_id = :instrument_id, updated_at = NOW()
+        WHERE id = :tracker_id
+    """), {"instrument_id": instrument_id, "tracker_id": tracker["id"]})
+    db.commit()
+    tracker["instrument_id"] = instrument_id
+    log.info("Linked tracker %s to Kite instrument id=%s", symbol, instrument_id)
+    return instrument_id
 
 
 # ── Technical indicators ──────────────────────────────────────────────────────
@@ -606,6 +674,8 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         w_resist  = inst.get("resistance_level")
 
         try:
+            if ensure_catalog_instrument(kite, db, inst) is None:
+                continue
             wexchange = inst.get("exchange") or "NSE"
             wqkey     = f"{wexchange}:{wsymbol}"
             wq        = kite.quote([wqkey])

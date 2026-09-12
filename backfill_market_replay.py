@@ -19,7 +19,7 @@ load_dotenv()
 
 import pandas as pd
 from sqlalchemy import text
-from db_values import normalize_db_params
+from database.records_validation.db_values import normalize_db_params
 from indicators.calculate_basic_indicator import calculate_basic_indicators
 from trading.database import get_db
 
