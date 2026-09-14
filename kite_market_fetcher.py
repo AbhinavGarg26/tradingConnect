@@ -14,37 +14,39 @@ Requirements:
 import json
 import logging
 from datetime import datetime, timedelta
-from zoneinfo  import ZoneInfo
-from typing    import Optional
+from zoneinfo import ZoneInfo
+from typing import Optional
 
 import pandas as pd
 from apscheduler.schedulers.blocking import BlockingScheduler
-from dotenv         import load_dotenv
+from dotenv import load_dotenv
 
 from engines.sr_engine import compute_sr_levels
-from database.records_validation.db_values          import normalize_db_params
-from indicators.adx     import compute_adx
-from indicators.macd    import calculate_macd
+from database.records_validation.db_values import normalize_db_params
+from indicators.adx import compute_adx
+from indicators.macd import calculate_macd
 from database.records_validation.instrument_catalog import catalog_values
 from database.market_snapshot import sync_timeframe_snapshots
-from market.tracks.price_movement     import track_price_movement
-from market.alerts.proximity_alerts   import ALERT_WINDOW, alert_is_due, proximity_condition
+from market.tracks.price_movement import track_price_movement
+from market.alerts.proximity_alerts import ALERT_WINDOW, alert_is_due, proximity_condition
 
 load_dotenv()
-from sqlalchemy     import text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from trading.database   import get_db
-from trading.alerts     import Alerter
+from trading.database import get_db
+from trading.alerts import Alerter
 from trading.service_runtime import ServiceRuntimeMonitor
 from trading.repositories import MarketConfigRepo
 from trading.user_token import fetch_user_token
 
 try:
     import talib
+
     USE_TALIB = True
 except ImportError:
     import pandas_ta as pta
+
     USE_TALIB = False
 
 load_dotenv()
@@ -57,21 +59,21 @@ IST = ZoneInfo("Asia/Kolkata")
 # ── Config ────────────────────────────────────────────────────────────────────
 # Tokens used for historical_data() calls
 INSTRUMENT_TOKENS = {
-    "NIFTY 50":   256265,
+    "NIFTY 50": 256265,
     "NIFTY BANK": 260105,
-    "INDIA VIX":  264969,
+    "INDIA VIX": 264969,
 }
 
 # Quote keys used for kite.quote() — format is "EXCHANGE:TRADINGSYMBOL"
 # kite.quote() does NOT accept instrument tokens, only trading symbols
 QUOTE_KEYS = {
-    "NIFTY 50":   "NSE:NIFTY 50",
+    "NIFTY 50": "NSE:NIFTY 50",
     "NIFTY BANK": "NSE:NIFTY BANK",
-    "INDIA VIX":  "NSE:INDIA VIX",
+    "INDIA VIX": "NSE:INDIA VIX",
 }
 
 # Days of daily candles fetched to warm up sr_engine for live S/R
-SR_DAILY_LOOKBACK_DAYS    = 60
+SR_DAILY_LOOKBACK_DAYS = 60
 # Days of 15-min candles for volume profile
 SR_INTRADAY_LOOKBACK_DAYS = 30
 
@@ -199,23 +201,23 @@ def insert_market_snapshot(db: Session, data: dict) -> None:
     """Insert a new snapshot row (keeps full history for chart sparklines)."""
     data = normalize_db_params(data)
     cols = ", ".join(data.keys())
-    ph   = ", ".join(f":{k}" for k in data.keys())
+    ph = ", ".join(f":{k}" for k in data.keys())
     db.execute(text(f"INSERT INTO market_snapshots ({cols}) VALUES ({ph})"), data)
     db.commit()
 
 
 def update_watchlist_prices(
-    db:               Session,
-    symbol:           str,
-    ltp:              float,
-    day_pct:          float,
-    rsi:              Optional[float],
-    vol_ratio:        Optional[float],
-    adx:              Optional[float],
-    macd:             Optional[float],
-    macd_signal:      Optional[float],
-    vwap:             Optional[float],
-    daily_emas:       dict,
+        db: Session,
+        symbol: str,
+        ltp: float,
+        day_pct: float,
+        rsi: Optional[float],
+        vol_ratio: Optional[float],
+        adx: Optional[float],
+        macd: Optional[float],
+        macd_signal: Optional[float],
+        vwap: Optional[float],
+        daily_emas: dict,
 ) -> None:
     db.execute(
         text("""
@@ -237,15 +239,15 @@ def update_watchlist_prices(
              WHERE symbol = :symbol
         """),
         {
-            "ltp":      ltp,
-            "day_pct":  day_pct,
-            "rsi":      rsi,
-            "adx":      adx,
-            "macd":     macd,
+            "ltp": ltp,
+            "day_pct": day_pct,
+            "rsi": rsi,
+            "adx": adx,
+            "macd": macd,
             "macd_signal": macd_signal,
-            "vwap":     vwap,
-            "vol_ratio":vol_ratio,
-            "symbol":   symbol,
+            "vwap": vwap,
+            "vol_ratio": vol_ratio,
+            "symbol": symbol,
             "ema_65": daily_emas.get(65),
             "ema_100": daily_emas.get(100),
             "ema_200": daily_emas.get(200),
@@ -256,10 +258,10 @@ def update_watchlist_prices(
 
 
 def update_watchlist_quote(
-    db: Session,
-    tracker_id,
-    ltp: float,
-    day_pct: float,
+        db: Session,
+        tracker_id,
+        ltp: float,
+        day_pct: float,
 ) -> None:
     """Persist a newly discovered instrument's quote before slower history work."""
     db.execute(text("""
@@ -300,7 +302,7 @@ def ensure_catalog_instrument(kite, db: Session, tracker: dict) -> Optional[int]
     matches = [
         row for row in _instrument_master_cache[master_key]
         if str(row.get("tradingsymbol", "")).upper() == symbol
-        and str(row.get("exchange", "")).upper() == exchange
+           and str(row.get("exchange", "")).upper() == exchange
     ]
     if not matches:
         log.warning("Kite instrument master has no exact match for %s:%s", exchange, symbol)
@@ -380,11 +382,11 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
     latest = enriched.iloc[-1]
 
     if USE_TALIB:
-        rsi   = talib.RSI(c, timeperiod=14).iloc[-1]
+        rsi = talib.RSI(c, timeperiod=14).iloc[-1]
         ema20 = talib.EMA(c, timeperiod=20).iloc[-1]
         ema50 = talib.EMA(c, timeperiod=50).iloc[-1]
     else:
-        rsi   = pta.rsi(c, length=14).iloc[-1]
+        rsi = pta.rsi(c, length=14).iloc[-1]
         ema20 = pta.ema(c, length=20).iloc[-1]
         ema50 = pta.ema(c, length=50).iloc[-1]
 
@@ -399,10 +401,10 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
         # historical_data returns 'date' key; ensure column exists
         today_candles = candles
     else:
-        today_date    = pd.Timestamp.now(tz="Asia/Kolkata").date()
+        today_date = pd.Timestamp.now(tz="Asia/Kolkata").date()
         today_candles = candles[
             pd.to_datetime(candles["date"]).dt.tz_convert("Asia/Kolkata").dt.date == today_date
-        ]
+            ]
 
     if today_candles.empty:
         # Fallback: use all candles (e.g. called after hours)
@@ -410,20 +412,20 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
 
     tv = today_candles["volume"]
     typical_price = (today_candles["high"] + today_candles["low"] + today_candles["close"]) / 3
-    cumvol        = tv.cumsum()
-    vwap_series   = (typical_price * tv).cumsum() / cumvol
-    vwap          = vwap_series.iloc[-1] if not vwap_series.empty else float("nan")
+    cumvol = tv.cumsum()
+    vwap_series = (typical_price * tv).cumsum() / cumvol
+    vwap = vwap_series.iloc[-1] if not vwap_series.empty else float("nan")
 
     return {
-        "rsi_14":        _safe(rsi),
-        "ema_20":        _safe(ema20),
-        "ema_50":        _safe(ema50),
-        "vwap":          _safe(vwap),
-        "adx_14":        _safe(latest.get("adx")),
-        "macd_value":    _safe(latest.get("macd_line")),
-        "macd_signal":   _safe(latest.get("signal_line")),
-        "volume":        int(tv.iloc[-1]) if not today_candles.empty else int(v.iloc[-1]),
-        "avg_volume_20d":int(avg_vol) if avg_vol == avg_vol else None,
+        "rsi_14": _safe(rsi),
+        "ema_20": _safe(ema20),
+        "ema_50": _safe(ema50),
+        "vwap": _safe(vwap),
+        "adx_14": _safe(latest.get("adx")),
+        "macd_value": _safe(latest.get("macd_line")),
+        "macd_signal": _safe(latest.get("signal_line")),
+        "volume": int(tv.iloc[-1]) if not today_candles.empty else int(v.iloc[-1]),
+        "avg_volume_20d": int(avg_vol) if avg_vol == avg_vol else None,
     }
 
 
@@ -515,9 +517,9 @@ def mark_proximity_alerts_sent(db: Session, alerts: list[dict], now: datetime) -
 
 def compute_mood_score(day_pct, week_pct, month_pct, rsi, above_vwap, vol_ratio) -> int:
     score = 0
-    score += max(min((day_pct   or 0) * 4,  20), -20)
-    score += max(min((week_pct  or 0) * 2,  10), -10)
-    score += max(min((month_pct or 0) * 1,  10), -10)
+    score += max(min((day_pct or 0) * 4, 20), -20)
+    score += max(min((week_pct or 0) * 2, 10), -10)
+    score += max(min((month_pct or 0) * 1, 10), -10)
     if rsi:
         score += max(min((rsi - 50) * 0.5, 25), -25)
     score += 15 if above_vwap else -15
@@ -542,17 +544,17 @@ def trend_direction(score: int) -> str:
 
 def generate_trade_signals(snap: dict) -> list:
     signals = []
-    ltp  = snap.get("ltp", 0)
-    rsi  = snap.get("rsi_14")
+    ltp = snap.get("ltp", 0)
+    rsi = snap.get("rsi_14")
     vwap = snap.get("vwap")
-    s1   = snap.get("support_1")
-    r1   = snap.get("resistance_1")
+    s1 = snap.get("support_1")
+    r1 = snap.get("resistance_1")
 
     if not all([ltp, rsi, vwap, s1, r1]):
         return signals
 
     if abs(ltp - s1) / s1 < 0.005 and 30 <= rsi <= 45:
-        sl     = round(s1 * 0.995, 2)
+        sl = round(s1 * 0.995, 2)
         target = round(ltp + (ltp - sl) * 2, 2)
         signals.append({
             "direction": "long", "strategy": "Support Bounce", "strength": "moderate",
@@ -561,7 +563,7 @@ def generate_trade_signals(snap: dict) -> list:
         })
 
     if ltp > vwap and snap.get("day_change_pct", 0) > 0.3:
-        sl     = round(vwap * 0.998, 2)
+        sl = round(vwap * 0.998, 2)
         target = round(ltp + (ltp - sl) * 1.5, 2)
         signals.append({
             "direction": "long", "strategy": "VWAP Reclaim", "strength": "moderate",
@@ -570,7 +572,7 @@ def generate_trade_signals(snap: dict) -> list:
         })
 
     if abs(ltp - r1) / r1 < 0.004 and rsi > 65:
-        sl     = round(r1 * 1.005, 2)
+        sl = round(r1 * 1.005, 2)
         target = round(ltp - (sl - ltp) * 2, 2)
         signals.append({
             "direction": "short", "strategy": "Resistance Rejection", "strength": "moderate",
@@ -735,7 +737,7 @@ def process_instrument_catalog_requests() -> None:
                     if master_key not in _instrument_master_cache:
                         _instrument_master_cache[master_key] = kite.instruments(kite_exchange)
                     match = next((row for row in _instrument_master_cache[master_key]
-                        if str(row.get("tradingsymbol", "")).strip().upper() == symbol), None)
+                                  if str(row.get("tradingsymbol", "")).strip().upper() == symbol), None)
                     if not match:
                         db.execute(text("""
                             UPDATE instrument_catalog_requests
@@ -796,17 +798,17 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     """Core fetch logic — separated so get_db() context wraps the whole run."""
 
     # ── NIFTY 50 — full indicator + S/R fetch ────────────────────────────────
-    token     = INSTRUMENT_TOKENS["NIFTY 50"]
+    token = INSTRUMENT_TOKENS["NIFTY 50"]
     quote_key = QUOTE_KEYS["NIFTY 50"]
-    quote     = kite.quote([quote_key])[quote_key]
+    quote = kite.quote([quote_key])[quote_key]
     if not quote_is_current_session(quote, now):
         log.info("No current-session Kite quote — market holiday or stale feed; skipping")
         return
-    ohlc    = quote["ohlc"]
+    ohlc = quote["ohlc"]
 
     from_5min = (now - timedelta(days=2)).replace(hour=9, minute=15, second=0, microsecond=0)
-    candles   = kite.historical_data(token, from_5min, now, "5minute")
-    df_5min   = pd.DataFrame(candles)
+    candles = kite.historical_data(token, from_5min, now, "5minute")
+    df_5min = pd.DataFrame(candles)
 
     if df_5min.empty:
         log.warning("No 5-min candle data for NIFTY 50 — skipping run")
@@ -814,15 +816,17 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
 
     indicators = compute_indicators(df_5min)
 
-    ltp        = float(quote["last_price"])
+    ltp = float(quote["last_price"])
     prev_close = float(ohlc["close"])
-    day_pct    = round((ltp - prev_close) / prev_close * 100, 2)
+    day_pct = round((ltp - prev_close) / prev_close * 100, 2)
 
     # Week / month % from daily candles
     daily = kite.historical_data(token, now - timedelta(days=35), now, "day")
-    df_d  = pd.DataFrame(daily)
-    week_pct  = round((ltp - float(df_d["close"].iloc[-6]))  / float(df_d["close"].iloc[-6])  * 100, 2) if len(df_d) >= 6  else None
-    month_pct = round((ltp - float(df_d["close"].iloc[-22])) / float(df_d["close"].iloc[-22]) * 100, 2) if len(df_d) >= 22 else None
+    df_d = pd.DataFrame(daily)
+    week_pct = round((ltp - float(df_d["close"].iloc[-6])) / float(df_d["close"].iloc[-6]) * 100, 2) if len(
+        df_d) >= 6 else None
+    month_pct = round((ltp - float(df_d["close"].iloc[-22])) / float(df_d["close"].iloc[-22]) * 100, 2) if len(
+        df_d) >= 22 else None
 
     # S/R via sr_engine — daily + 15-min for confluence
     df_daily_sr = pd.DataFrame(
@@ -845,43 +849,43 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         df_15min_sr["date"] = pd.to_datetime(df_15min_sr["date"])
 
     sr_levels = compute_sr_levels(
-        daily_df    = df_daily_sr,
-        intraday_df = df_15min_sr if not df_15min_sr.empty else pd.DataFrame(),
-        ref_price   = ltp,
+        daily_df=df_daily_sr,
+        intraday_df=df_15min_sr if not df_15min_sr.empty else pd.DataFrame(),
+        ref_price=ltp,
     )
 
     above_vwap = ltp > indicators["vwap"] if indicators["vwap"] else False
-    vol_ratio  = round(indicators["volume"] / indicators["avg_volume_20d"], 2) if indicators["avg_volume_20d"] else None
-    score      = compute_mood_score(day_pct, week_pct or 0, month_pct or 0,
-                                    indicators["rsi_14"], above_vwap, vol_ratio)
+    vol_ratio = round(indicators["volume"] / indicators["avg_volume_20d"], 2) if indicators["avg_volume_20d"] else None
+    score = compute_mood_score(day_pct, week_pct or 0, month_pct or 0,
+                               indicators["rsi_14"], above_vwap, vol_ratio)
 
     snap = {
         **indicators,
-        "support_1":    sr_levels.get("support_1"),
-        "support_2":    sr_levels.get("support_2"),
+        "support_1": sr_levels.get("support_1"),
+        "support_2": sr_levels.get("support_2"),
         "resistance_1": sr_levels.get("resistance_1"),
         "resistance_2": sr_levels.get("resistance_2"),
-        "symbol":           "NIFTY 50",
-        "ltp":              ltp,
-        "open_price":       float(ohlc["open"]),
-        "high_price":       float(ohlc["high"]),
-        "low_price":        float(ohlc["low"]),
-        "close_price":      prev_close,
-        "day_change_pct":   day_pct,
-        "week_change_pct":  week_pct,
+        "symbol": "NIFTY 50",
+        "ltp": ltp,
+        "open_price": float(ohlc["open"]),
+        "high_price": float(ohlc["high"]),
+        "low_price": float(ohlc["low"]),
+        "close_price": prev_close,
+        "day_change_pct": day_pct,
+        "week_change_pct": week_pct,
         "month_change_pct": month_pct,
-        "mood_score":       score,
-        "mood_label":       mood_label_from_score(score),
-        "trend_direction":  trend_direction(score),
-        "trade_signals":    json.dumps(generate_trade_signals({
+        "mood_score": score,
+        "mood_label": mood_label_from_score(score),
+        "trend_direction": trend_direction(score),
+        "trade_signals": json.dumps(generate_trade_signals({
             "ltp": ltp, "rsi_14": indicators["rsi_14"],
             "vwap": indicators["vwap"], "day_change_pct": day_pct,
             **sr_levels,
         })),
         "vwap": indicators["vwap"],
         "captured_at": now,
-        "created_at":  now,
-        "updated_at":  now,
+        "created_at": now,
+        "updated_at": now,
     }
 
     if should_persist_market_snapshot(snap["symbol"]):
@@ -894,21 +898,21 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     # ── BankNifty + VIX — LTP + day% only ───────────────────────────────────
     for label in ["NIFTY BANK", "INDIA VIX"]:
         qkey = QUOTE_KEYS[label]
-        q    = kite.quote([qkey])[qkey]
-        l    = float(q["last_price"])
-        pc   = float(q["ohlc"]["close"])
+        q = kite.quote([qkey])[qkey]
+        l = float(q["last_price"])
+        pc = float(q["ohlc"]["close"])
         dpct = round((l - pc) / pc * 100, 2)
         insert_market_snapshot(db, {
-            "symbol":         label,
-            "ltp":            l,
-            "open_price":     float(q["ohlc"]["open"]),
-            "high_price":     float(q["ohlc"]["high"]),
-            "low_price":      float(q["ohlc"]["low"]),
-            "close_price":    pc,
+            "symbol": label,
+            "ltp": l,
+            "open_price": float(q["ohlc"]["open"]),
+            "high_price": float(q["ohlc"]["high"]),
+            "low_price": float(q["ohlc"]["low"]),
+            "close_price": pc,
             "day_change_pct": dpct,
-            "captured_at":    now,
-            "created_at":     now,
-            "updated_at":     now,
+            "captured_at": now,
+            "created_at": now,
+            "updated_at": now,
         })
 
     # ── Watchlist live price refresh ─────────────────────────────────────────
@@ -919,22 +923,22 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         MarketConfigRepo.get(db, user_id, "support_zone_buffer", 0.3) or 0.3
     )
     for inst in get_active_watchlist(db):
-        wsymbol   = inst["symbol"]
+        wsymbol = inst["symbol"]
         w_support = inst.get("support_level")
-        w_resist  = inst.get("resistance_level")
+        w_resist = inst.get("resistance_level")
 
         try:
             if ensure_catalog_instrument(kite, db, inst) is None:
                 continue
             wexchange = inst.get("exchange") or "NSE"
-            wqkey     = f"{wexchange}:{wsymbol}"
-            wq        = kite.quote([wqkey])
-            wqd       = wq.get(wqkey, {})
+            wqkey = f"{wexchange}:{wsymbol}"
+            wq = kite.quote([wqkey])
+            wqd = wq.get(wqkey, {})
             if not wqd:
                 continue
 
-            w_ltp  = float(wqd["last_price"])
-            w_pc   = float(wqd["ohlc"]["close"])
+            w_ltp = float(wqd["last_price"])
+            w_pc = float(wqd["ohlc"]["close"])
             w_dpct = round((w_ltp - w_pc) / w_pc * 100, 2)
 
             hydrate_missing_analysis_snapshots(
@@ -944,19 +948,19 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
             wrsi = wvol_ratio = wadx = wmacd = wmacd_signal = wvwap = None
             daily_emas = {}
             try:
-                wc  = kite.historical_data(
+                wc = kite.historical_data(
                     wqd["instrument_token"],
                     now - timedelta(days=2), now, "5minute"
                 )
                 wdf = pd.DataFrame(wc)
                 if not wdf.empty and len(wdf) >= 15:
-                    ind        = compute_indicators(wdf)
-                    wrsi       = ind["rsi_14"]
+                    ind = compute_indicators(wdf)
+                    wrsi = ind["rsi_14"]
                     wvol_ratio = round(ind["volume"] / ind["avg_volume_20d"], 2) if ind["avg_volume_20d"] else None
-                    wadx        = ind["adx_14"]
-                    wmacd       = ind["macd_value"]
+                    wadx = ind["adx_14"]
+                    wmacd = ind["macd_value"]
                     wmacd_signal = ind["macd_signal"]
-                    wvwap       = ind["vwap"]
+                    wvwap = ind["vwap"]
                     daily_emas = get_daily_emas(kite, int(wqd["instrument_token"]), now)
             except Exception as e:
                 log.debug(f"  Indicator fetch skipped for {wsymbol}: {e}")
@@ -968,7 +972,7 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
                     log.warning("Daily EMA fetch skipped for %s: %s", wsymbol, e)
 
             pct_sup = round((w_ltp - float(w_support)) / float(w_support) * 100, 2) if w_support else None
-            pct_res = round((float(w_resist) - w_ltp)  / float(w_resist)  * 100, 2) if w_resist  else None
+            pct_res = round((float(w_resist) - w_ltp) / float(w_resist) * 100, 2) if w_resist else None
 
             update_watchlist_prices(
                 db, wsymbol, w_ltp, w_dpct, wrsi, wvol_ratio,
