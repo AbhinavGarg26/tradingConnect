@@ -76,8 +76,10 @@ def process_open_positions(
     exit_executor: MarketExitExecutor,
     entry_price_tracker: CurrentEntryPriceTracker,
     publish_live_state: bool = False,
+    positions_response: dict | None = None,
 ):
-    positions_response = kite.positions()
+    if positions_response is None:
+        positions_response = kite.positions()
     net_positions = positions_response.get("net", [])
     open_positions = [position for position in net_positions if position["quantity"] > 0]
     active_keys = {_position_key(position) for position in open_positions}
@@ -140,20 +142,17 @@ def process_open_positions(
             logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
 
         pnl_pct = ((ltp - buy_price) / buy_price) * 100
-        atr_trail_distance_pct = _atr_trail_distance_pct(
-            price_stream.candle_snapshots(token, 1), buy_price
-        )
-        logger.info(
-            "[%s] Qty: %s | Buy Avg: ₹%.2f | Live LTP: ₹%.2f | P&L: %.2f%%",
-            symbol, position["quantity"], buy_price, ltp, pnl_pct,
-        )
+        if publish_live_state:
+            logger.info(
+                "[%s] Qty: %s | Buy Avg: ₹%.2f | Live LTP: ₹%.2f | P&L: %.2f%%",
+                symbol, position["quantity"], buy_price, ltp, pnl_pct,
+            )
 
         exit_reason = stop_tracker.evaluate(
             position_key=position_key,
             pnl_pct=pnl_pct,
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
-            atr_trail_distance_pct=atr_trail_distance_pct,
         )
         if exit_reason:
             stop_state = stop_tracker.snapshot(position_key) or {}

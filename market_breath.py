@@ -1,5 +1,7 @@
 import time
 import logging
+import threading
+from datetime import datetime
 from dotenv import load_dotenv
 
 from analytics.kite_sync_orders import trigger_summary_updates
@@ -28,7 +30,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 runtime_monitor = ServiceRuntimeMonitor("market_breath", logger)
 
-POLL_INTERVAL = 0.5  # Time in seconds
+ACTIVE_POLL_INTERVAL = 0.25
+FINAL_SESSION_POLL_INTERVAL = 0.10
+IDLE_POLL_INTERVAL = 2.0
+FINAL_SESSION_START_HOUR = 15
+BROKER_POSITION_REFRESH_INTERVAL = 1.0
 PCT_LOSS = 5.8
 
 IGNORE_SYMBOL = []
@@ -50,6 +56,34 @@ trade_reconciler = TradeReconciliationScheduler(interval_seconds=30)
 NIFTY_SYMBOL = "NIFTY 50"
 NIFTY_TOKEN = 256265
 
+
+def _position_poll_interval(position_count: int, now: datetime | None = None) -> float:
+    """Poll fastest during the volatile final half-hour when positions are open."""
+    if position_count == 0:
+        return IDLE_POLL_INTERVAL
+    current = now or datetime.now()
+    if current.hour >= FINAL_SESSION_START_HOUR:
+        return FINAL_SESSION_POLL_INTERVAL
+    return ACTIVE_POLL_INTERVAL
+
+
+def _warm_market_snapshots() -> None:
+    """Warm analytics in the background; never delay live position protection."""
+    try:
+        background_kite, _user_id = fetch_user_token(logger)
+        for interval, label in timeframe_mappings:
+            with get_db() as db:
+                sync_timeframe_snapshots(
+                    background_kite,
+                    db,
+                    NIFTY_SYMBOL,
+                    NIFTY_TOKEN,
+                    interval=interval,
+                    db_timeframe_label=label,
+                )
+    except BaseException as exc:
+        logger.exception("Background market snapshot warmup failed: %s", exc)
+
 if __name__ == "__main__":
     runtime_monitor.start("Starting position manager")
     try:
@@ -69,12 +103,19 @@ if __name__ == "__main__":
     price_stream.start()
     pos_count = 0
     last_live_state_sync = 0.0
+    last_position_refresh = 0.0
+    positions_response = None
 
-    logger.info(f"Starting Position Manager with {POLL_INTERVAL}s interval...")
-
-    for interval, label in timeframe_mappings:
-        with get_db() as db:
-            sync_timeframe_snapshots(kite, db, NIFTY_SYMBOL, NIFTY_TOKEN, interval=interval, db_timeframe_label=label)
+    logger.info(
+        "Starting Position Manager (%.2fs active, %.2fs final-session interval)...",
+        ACTIVE_POLL_INTERVAL,
+        FINAL_SESSION_POLL_INTERVAL,
+    )
+    threading.Thread(
+        target=_warm_market_snapshots,
+        name="market-snapshot-warmup",
+        daemon=True,
+    ).start()
 
     try:
         with get_db() as db:
@@ -100,6 +141,13 @@ if __name__ == "__main__":
                     active_symbols = trade_reconciler.run_if_due(kite, db)
                     now_monotonic = time.monotonic()
                     publish_live_state = now_monotonic - last_live_state_sync >= 2.0
+                    if (
+                        positions_response is None
+                        or now_monotonic - last_position_refresh
+                        >= BROKER_POSITION_REFRESH_INTERVAL
+                    ):
+                        positions_response = kite.positions()
+                        last_position_refresh = now_monotonic
 
                 # 2. Step 2: Recalculate summaries for updated symbols
                     if active_symbols:
@@ -118,6 +166,7 @@ if __name__ == "__main__":
                         exit_executor,
                         entry_price_tracker,
                         publish_live_state,
+                        positions_response=positions_response,
                     )
 
                     if publish_live_state:
@@ -147,8 +196,7 @@ if __name__ == "__main__":
                 logger.exception("Error encountered during monitoring cycle: %s", e)
                 runtime_monitor.exception(e, "Position monitoring cycle")
 
-            interval = POLL_INTERVAL * (10 if pos_count == 0 else 1)
-            time.sleep(interval)
+            time.sleep(_position_poll_interval(pos_count))
     finally:
         price_stream.stop()
         runtime_monitor.stop("Position manager stopped")

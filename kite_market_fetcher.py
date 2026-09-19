@@ -1246,7 +1246,7 @@ if __name__ == "__main__":
     scheduler.add_job(
         process_instrument_catalog_requests,
         "interval",
-        seconds=3,
+        seconds=5,
         id="instrument_catalog_requests",
         max_instances=1,
         coalesce=True,
@@ -1261,6 +1261,18 @@ if __name__ == "__main__":
         max_instances=1,
         coalesce=True,
         misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        refresh_final_session_watchlist_quotes,
+        "cron",
+        day_of_week="mon-fri",
+        hour="15",
+        minute="0-35",
+        second="*/30",
+        id="final_session_watchlist_quotes",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=20,
     )
     try:
         scheduler.start()

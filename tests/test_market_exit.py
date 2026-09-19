@@ -45,6 +45,9 @@ POSITION = {
 
 
 class MarketExitExecutorTests(unittest.TestCase):
+    def test_profit_ladder_stop_is_a_market_exit(self):
+        self.assertTrue(MarketExitExecutor._is_hard_exit("PROFIT_LADDER_STOP"))
+
     def test_market_exit_is_deduplicated_while_position_reconciles(self):
         kite = FakeKite()
         executor = MarketExitExecutor(kite, logging.getLogger("test"))
