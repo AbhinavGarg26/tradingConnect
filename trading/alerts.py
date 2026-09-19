@@ -135,6 +135,26 @@ class Alerter:
 
         self.send("\n".join(lines))
 
+    def daily_volume_rvols(
+        self, alerts: list[dict], captured_at: datetime, market_close: bool = False
+    ) -> None:
+        """Send one session-aware daily relative-volume alert."""
+        if not alerts:
+            return
+
+        title = "🔔 <b>Closing Daily Volume Alert</b>" if market_close else "🔔 <b>Time-Adjusted Daily Volume Alert</b>"
+        lines = [title, captured_at.strftime("%d %b %Y, %I:%M %p %Z"), ""]
+        for alert in sorted(alerts, key=lambda item: item["volume_ratio"], reverse=True):
+            direction = "🟢" if alert["day_pct"] >= 0 else "🔴"
+            lines.extend([
+                f"{direction} <b>{alert['symbol']}</b> | LTP: {alert['ltp']:.2f} | Day: {alert['day_pct']:+.2f}%",
+                f"Volume: {alert['volume']:,} | Expected: {alert['expected_volume']:,} | RVOL: {alert['volume_ratio']:.2f}x",
+                f"Baseline: {alert['sessions']} completed sessions ({alert['mode']})",
+                "",
+            ])
+
+        self.send("\n".join(lines).rstrip())
+
     def price_movements(self, movements: list[dict], captured_at: datetime) -> None:
         """Send one consolidated alert for tracking-point price moves."""
         if not movements:

@@ -77,9 +77,10 @@ SR_DAILY_LOOKBACK_DAYS = 60
 # Days of 15-min candles for volume profile
 SR_INTRADAY_LOOKBACK_DAYS = 30
 
-# A current 5-minute candle at or above this multiple of the preceding
-# 20-candle average is treated as a volume surge.
-VOLUME_SURGE_RATIO = 1.5
+# Daily relative-volume alerts compare cumulative volume with the average
+# cumulative volume at the same time across the previous trading sessions.
+DAILY_RVOL_LOOKBACK_SESSIONS = 20
+DAILY_RVOL_ALERT_RATIO = 1.5
 MOVEMENT_ALERT_PCT = 1.0
 
 # Anchors live for the lifetime of the continuously running fetcher. An anchor
@@ -429,6 +430,73 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
     }
 
 
+def daily_rvol_metrics(
+    intraday_candles: list[dict],
+    daily_candles: list[dict],
+    now: datetime,
+    market_close: bool = False,
+) -> Optional[dict]:
+    """Return time-adjusted daily RVOL, or completed-day RVOL after close.
+
+    Intraday volume is only comparable with the same elapsed session time on
+    prior days. At 10:00, for example, it uses each prior day's volume from
+    09:15 through 10:00 rather than comparing with a full trading day.
+    """
+    if not intraday_candles:
+        return None
+
+    frame = pd.DataFrame(intraday_candles)
+    required = {"date", "volume"}
+    if frame.empty or not required.issubset(frame.columns):
+        return None
+
+    timestamps = pd.to_datetime(frame["date"])
+    if timestamps.dt.tz is None:
+        timestamps = timestamps.dt.tz_localize(IST)
+    else:
+        timestamps = timestamps.dt.tz_convert(IST)
+    frame = frame.assign(timestamp=timestamps, volume=pd.to_numeric(frame["volume"], errors="coerce").fillna(0))
+    frame = frame[(frame["timestamp"].dt.weekday < 5) & (frame["timestamp"].dt.time >= datetime.strptime("09:15", "%H:%M").time())]
+    if frame.empty:
+        return None
+
+    now_ist = now.astimezone(IST) if now.tzinfo else now.replace(tzinfo=IST)
+    today = now_ist.date()
+    if market_close:
+        today_volume = int(frame.loc[frame["timestamp"].dt.date == today, "volume"].sum())
+        daily_frame = pd.DataFrame(daily_candles)
+        if daily_frame.empty or not {"date", "volume"}.issubset(daily_frame.columns):
+            return None
+        daily_dates = pd.to_datetime(daily_frame["date"])
+        if daily_dates.dt.tz is None:
+            daily_dates = daily_dates.dt.tz_localize(IST)
+        else:
+            daily_dates = daily_dates.dt.tz_convert(IST)
+        completed = pd.to_numeric(daily_frame.assign(timestamp=daily_dates).loc[
+            daily_dates.dt.date < today, "volume"
+        ], errors="coerce").dropna().tail(DAILY_RVOL_LOOKBACK_SESSIONS)
+        expected_volume = completed.mean() if not completed.empty else 0
+        mode = "completed daily"
+    else:
+        cutoff = now_ist.time()
+        comparable = frame[frame["timestamp"].dt.time < cutoff]
+        volumes_by_day = comparable.groupby(comparable["timestamp"].dt.date)["volume"].sum()
+        today_volume = int(volumes_by_day.get(today, 0))
+        expected = volumes_by_day[volumes_by_day.index < today].tail(DAILY_RVOL_LOOKBACK_SESSIONS)
+        expected_volume = expected.mean() if not expected.empty else 0
+        mode = "time-adjusted daily"
+
+    if today_volume <= 0 or not expected_volume or pd.isna(expected_volume):
+        return None
+    return {
+        "volume": today_volume,
+        "expected_volume": int(round(expected_volume)),
+        "volume_ratio": round(today_volume / float(expected_volume), 2),
+        "sessions": int(len(completed) if market_close else len(expected)),
+        "mode": mode,
+    }
+
+
 def get_daily_emas(kite, instrument_token: int, now: datetime) -> dict:
     cache_key = (instrument_token, now.date())
     if cache_key in _daily_ema_cache:
@@ -706,6 +774,83 @@ def discover_new_watchlist_instruments() -> None:
         log.error("Watchlist discovery failed: %s", e, exc_info=True)
 
 
+def refresh_final_session_watchlist_quotes() -> None:
+    """Update tracker LTPs near the close without running indicator backfills."""
+    try:
+        kite, _user_id = fetch_user_token(log)
+        with get_db() as db:
+            trackers = get_active_watchlist(db)
+            quote_keys = [
+                f"{str(item.get('exchange') or 'NSE').upper()}:{str(item['symbol']).upper()}"
+                for item in trackers
+            ]
+            if not quote_keys:
+                return
+            quotes = kite.quote(quote_keys)
+            for tracker, quote_key in zip(trackers, quote_keys):
+                quote = quotes.get(quote_key, {})
+                if quote.get("last_price") is None:
+                    continue
+                ltp = float(quote["last_price"])
+                previous_close = (quote.get("ohlc") or {}).get("close")
+                day_pct = (
+                    round((ltp - float(previous_close)) / float(previous_close) * 100, 2)
+                    if previous_close else 0.0
+                )
+                update_watchlist_quote(db, tracker["id"], ltp, day_pct)
+    except SystemExit:
+        log.warning("Final-session quote refresh skipped: Kite token unavailable")
+    except Exception as exc:
+        log.error("Final-session quote refresh failed: %s", exc, exc_info=True)
+
+
+def send_daily_volume_alerts(market_close: bool = False) -> None:
+    """Send a consolidated, session-aware daily volume alert for the watchlist."""
+    now = datetime.now(IST)
+    if now.weekday() >= 5:
+        return
+
+    try:
+        kite, user_id = fetch_user_token(log)
+        with get_db() as db:
+            alerts: list[dict] = []
+            for tracker in get_active_watchlist(db):
+                if ensure_catalog_instrument(kite, db, tracker) is None:
+                    continue
+                symbol = str(tracker["symbol"]).upper()
+                exchange = str(tracker.get("exchange") or "NSE").upper()
+                quote_key = f"{exchange}:{symbol}"
+                quote = kite.quote([quote_key]).get(quote_key, {})
+                token = quote.get("instrument_token")
+                if not token:
+                    continue
+
+                intraday = kite.historical_data(token, now - timedelta(days=35), now, "5minute")
+                daily = kite.historical_data(token, now - timedelta(days=45), now, "day") if market_close else []
+                metrics = daily_rvol_metrics(intraday, daily, now, market_close=market_close)
+                if not metrics or metrics["volume_ratio"] < DAILY_RVOL_ALERT_RATIO:
+                    continue
+
+                ltp = float(quote.get("last_price") or 0)
+                previous_close = (quote.get("ohlc") or {}).get("close")
+                day_pct = round((ltp - float(previous_close)) / float(previous_close) * 100, 2) if previous_close else 0.0
+                alerts.append({
+                    "symbol": symbol,
+                    "ltp": ltp,
+                    "day_pct": day_pct,
+                    **metrics,
+                })
+
+            if alerts:
+                Alerter.from_db(db, user_id).daily_volume_rvols(alerts, now, market_close=market_close)
+                log.info("Sent %s daily RVOL alert for %d instrument(s)",
+                         "close" if market_close else "time-adjusted", len(alerts))
+    except SystemExit:
+        log.warning("Daily RVOL alert skipped: Kite token unavailable")
+    except Exception as exc:
+        log.error("Daily RVOL alert failed: %s", exc, exc_info=True)
+
+
 def process_instrument_catalog_requests() -> None:
     """Resolve symbol lookups queued by the Rails Instrument Tracker form."""
     try:
@@ -916,7 +1061,6 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         })
 
     # ── Watchlist live price refresh ─────────────────────────────────────────
-    surge_alerts: list[dict] = []
     movement_alerts: list[dict] = []
     proximity_alert_items: list[dict] = []
     proximity_buffer_pct = float(
@@ -1015,18 +1159,10 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
                 due_proximity_alerts(db, user_id, wsymbol, conditions, now)
             )
 
-            if wvol_ratio is not None and wvol_ratio >= VOLUME_SURGE_RATIO:
-                surge_alerts.append({
-                    "symbol": wsymbol,
-                    "ltp": w_ltp,
-                    "day_pct": w_dpct,
-                    "volume_ratio": wvol_ratio,
-                })
-
         except Exception as e:
             log.warning(f"Watchlist update failed for {wsymbol}: {e}")
 
-    alerter = Alerter.from_db(db, user_id) if movement_alerts or surge_alerts or proximity_alert_items else None
+    alerter = Alerter.from_db(db, user_id) if movement_alerts or proximity_alert_items else None
 
     if proximity_alert_items and alerter.proximity_alerts(proximity_alert_items, now):
         mark_proximity_alerts_sent(db, proximity_alert_items, now)
@@ -1035,11 +1171,6 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     if movement_alerts:
         alerter.price_movements(movement_alerts, now)
         log.info("Sent price-movement alert for %d instrument(s)", len(movement_alerts))
-
-    if surge_alerts:
-        alerter.volume_surges(surge_alerts, now)
-        log.info("Sent volume-surge alert for %d instrument(s)", len(surge_alerts))
-
 
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
@@ -1053,6 +1184,28 @@ if __name__ == "__main__":
         hour="9-15",
         minute="*/15",
         id="market_fetch_15_minutes",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        send_daily_volume_alerts,
+        "cron",
+        day_of_week="mon-fri",
+        hour="10,12,15",
+        minute="0",
+        id="time_adjusted_daily_rvol_alerts",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
+    )
+    scheduler.add_job(
+        lambda: send_daily_volume_alerts(market_close=True),
+        "cron",
+        day_of_week="mon-fri",
+        hour="15",
+        minute="31",
+        id="closing_daily_rvol_alert",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=300,
