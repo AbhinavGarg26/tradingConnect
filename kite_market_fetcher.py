@@ -105,6 +105,16 @@ ANALYSIS_TIMEFRAMES = {
 MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT = 3
 
 
+def market_session_active(now: Optional[datetime] = None) -> bool:
+    """True only while NSE is open, including the brief post-close refresh window."""
+    current = now or datetime.now(IST)
+    current = current.astimezone(IST) if current.tzinfo else current.replace(tzinfo=IST)
+    if current.weekday() >= 5:
+        return False
+    minutes = current.hour * 60 + current.minute
+    return 9 * 60 + 15 <= minutes <= 15 * 60 + 35
+
+
 def should_persist_market_snapshot(symbol: str) -> bool:
     return symbol not in MARKET_BREATH_OWNED_SYMBOLS
 
@@ -173,8 +183,10 @@ def hydrate_missing_analysis_snapshots(kite, db: Session, symbol: str, token: in
 
 
 def hydrate_analysis_universe() -> None:
-    """Hydrate active watchlist history independently of live-market quote hours."""
+    """Hydrate active watchlist history only while the market session is active."""
     now = datetime.now(IST)
+    if not market_session_active(now):
+        return
     try:
         kite, _user_id = fetch_user_token(log)
         with get_db() as db:
@@ -672,11 +684,8 @@ def quote_is_current_session(quote: dict, now: datetime) -> bool:
 def fetch_and_write():
     now = datetime.now(IST)
 
-    if now.weekday() >= 5:
-        log.info("Weekend — skipping fetch")
-        return
-    if not (9 * 60 + 15 <= now.hour * 60 + now.minute <= 15 * 60 + 35):
-        log.info("Outside market hours — skipping fetch")
+    if not market_session_active(now):
+        log.info("Market closed — skipping fetch without checking Kite token")
         return
 
     try:
@@ -740,6 +749,8 @@ def refresh_new_watchlist_instrument(kite, db: Session, tracker: dict, now: date
 def discover_new_watchlist_instruments() -> None:
     """Promptly link and hydrate newly added active watchlist rows."""
     now = datetime.now(IST)
+    if not market_session_active(now):
+        return
 
     try:
         kite, _user_id = fetch_user_token(log)
@@ -807,7 +818,7 @@ def refresh_final_session_watchlist_quotes() -> None:
 def send_daily_volume_alerts(market_close: bool = False) -> None:
     """Send a consolidated, session-aware daily volume alert for the watchlist."""
     now = datetime.now(IST)
-    if now.weekday() >= 5:
+    if not market_session_active(now):
         return
 
     try:
@@ -854,8 +865,20 @@ def send_daily_volume_alerts(market_close: bool = False) -> None:
 def process_instrument_catalog_requests() -> None:
     """Resolve symbol lookups queued by the Rails Instrument Tracker form."""
     try:
-        kite, _user_id = fetch_user_token(log)
         with get_db() as db:
+            pending = db.execute(text("""
+                SELECT 1
+                  FROM instrument_catalog_requests
+                 WHERE status = 'pending'
+                    OR (status = 'processing' AND updated_at < NOW() - INTERVAL '2 minutes')
+                 LIMIT 1
+            """)).scalar()
+            if not pending:
+                return
+
+            # The explicit Tracker lookup is the sole out-of-session reason
+            # to authenticate with Kite; idle workers never check the token.
+            kite, _user_id = fetch_user_token(log)
             requests = list(db.execute(text("""
                 SELECT id, symbol, exchange
                   FROM instrument_catalog_requests
