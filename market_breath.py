@@ -18,6 +18,7 @@ from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.market_positions import process_open_positions
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
+from market.account_risk import AccountRiskMonitor
 
 load_dotenv()
 
@@ -100,6 +101,7 @@ if __name__ == "__main__":
     stop_tracker = PositionStopTracker()
     exit_executor = MarketExitExecutor(kite, logger)
     entry_price_tracker = CurrentEntryPriceTracker()
+    account_risk_monitor = AccountRiskMonitor(user_id, logger)
     price_stream.start()
     pos_count = 0
     last_live_state_sync = 0.0
@@ -155,6 +157,7 @@ if __name__ == "__main__":
                             trigger_summary_updates(db, symbol=sym)
 
                         trigger_summary_updates(db, symbol="ALL")
+                    account_risk_monitor.run_if_due(kite, db)
                     pos_count = process_open_positions(
                         IGNORE_SYMBOL,
                         PCT_LOSS,
