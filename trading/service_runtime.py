@@ -11,22 +11,29 @@ import re
 import socket
 import threading
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, time as clock_time, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import text
 
 from trading.database import get_db
-from utilities.alerts.token_alert_schedule import due_alert_stage, next_alert_at, next_alert_label
+from utilities.alerts.token_alert_schedule import due_alert_stage, next_alert_at
 
 
 class ServiceRuntimeMonitor:
     """Publish a service heartbeat without allowing monitoring failures to crash it."""
 
-    def __init__(self, service_name: str, logger: logging.Logger, interval_seconds: int = 30):
+    def __init__(
+        self,
+        service_name: str,
+        logger: logging.Logger,
+        interval_seconds: int = 30,
+        token_alerts_during_market_session: bool = False,
+    ):
         self.service_name = service_name
         self.logger = logger
         self.interval_seconds = interval_seconds
+        self.token_alerts_during_market_session = token_alerts_during_market_session
         self.user_id: Optional[int] = None
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -45,6 +52,26 @@ class ServiceRuntimeMonitor:
 
     def degraded(self, activity: str) -> None:
         self._publish(status="degraded", activity=activity)
+
+    def alert_if_kite_token_is_required(self, activity: str) -> None:
+        """Alert even outside the session when an explicit user request needs Kite.
+
+        Routine service heartbeats deliberately stay quiet overnight.  A user
+        action such as adding an instrument is different: it cannot be
+        completed without a valid Kite session, so it deserves an immediate,
+        deduplicated reminder.
+        """
+        try:
+            with get_db() as db:
+                user_id = self._resolve_user_id(db)
+                if user_id is None:
+                    return
+                token_status, token_expires_at = self._token_state(db, user_id)
+                self._maybe_alert_invalid_token(
+                    db, user_id, token_status, token_expires_at, force=True
+                )
+        except Exception as exc:
+            self.logger.warning("Required-token alert unavailable for %s: %s", activity, exc)
 
     def exception(self, exc: BaseException, activity: str) -> None:
         try:
@@ -224,8 +251,21 @@ class ServiceRuntimeMonitor:
         user_id: int,
         token_status: str,
         token_expires_at: Optional[datetime],
+        *,
+        force: bool = False,
     ) -> None:
         """Coordinate one persistent invalid-token reminder stream per user."""
+        # The market-data services stay alive between sessions so scheduled
+        # work can resume without a manual restart.  Their heartbeat must not
+        # turn an expired end-of-day token into overnight/weekend Telegram
+        # noise.  The status row still records the expiry for the UI.
+        if (
+            self.token_alerts_during_market_session
+            and not force
+            and not self._nse_market_session_active()
+        ):
+            return
+
         entity_key = str(user_id)
         if token_status not in {"expired", "missing"}:
             db.execute(text("""
@@ -258,6 +298,9 @@ class ServiceRuntimeMonitor:
         if stage is None:
             return
 
+        next_reminder_at = self._next_token_alert_at(db, now, invalid_since, stage)
+        next_reminder_label = self._next_token_alert_label(next_reminder_at)
+
         from trading.alerts import Alerter
 
         expiry = (
@@ -269,7 +312,7 @@ class ServiceRuntimeMonitor:
             f"Status: <b>{html.escape(token_status.title())}</b>\n"
             f"Expiry: {html.escape(expiry)}\n"
             f"Detected by: {html.escape(self.service_name)}\n"
-            f"Next reminder: {next_alert_label(stage)}\n\n"
+            f"Next reminder: {next_reminder_label}\n\n"
             "Refresh the Kite session from the Rails Token refresh page."
         )
         if not Alerter.from_db(db, user_id).send(message):
@@ -282,8 +325,8 @@ class ServiceRuntimeMonitor:
             "invalid_since": invalid_since.isoformat(),
             "last_alert_at": now.isoformat(),
             "last_stage": stage,
-            "next_alert": next_alert_label(stage),
-            "next_alert_at": next_alert_at(now, invalid_since, stage).isoformat(),
+            "next_alert": next_reminder_label,
+            "next_alert_at": next_reminder_at.isoformat(),
             "last_sender": self.service_name,
         }
         db.execute(text("""
@@ -315,6 +358,50 @@ class ServiceRuntimeMonitor:
             return None
         parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+
+    @staticmethod
+    def _nse_market_session_active(now: Optional[datetime] = None) -> bool:
+        """Return whether NSE cash-market work is currently expected to run."""
+        from zoneinfo import ZoneInfo
+
+        current = now or datetime.now(ZoneInfo("Asia/Kolkata"))
+        current = current.astimezone(ZoneInfo("Asia/Kolkata"))
+        return current.weekday() < 5 and clock_time(9, 15) <= current.time() <= clock_time(15, 35)
+
+    @classmethod
+    def _next_token_alert_at(cls, db, now: datetime, invalid_since: datetime, stage: int) -> datetime:
+        """Move a reminder to the next NSE session, skipping configured holidays."""
+        from zoneinfo import ZoneInfo
+
+        ist = ZoneInfo("Asia/Kolkata")
+        candidate = next_alert_at(now, invalid_since, stage).astimezone(ist)
+        session_open = clock_time(9, 15)
+        session_close = clock_time(15, 35)
+        if candidate.time() < session_open:
+            candidate = candidate.replace(hour=9, minute=15, second=0, microsecond=0)
+        elif candidate.time() > session_close:
+            candidate = (candidate + timedelta(days=1)).replace(
+                hour=9, minute=15, second=0, microsecond=0
+            )
+
+        while candidate.weekday() >= 5 or cls._trading_holiday(db, candidate.date()):
+            candidate = (candidate + timedelta(days=1)).replace(
+                hour=9, minute=15, second=0, microsecond=0
+            )
+        return candidate.astimezone(timezone.utc)
+
+    @staticmethod
+    def _trading_holiday(db, date_value) -> bool:
+        return db.execute(text("""
+            SELECT 1 FROM trading_holidays WHERE holiday_date = :holiday_date LIMIT 1
+        """), {"holiday_date": date_value}).scalar() is not None
+
+    @classmethod
+    def _next_token_alert_label(next_at: datetime) -> str:
+        from zoneinfo import ZoneInfo
+
+        local_time = next_at.astimezone(ZoneInfo("Asia/Kolkata"))
+        return f"{local_time.strftime('%d %b, %I:%M %p IST')} (next market session)"
 
     @staticmethod
     def _redact(value: str) -> str:
