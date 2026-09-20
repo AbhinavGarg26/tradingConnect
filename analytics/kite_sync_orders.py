@@ -9,6 +9,18 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("MarketAnalytics")
 
 
+def calculate_profit_factor(gross_profit: float, gross_loss: float):
+    """Return gross profit / gross loss, or NULL when no loss exists.
+
+    Gross profit itself is a currency amount, not a ratio.  Previously it was
+    stored as the factor when gross loss was zero, which both misrepresented
+    the metric and overflowed the database's numeric(5,2) column.
+    """
+    if gross_loss <= 0:
+        return None
+    return round(gross_profit / gross_loss, 2)
+
+
 def extract_root_symbol(tradingsymbol: str) -> str:
     match = re.match(r"^([A-Z\-]+)", tradingsymbol)
     return match.group(1) if match else tradingsymbol
@@ -73,11 +85,7 @@ def trigger_summary_updates(db: Session, symbol: str = "ALL"):
         gross_profit = float(result.gross_profit or 0)
         gross_loss = float(result.gross_loss or 0)
         win_rate = round((result.winning_trades / total_trades) * 100, 2) if total_trades else 0.0
-        profit_factor = (
-            round(gross_profit / gross_loss, 2)
-            if gross_loss > 0
-            else (gross_profit if gross_profit > 0 else 0.0)
-        )
+        profit_factor = calculate_profit_factor(gross_profit, gross_loss)
 
         db.execute(text("""
             INSERT INTO market_trade_summaries (

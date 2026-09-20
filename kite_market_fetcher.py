@@ -52,7 +52,9 @@ except ImportError:
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
-runtime_monitor = ServiceRuntimeMonitor("kite_market_fetcher", log)
+runtime_monitor = ServiceRuntimeMonitor(
+    "kite_market_fetcher", log, token_alerts_during_market_session=True
+)
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -378,6 +380,28 @@ def _safe(val) -> Optional[float]:
         return None
 
 
+def _latest_indicator(values) -> Optional[float]:
+    """Return the newest indicator value, including for short data series.
+
+    pandas-ta returns ``None`` when there are fewer candles than an
+    indicator's requested length.  A newly tracked instrument commonly has
+    less than 50 five-minute candles, so that is an expected warm-up state and
+    must not abort the complete market refresh.
+    """
+    if values is None:
+        return None
+    try:
+        latest = values.iloc[-1]
+    except AttributeError:
+        try:
+            latest = values[-1]
+        except (IndexError, KeyError, TypeError):
+            return None
+    except IndexError:
+        return None
+    return _safe(latest)
+
+
 def compute_indicators(candles: pd.DataFrame) -> dict:
     """
     Compute intraday indicators from 5-min candle DataFrame.
@@ -395,13 +419,13 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
     latest = enriched.iloc[-1]
 
     if USE_TALIB:
-        rsi = talib.RSI(c, timeperiod=14).iloc[-1]
-        ema20 = talib.EMA(c, timeperiod=20).iloc[-1]
-        ema50 = talib.EMA(c, timeperiod=50).iloc[-1]
+        rsi = _latest_indicator(talib.RSI(c, timeperiod=14))
+        ema20 = _latest_indicator(talib.EMA(c, timeperiod=20))
+        ema50 = _latest_indicator(talib.EMA(c, timeperiod=50))
     else:
-        rsi = pta.rsi(c, length=14).iloc[-1]
-        ema20 = pta.ema(c, length=20).iloc[-1]
-        ema50 = pta.ema(c, length=50).iloc[-1]
+        rsi = _latest_indicator(pta.rsi(c, length=14))
+        ema20 = _latest_indicator(pta.ema(c, length=20))
+        ema50 = _latest_indicator(pta.ema(c, length=50))
 
     # Compare the latest completed candle with the preceding 20 candles. If
     # the current candle were included in its own baseline, large surges would
@@ -430,9 +454,9 @@ def compute_indicators(candles: pd.DataFrame) -> dict:
     vwap = vwap_series.iloc[-1] if not vwap_series.empty else float("nan")
 
     return {
-        "rsi_14": _safe(rsi),
-        "ema_20": _safe(ema20),
-        "ema_50": _safe(ema50),
+        "rsi_14": rsi,
+        "ema_20": ema20,
+        "ema_50": ema50,
         "vwap": _safe(vwap),
         "adx_14": _safe(latest.get("adx")),
         "macd_value": _safe(latest.get("macd_line")),
@@ -958,6 +982,10 @@ def process_instrument_catalog_requests() -> None:
                                 kite_exchange, symbol, exc, exc_info=True)
     except SystemExit:
         log.warning("Catalog lookup skipped: Kite token is unavailable")
+        runtime_monitor.degraded("Catalog lookup needs a valid Kite token")
+        runtime_monitor.alert_if_kite_token_is_required(
+            "Catalog lookup needs a valid Kite token"
+        )
     except Exception as exc:
         log.error("Catalog request processing failed: %s", exc, exc_info=True)
 

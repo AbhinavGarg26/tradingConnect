@@ -29,7 +29,9 @@ from trading.service_runtime import ServiceRuntimeMonitor
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-runtime_monitor = ServiceRuntimeMonitor("market_breath", logger)
+runtime_monitor = ServiceRuntimeMonitor(
+    "market_breath", logger, token_alerts_during_market_session=True
+)
 
 ACTIVE_POLL_INTERVAL = 0.25
 FINAL_SESSION_POLL_INTERVAL = 0.10
@@ -86,6 +88,13 @@ def _warm_market_snapshots() -> None:
         logger.exception("Background market snapshot warmup failed: %s", exc)
 
 if __name__ == "__main__":
+    # Do not authenticate just because deploy.sh is run after market close or
+    # on a weekend.  Keep the launched process idle so a deployment remains
+    # healthy; it will authenticate only once the next session opens.
+    while not is_market_open():
+        logger.info("Market is closed. Position manager is waiting for the next session.")
+        time.sleep(60)
+
     runtime_monitor.start("Starting position manager")
     try:
         kite, user_id = fetch_user_token(logger)
