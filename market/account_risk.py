@@ -18,7 +18,9 @@ IST = ZoneInfo("Asia/Kolkata")
 SOFT_LOSS_PCT = 4.0
 HARD_LOSS_PCT = 8.0
 PROFIT_GIVEBACK_RATIO = 0.50
-SOFT_REMINDER = timedelta(hours=1)
+# Once either loss band is breached, keep the capital-protection reminder on
+# the same 15-minute cadence until the session P&L recovers below 4%.
+SOFT_REMINDER = timedelta(minutes=15)
 HARD_REMINDER = timedelta(minutes=15)
 LOSS_STREAK_COOLDOWN = timedelta(minutes=30)
 # Four concise decision-point summaries during the cash-market session.  The

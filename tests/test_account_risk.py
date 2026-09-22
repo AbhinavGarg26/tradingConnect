@@ -1,13 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import unittest
 
 from market.account_risk import (
     account_funds_snapshot,
     calculate_trade_stats,
     due_summary_checkpoint,
+    HARD_REMINDER,
     latest_loss_pair_signature,
     loss_level,
     performance_edge,
+    SOFT_REMINDER,
 )
 
 
@@ -25,6 +27,10 @@ def closed(symbol, side, pnl, charges, order_id, minute):
 
 
 class AccountRiskTests(unittest.TestCase):
+    def test_soft_and_hard_loss_reminders_share_the_fifteen_minute_cadence(self):
+        self.assertEqual(SOFT_REMINDER, timedelta(minutes=15))
+        self.assertEqual(HARD_REMINDER, timedelta(minutes=15))
+
     def test_summary_checkpoints_send_once_at_each_decision_point(self):
         morning = datetime(2026, 9, 22, 10, 0)
         self.assertEqual(due_summary_checkpoint(morning, []), "10:00")
