@@ -21,7 +21,17 @@ PROFIT_GIVEBACK_RATIO = 0.50
 SOFT_REMINDER = timedelta(hours=1)
 HARD_REMINDER = timedelta(minutes=15)
 LOSS_STREAK_COOLDOWN = timedelta(minutes=30)
-SUMMARY_TIME = time(15, 32)
+# Four concise decision-point summaries during the cash-market session.  The
+# same rhythm is used by the Trading Discipline page so the report is useful
+# before the next trade decision, rather than only after the close.
+SUMMARY_CHECKPOINTS = (
+    ("10:00", time(10, 0)),
+    ("11:00", time(11, 0)),
+    ("13:00", time(13, 0)),
+    ("15:00", time(15, 0)),
+)
+MARKET_OPEN = time(9, 15)
+MARKET_CLOSE = time(15, 30)
 
 
 def account_funds_snapshot(margins: dict) -> dict:
@@ -149,6 +159,15 @@ def _due(last_sent, interval: timedelta, now: datetime) -> bool:
     return parsed is None or now - parsed >= interval
 
 
+def due_summary_checkpoint(now: datetime, sent_checkpoints: list[str]) -> str | None:
+    """Return the latest unsent in-session summary checkpoint, if any."""
+    due = [key for key, checkpoint_time in SUMMARY_CHECKPOINTS if now.time() >= checkpoint_time]
+    if not due:
+        return None
+    latest = due[-1]
+    return latest if latest not in sent_checkpoints else None
+
+
 class AccountRiskMonitor:
     def __init__(self, user_id, logger: logging.Logger, interval_seconds: float = 60.0):
         self.user_id = user_id
@@ -164,6 +183,8 @@ class AccountRiskMonitor:
         now = now or datetime.now(IST)
 
         try:
+            if not self._market_session_active(db, now):
+                return
             funds = account_funds_snapshot(kite.margins("equity"))
             if funds["total_funds"] <= 0:
                 self.logger.warning("Account risk check skipped: total funds are unavailable")
@@ -195,6 +216,16 @@ class AccountRiskMonitor:
         if not isinstance(payload, dict) or payload.get("trade_date") != now.date().isoformat():
             return {"trade_date": now.date().isoformat(), "peak_pnl": 0.0, "risk_level": "normal"}
         return payload
+
+    @staticmethod
+    def _market_session_active(db, now: datetime) -> bool:
+        """Avoid account alerts when NSE is shut for a weekend or holiday."""
+        if now.weekday() >= 5 or not (MARKET_OPEN <= now.time() <= MARKET_CLOSE):
+            return False
+        holiday = db.execute(text("""
+            SELECT 1 FROM trading_holidays WHERE holiday_date = :holiday_date LIMIT 1
+        """), {"holiday_date": now.date()}).scalar()
+        return holiday is None
 
     def _evaluate_and_alert(self, db, funds, stats, rows, state, now) -> None:
         # Import after market_breath has loaded .env; trading package model setup
@@ -244,9 +275,12 @@ class AccountRiskMonitor:
                 state["last_loss_streak_alert_at"] = now.isoformat()
             state["last_loss_pair_signature"] = pair_signature
 
-        if now.time() >= SUMMARY_TIME and state.get("summary_sent_on") != now.date().isoformat():
-            alerter.send_async(self._summary_message(funds, stats))
-            state["summary_sent_on"] = now.date().isoformat()
+        sent_checkpoints = list(state.get("summary_sent_checkpoints") or [])
+        checkpoint = due_summary_checkpoint(now, sent_checkpoints)
+        if checkpoint:
+            alerter.send_async(self._summary_message(funds, stats, checkpoint))
+            sent_checkpoints.append(checkpoint)
+        state["summary_sent_checkpoints"] = sent_checkpoints
 
         state.update({"risk_level": current_level, "funds": funds, "stats": stats, "updated_at": now.isoformat()})
         upsert_live_metric(
@@ -271,7 +305,7 @@ class AccountRiskMonitor:
             "Tomorrow offers another opportunity—protect capital and return with a clear plan."
         )
 
-    def _summary_message(self, funds, stats) -> str:
+    def _summary_message(self, funds, stats, checkpoint: str) -> str:
         symbol_lines = sorted(
             stats["symbol_sides"].items(), key=lambda item: abs(item[1]["pnl"]), reverse=True
         )[:8]
@@ -281,7 +315,7 @@ class AccountRiskMonitor:
         ) or "• No closed trades"
         pf = f"{stats['profit_factor']:.2f}" if stats["profit_factor"] is not None else "—"
         return (
-            "📊 <b>Daily Kite Risk &amp; Trade Summary</b>\n"
+            f"📊 <b>Kite Risk &amp; Trade Summary — {checkpoint} IST</b>\n"
             f"Total funds: ₹{funds['total_funds']:,.0f} | Available: ₹{funds['available_balance']:,.0f}\n"
             f"Session P&amp;L: ₹{funds['current_pnl']:,.0f}\n"
             f"Closed trades: {stats['total_trades']} | {stats['wins']}W/{stats['losses']}L | Win rate: {stats['win_rate']:.1f}%\n"

@@ -4,6 +4,7 @@ import unittest
 from market.account_risk import (
     account_funds_snapshot,
     calculate_trade_stats,
+    due_summary_checkpoint,
     latest_loss_pair_signature,
     loss_level,
     performance_edge,
@@ -24,6 +25,15 @@ def closed(symbol, side, pnl, charges, order_id, minute):
 
 
 class AccountRiskTests(unittest.TestCase):
+    def test_summary_checkpoints_send_once_at_each_decision_point(self):
+        morning = datetime(2026, 9, 22, 10, 0)
+        self.assertEqual(due_summary_checkpoint(morning, []), "10:00")
+        self.assertIsNone(due_summary_checkpoint(morning, ["10:00"]))
+        self.assertEqual(
+            due_summary_checkpoint(datetime(2026, 9, 22, 13, 15), ["10:00", "11:00"]),
+            "13:00",
+        )
+
     def test_funds_use_opening_cash_plus_collateral_and_m2m_pnl(self):
         snapshot = account_funds_snapshot({
             "net": 75_000,
