@@ -51,7 +51,7 @@ class ExchangeLink(Base):
     __tablename__ = "exchange_links"
 
     id:                        Mapped[uuid.UUID]        = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id:                   Mapped[int]              = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False, unique=True)
+    user_id:                   Mapped[int]              = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
 
     provider:                  Mapped[str]              = mapped_column(String(30), nullable=False, default="zerodha")
     account_ref:               Mapped[Optional[str]]    = mapped_column(String(30))  # broker-side user ID
@@ -151,10 +151,11 @@ class ExchangeLink(Base):
 class ExchangeLinkRepo:
 
     @staticmethod
-    def get_for_user(db: Session, user_id: int) -> Optional[ExchangeLink]:
+    def get_for_user(db: Session, user_id: int, provider: str = "zerodha") -> Optional[ExchangeLink]:
         return db.scalar(
             select(ExchangeLink).where(
                 ExchangeLink.user_id  == user_id,
+                ExchangeLink.provider == provider,
                 ExchangeLink.is_active == True,
             )
         )
@@ -209,7 +210,7 @@ class ExchangeLinkRepo:
 
     @staticmethod
     def get_kite_client(db: Session, user_id: uuid.UUID):
-        link = ExchangeLinkRepo.get_for_user(db, user_id)
+        link = ExchangeLinkRepo.get_for_user(db, user_id, provider="zerodha")
         if not link:
             raise RuntimeError("No active exchange link found")
         if not link.is_session_valid:

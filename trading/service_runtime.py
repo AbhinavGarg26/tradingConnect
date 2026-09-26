@@ -167,7 +167,7 @@ class ServiceRuntimeMonitor:
         row = db.execute(text("""
             SELECT session_token_encrypted, session_expires_at
             FROM exchange_links
-            WHERE user_id = :user_id AND is_active = TRUE
+            WHERE user_id = :user_id AND provider = 'zerodha' AND is_active = TRUE
             LIMIT 1
         """), {"user_id": user_id}).mappings().first()
         if not row or not row["session_token_encrypted"]:
