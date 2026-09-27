@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from analytics.kite_sync_orders import calculate_profit_factor
+
 
 def log_trade(db: Session, trade_data: dict, snapshot_id: int = None):
     """Inserts or updates an individual trade execution."""
@@ -53,8 +55,7 @@ def generate_and_save_summary(db: Session, symbol: str, period_type: str, start_
     gross_loss = float(res.gross_loss)
 
     win_rate = round((res.winning_trades / total_trades * 100), 2) if total_trades > 0 else 0.0
-    profit_factor = round((gross_profit / gross_loss), 2) if gross_loss > 0 else (
-        gross_profit if gross_profit > 0 else 0.0)
+    profit_factor = calculate_profit_factor(gross_profit, gross_loss)
 
     summary_payload = {
         "symbol": symbol,
