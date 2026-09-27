@@ -12,9 +12,9 @@ from trading.repositories import UserRepo
 from kiteconnect import KiteConnect
 
 
-def fetch_user_token(logger):
+def fetch_user_token(logger, user_id: int | None = None):
     with get_db() as db:
-        user = UserRepo.get_active(db)
+        user = UserRepo.get_by_id(db, user_id) if user_id is not None else UserRepo.get_active(db)
         if not user:
             logger.critical("No active user in DB — exiting")
             sys.exit(1)

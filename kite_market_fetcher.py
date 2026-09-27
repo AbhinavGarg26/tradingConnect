@@ -13,7 +13,7 @@ Requirements:
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional
 
@@ -27,11 +27,12 @@ from indicators.adx import compute_adx
 from indicators.macd import calculate_macd
 from database.records_validation.instrument_catalog import catalog_values
 from database.market_snapshot import sync_timeframe_snapshots
+from database.live_market_state import upsert_live_metric
 from market.tracks.price_movement import track_price_movement
 from market.alerts.proximity_alerts import ALERT_WINDOW, alert_is_due, proximity_condition
 
 load_dotenv()
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from trading.database import get_db
@@ -990,6 +991,87 @@ def process_instrument_catalog_requests() -> None:
         log.error("Catalog request processing failed: %s", exc, exc_info=True)
 
 
+def process_market_quote_requests() -> None:
+    """Resolve Rails-queued open-position LTPs through each user's Kite session."""
+    if not market_session_active():
+        return
+
+    try:
+        with get_db() as db:
+            requests = list(db.execute(text("""
+                SELECT id, user_id, entity_key, kite_exchange, symbol
+                  FROM market_quote_requests
+                 WHERE status = 'pending'
+                    OR (status = 'processing' AND updated_at < NOW() - INTERVAL '2 minutes')
+                 ORDER BY requested_at ASC
+                 LIMIT 100
+                 FOR UPDATE SKIP LOCKED
+            """)).mappings())
+            if not requests:
+                return
+
+            ids = [row["id"] for row in requests]
+            db.execute(text("""
+                UPDATE market_quote_requests
+                   SET status = 'processing', attempts = attempts + 1, updated_at = NOW()
+                 WHERE id IN :ids
+            """).bindparams(bindparam("ids", expanding=True)), {"ids": ids})
+            db.commit()
+
+            by_user: dict[int, list[dict]] = {}
+            for request in requests:
+                by_user.setdefault(int(request["user_id"]), []).append(dict(request))
+
+            for user_id, user_requests in by_user.items():
+                request_ids = [row["id"] for row in user_requests]
+                try:
+                    kite, _ = fetch_user_token(log, user_id=user_id)
+                    quote_keys = [f"{row['kite_exchange']}:{row['symbol']}" for row in user_requests]
+                    quotes = kite.ltp(quote_keys)
+                except SystemExit:
+                    _fail_market_quote_requests(db, request_ids, "Kite connection is missing or its token has expired")
+                    continue
+                except Exception as exc:
+                    log.warning("Kite quote request failed for user %s: %s", user_id, exc)
+                    _fail_market_quote_requests(db, request_ids, str(exc)[:500])
+                    continue
+
+                for request in user_requests:
+                    key = f"{request['kite_exchange']}:{request['symbol']}"
+                    ltp = (quotes.get(key) or {}).get("last_price")
+                    if ltp is None or float(ltp) <= 0:
+                        _fail_market_quote_requests(db, [request["id"]], "Kite returned no LTP for this instrument")
+                        continue
+
+                    upsert_live_metric(
+                        db,
+                        entity_type="INSTRUMENT",
+                        entity_key=request["entity_key"],
+                        metric_type="LTP",
+                        metric_key="latest",
+                        numeric_value=float(ltp),
+                        payload={"ltp": float(ltp), "source": "kite_market_fetcher", "quote_key": key},
+                        event_time=datetime.now(timezone.utc),
+                        is_complete=True,
+                    )
+                    db.execute(text("""
+                        UPDATE market_quote_requests
+                           SET status = 'completed', last_quoted_at = NOW(), error_message = NULL, updated_at = NOW()
+                         WHERE id = :id
+                    """), {"id": request["id"]})
+    except Exception as exc:
+        log.error("Market quote request processing failed: %s", exc, exc_info=True)
+
+
+def _fail_market_quote_requests(db: Session, request_ids: list, message: str) -> None:
+    db.execute(text("""
+        UPDATE market_quote_requests
+           SET status = 'failed', error_message = :message, updated_at = NOW()
+         WHERE id IN :ids
+    """).bindparams(bindparam("ids", expanding=True)),
+        {"ids": request_ids, "message": message})
+
+
 def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
     """Core fetch logic — separated so get_db() context wraps the whole run."""
 
@@ -1276,6 +1358,16 @@ if __name__ == "__main__":
         "interval",
         seconds=5,
         id="instrument_catalog_requests",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=15,
+        next_run_time=datetime.now(IST),
+    )
+    scheduler.add_job(
+        process_market_quote_requests,
+        "interval",
+        seconds=5,
+        id="market_quote_requests",
         max_instances=1,
         coalesce=True,
         misfire_grace_time=15,

@@ -25,6 +25,10 @@ from trading.models import (
 class UserRepo:
 
     @staticmethod
+    def get_by_id(db: Session, user_id: int) -> Optional[User]:
+        return db.get(User, user_id)
+
+    @staticmethod
     def get_active(db: Session) -> Optional[User]:
         """Fetch the single active user with market_configs eager-loaded."""
         return db.scalar(
