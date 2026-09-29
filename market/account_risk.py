@@ -185,16 +185,21 @@ class AccountRiskMonitor:
         now = now or datetime.now(IST)
 
         try:
-            if not self._market_session_active(db, now):
-                return
-            funds = account_funds_snapshot(kite.margins("equity"))
-            if funds["total_funds"] <= 0:
-                self.logger.warning("Account risk check skipped: total funds are unavailable")
-                return
-            rows = self._today_trades(db, now)
-            stats = calculate_trade_stats(rows)
-            state = self._load_state(db, now)
-            self._evaluate_and_alert(db, funds, stats, rows, state, now)
+            # This monitor runs inside Market Breath's session. Isolate its
+            # writes so a bad network response, notification error, or DB
+            # constraint can never leave the live position-monitoring session
+            # in PostgreSQL's aborted-transaction state.
+            with db.begin_nested():
+                if not self._market_session_active(db, now):
+                    return
+                funds = account_funds_snapshot(kite.margins("equity"))
+                if funds["total_funds"] <= 0:
+                    self.logger.warning("Account risk check skipped: total funds are unavailable")
+                    return
+                rows = self._today_trades(db, now)
+                stats = calculate_trade_stats(rows)
+                state = self._load_state(db, now)
+                self._evaluate_and_alert(db, funds, stats, rows, state, now)
         except Exception as exc:
             self.logger.exception("Account risk monitoring failed: %s", exc)
 
@@ -302,7 +307,9 @@ class AccountRiskMonitor:
             metric_key="daily", numeric_value=funds["loss_pct"], payload=state,
             event_time=now, is_complete=False,
         )
-        db.commit()
+        # The caller owns the outer Market Breath transaction. Committing here
+        # would release its savepoint and prevents a safe rollback on failure.
+        db.flush()
 
     def _loss_message(self, level, funds, stats, reminder=False) -> str:
         if level == "hard":
