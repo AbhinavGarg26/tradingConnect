@@ -380,7 +380,7 @@ def reconcile_trades_from_start_of_day(
     if attribution_columns != 2:
         logger.critical(
             "market_trades account attribution is missing; apply "
-            "resources/add_market_trades_account_attribution.sql"
+            "the Rails migration 20260929120000_add_account_attribution_to_market_trades"
         )
         return set()
 
