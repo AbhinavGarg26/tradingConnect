@@ -36,23 +36,34 @@ def parse_option_type(tradingsymbol: str) -> str:
     return "EQ"
 
 
-def process_and_merge_trades(kite, db: Session) -> set:
+def process_and_merge_trades(kite, db: Session, user_id: int) -> set:
     """Compatibility wrapper for execution-level start-of-day reconciliation."""
     from analytics.trade_reconciliation import reconcile_trades_from_start_of_day
-    return reconcile_trades_from_start_of_day(kite, db)
+    return reconcile_trades_from_start_of_day(kite, db, user_id)
 
 
-def trigger_summary_updates(db: Session, symbol: str = "ALL"):
+def trigger_summary_updates(db: Session, user_id: int, symbol: str = "ALL"):
     """Recalculate daily summaries for recent dates containing closed trades."""
     dates_query = text("""
         SELECT DISTINCT DATE(entry_time) AS trade_date
         FROM market_trades
         WHERE status = 'CLOSED'
+          AND user_id = :user_id
+          AND exchange_link_id = (
+              SELECT id FROM exchange_links
+               WHERE user_id = :user_id
+                 AND provider = 'zerodha'
+                 AND is_active = TRUE
+               ORDER BY created_at DESC, id
+               LIMIT 1
+          )
           AND (:sym = 'ALL' OR symbol = :sym)
         ORDER BY trade_date DESC
         LIMIT 5
     """)
-    active_dates = db.execute(dates_query, {"sym": symbol}).fetchall()
+    active_dates = db.execute(
+        dates_query, {"sym": symbol, "user_id": user_id}
+    ).fetchall()
     trade_dates = [row[0] for row in active_dates] if active_dates else [date.today()]
 
     for target_date in trade_dates:
@@ -72,6 +83,15 @@ def trigger_summary_updates(db: Session, symbol: str = "ALL"):
                 COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN ABS(realized_pnl) ELSE 0 END), 0) AS gross_loss
             FROM market_trades
             WHERE status = 'CLOSED'
+              AND user_id = :user_id
+              AND exchange_link_id = (
+                  SELECT id FROM exchange_links
+                   WHERE user_id = :user_id
+                     AND provider = 'zerodha'
+                     AND is_active = TRUE
+                   ORDER BY created_at DESC, id
+                   LIMIT 1
+              )
               AND entry_time >= :start_date
               AND entry_time <= :end_date
               AND (:sym = 'ALL' OR symbol = :sym)
@@ -79,6 +99,7 @@ def trigger_summary_updates(db: Session, symbol: str = "ALL"):
             "start_date": start_date,
             "end_date": end_date,
             "sym": symbol,
+            "user_id": user_id,
         }).fetchone()
 
         total_trades = int(result.total_trades or 0)

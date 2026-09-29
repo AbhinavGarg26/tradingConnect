@@ -106,6 +106,7 @@ ANALYSIS_TIMEFRAMES = {
     "1mo": ("day", timedelta(days=40)),
 }
 MAX_TIMEFRAME_SYNCS_PER_INSTRUMENT = 3
+NIFTY_OPTION_CATALOG_REQUEST = "__NIFTY_OPTION_CHAIN__"
 
 
 def market_session_active(now: Optional[datetime] = None) -> bool:
@@ -926,6 +927,18 @@ def process_instrument_catalog_requests() -> None:
                 db.commit()
 
                 try:
+                    if symbol == NIFTY_OPTION_CATALOG_REQUEST and kite_exchange == "NFO":
+                        loaded = sync_nifty_option_chain(kite, db)
+                        db.execute(text("""
+                            UPDATE instrument_catalog_requests
+                               SET status = 'found', error_message = :message, updated_at = NOW()
+                             WHERE id = :id
+                        """), {"id": request_id,
+                               "message": f"Loaded {loaded} active NIFTY option contracts."})
+                        db.commit()
+                        log.info("Catalog refresh loaded %s NIFTY option contract(s)", loaded)
+                        continue
+
                     master_key = (kite_exchange, datetime.now(IST).date())
                     if master_key not in _instrument_master_cache:
                         _instrument_master_cache[master_key] = kite.instruments(kite_exchange)
@@ -989,6 +1002,66 @@ def process_instrument_catalog_requests() -> None:
         )
     except Exception as exc:
         log.error("Catalog request processing failed: %s", exc, exc_info=True)
+
+
+def sync_nifty_option_chain(kite, db: Session) -> int:
+    """Store the nearest-expiry ATM NIFTY call/put contracts for Trading Desk.
+
+    This is intentionally a small catalog slice, not a full NFO import. It lets
+    the desk recover automatically when a fresh database has no option master.
+    """
+    master_key = ("NFO", datetime.now(IST).date())
+    if master_key not in _instrument_master_cache:
+        _instrument_master_cache[master_key] = kite.instruments("NFO")
+
+    today = datetime.now(IST).date()
+    candidates = []
+    for row in _instrument_master_cache[master_key]:
+        values = catalog_values(row)
+        if values["instrument_type"] not in {"CE", "PE"}:
+            continue
+        if not values["symbol"].startswith("NIFTY") or not values["expiry_date"]:
+            continue
+        if values["expiry_date"] < today or values["strike_price"] is None:
+            continue
+        candidates.append((values, row))
+
+    if not candidates:
+        raise RuntimeError("Kite returned no active NIFTY option contracts")
+
+    expiry = min(values["expiry_date"] for values, _row in candidates)
+    expiry_contracts = [(values, row) for values, row in candidates if values["expiry_date"] == expiry]
+    quote = kite.quote(["NSE:NIFTY 50"]).get("NSE:NIFTY 50", {})
+    spot = float(quote.get("last_price") or 0)
+    if spot <= 0:
+        raise RuntimeError("Kite did not return a current NIFTY 50 price")
+
+    strikes = sorted({values["strike_price"] for values, _row in expiry_contracts})
+    atm = min(strikes, key=lambda strike: abs(strike - spot))
+    index = strikes.index(atm)
+    selected_strikes = set(strikes[max(0, index - 1): min(len(strikes), index + 2)])
+    selected = [values for values, _row in expiry_contracts if values["strike_price"] in selected_strikes]
+
+    for values in selected:
+        db.execute(text("""
+            INSERT INTO instruments (
+                symbol, exchange, segment, instrument_type, instrument_token,
+                lot_size, tick_size, expiry_date, strike_price, is_active,
+                created_at, updated_at
+            ) VALUES (
+                :symbol, :exchange, :segment, :instrument_type, :instrument_token,
+                :lot_size, :tick_size, :expiry_date, :strike_price, TRUE,
+                NOW(), NOW()
+            )
+            ON CONFLICT (instrument_token) DO UPDATE SET
+                symbol = EXCLUDED.symbol, exchange = EXCLUDED.exchange,
+                segment = EXCLUDED.segment, instrument_type = EXCLUDED.instrument_type,
+                lot_size = EXCLUDED.lot_size, tick_size = EXCLUDED.tick_size,
+                expiry_date = EXCLUDED.expiry_date, strike_price = EXCLUDED.strike_price,
+                is_active = TRUE, updated_at = NOW()
+        """), values)
+    db.commit()
+    return len(selected)
 
 
 def process_market_quote_requests() -> None:

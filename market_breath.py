@@ -149,7 +149,7 @@ if __name__ == "__main__":
             try:
 
                 with get_db() as db:
-                    active_symbols = trade_reconciler.run_if_due(kite, db)
+                    active_symbols = trade_reconciler.run_if_due(kite, db, user_id)
                     now_monotonic = time.monotonic()
                     publish_live_state = now_monotonic - last_live_state_sync >= 2.0
                     if (
@@ -163,9 +163,9 @@ if __name__ == "__main__":
                 # 2. Step 2: Recalculate summaries for updated symbols
                     if active_symbols:
                         for sym in active_symbols:
-                            trigger_summary_updates(db, symbol=sym)
+                            trigger_summary_updates(db, user_id=user_id, symbol=sym)
 
-                        trigger_summary_updates(db, symbol="ALL")
+                        trigger_summary_updates(db, user_id=user_id, symbol="ALL")
                     account_risk_monitor.run_if_due(kite, db)
                     pos_count = process_open_positions(
                         IGNORE_SYMBOL,

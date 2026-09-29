@@ -202,10 +202,22 @@ class AccountRiskMonitor:
         return [dict(row) for row in db.execute(text("""
             SELECT id, symbol, tradingsymbol, option_type, status,
                    realized_pnl, total_charges, exit_order_id, exit_time
-              FROM market_trades
+             FROM market_trades
              WHERE entry_time >= :day_start
+               AND user_id = :user_id
+               AND exchange_link_id = (
+                   SELECT id FROM exchange_links
+                    WHERE user_id = :user_id
+                      AND provider = 'zerodha'
+                      AND is_active = TRUE
+                    ORDER BY created_at DESC, id
+                    LIMIT 1
+               )
              ORDER BY COALESCE(exit_time, entry_time), id
-        """), {"day_start": datetime.combine(now.date(), time.min)}).mappings()]
+        """), {
+            "day_start": datetime.combine(now.date(), time.min),
+            "user_id": self.user_id,
+        }).mappings()]
 
     def _load_state(self, db, now: datetime) -> dict:
         payload = db.execute(text("""

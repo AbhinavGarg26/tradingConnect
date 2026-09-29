@@ -19,6 +19,29 @@ IST = ZoneInfo("Asia/Kolkata")
 _TOTAL_CHARGES_CACHE: dict[tuple, float] = {}
 
 
+def resolve_trade_attribution(
+    db: Session,
+    user_id: int,
+    provider: str = "zerodha",
+) -> tuple[int, str] | None:
+    """Resolve exactly one active broker link for safe account-scoped writes."""
+    rows = db.execute(text("""
+        SELECT id, user_id
+        FROM exchange_links
+        WHERE user_id = :user_id
+          AND provider = :provider
+          AND is_active = TRUE
+        ORDER BY created_at DESC, id
+    """), {"user_id": user_id, "provider": provider}).fetchall()
+    if len(rows) != 1:
+        logger.critical(
+            "Trade reconciliation paused: expected one active %s link for user_id=%s, found %s",
+            provider, user_id, len(rows),
+        )
+        return None
+    return int(rows[0].user_id), str(rows[0].id)
+
+
 def _execution_time(execution: dict) -> datetime:
     value = (
         execution.get("fill_timestamp")
@@ -298,15 +321,25 @@ def _broker_position_quantities(positions: Iterable[dict]) -> dict[str, int]:
     return dict(quantities)
 
 
-def audit_open_quantities(kite, db: Session) -> dict[str, tuple[int, int]]:
+def audit_open_quantities(
+    kite,
+    db: Session,
+    user_id: int,
+    exchange_link_id: str,
+) -> dict[str, tuple[int, int]]:
     """Validate the derived OPEN ledger against Kite's authoritative net positions."""
     db_rows = db.execute(text("""
         SELECT tradingsymbol,
                SUM(CASE WHEN trade_type = 'BUY' THEN quantity ELSE -quantity END) AS net_quantity
         FROM market_trades
         WHERE status = 'OPEN'
+          AND user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
         GROUP BY tradingsymbol
-    """)).fetchall()
+    """), {
+        "user_id": user_id,
+        "exchange_link_id": exchange_link_id,
+    }).fetchall()
     db_quantities = {row.tradingsymbol: int(row.net_quantity or 0) for row in db_rows}
     try:
         net_positions = kite.positions().get("net", [])
@@ -326,15 +359,38 @@ def audit_open_quantities(kite, db: Session) -> dict[str, tuple[int, int]]:
     return mismatches
 
 
-def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
+def reconcile_trades_from_start_of_day(
+    kite,
+    db: Session,
+    user_id: int,
+    provider: str = "zerodha",
+) -> set[str]:
     """Audit and repair today's non-carryover trade rows from Kite's trade book."""
+    attribution = resolve_trade_attribution(db, user_id, provider)
+    if attribution is None:
+        return set()
+    trade_user_id, exchange_link_id = attribution
+
+    attribution_columns = db.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_name = 'market_trades'
+          AND column_name IN ('user_id', 'exchange_link_id')
+    """)).scalar_one()
+    if attribution_columns != 2:
+        logger.critical(
+            "market_trades account attribution is missing; apply "
+            "resources/add_market_trades_account_attribution.sql"
+        )
+        return set()
+
     try:
         executions = kite.trades()
     except Exception as exc:
         logger.error("Kite execution fetch failed: %s", exc)
         return set()
     if not executions:
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     total_charges_column_exists = db.execute(text("""
@@ -360,11 +416,11 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
         logger.error("Kite order-detail fetch failed; using default order metadata: %s", exc)
         raw_orders = []
     if not attach_order_charges(kite, order_executions, raw_orders):
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
     expected_rows = build_fifo_trade_rows(order_executions)
     if not expected_rows:
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     all_symbols = {row["tradingsymbol"] for row in expected_rows}
@@ -373,12 +429,19 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
         SELECT DISTINCT tradingsymbol
         FROM market_trades
         WHERE entry_time < :day_start
+          AND user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
           AND (status = 'OPEN' OR exit_time >= :day_start)
           AND tradingsymbol IN :symbols
     """).bindparams(bindparam("symbols", expanding=True))
     carryover_symbols = {
         row[0] for row in db.execute(
-            carryover_query, {"day_start": day_start, "symbols": sorted(all_symbols)}
+            carryover_query, {
+                "day_start": day_start,
+                "symbols": sorted(all_symbols),
+                "user_id": trade_user_id,
+                "exchange_link_id": exchange_link_id,
+            }
         ).fetchall()
     }
     for symbol in sorted(carryover_symbols):
@@ -389,7 +452,7 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
 
     repairable = all_symbols - carryover_symbols
     if not repairable:
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     try:
@@ -412,7 +475,7 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
         )
     repairable -= unsafe_symbols
     if not repairable:
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     actual_query = text("""
@@ -420,16 +483,24 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
                realized_pnl, total_charges, status, entry_order_id, exit_order_id,
                entry_time, exit_time
         FROM market_trades
-        WHERE entry_time >= :day_start AND tradingsymbol IN :symbols
+        WHERE entry_time >= :day_start
+          AND user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND tradingsymbol IN :symbols
     """).bindparams(bindparam("symbols", expanding=True))
     actual_rows = [dict(row._mapping) for row in db.execute(
-        actual_query, {"day_start": day_start, "symbols": sorted(repairable)}
+        actual_query, {
+            "day_start": day_start,
+            "symbols": sorted(repairable),
+            "user_id": trade_user_id,
+            "exchange_link_id": exchange_link_id,
+        }
     ).fetchall()]
     expected_repairable = [row for row in expected_rows if row["tradingsymbol"] in repairable]
 
     if signatures_match(actual_rows, expected_repairable):
         logger.info("Trade reconciliation passed for %d symbols", len(repairable))
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     dependent_fk_count = db.execute(text("""
@@ -439,6 +510,7 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
           ON ccu.constraint_name = tc.constraint_name
         WHERE tc.constraint_type = 'FOREIGN KEY'
           AND ccu.table_name = 'market_trades'
+          AND tc.table_name <> 'market_trades'
     """)).scalar_one()
     if dependent_fk_count:
         logger.critical(
@@ -446,28 +518,42 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
             "market_trades has %s dependent foreign keys",
             dependent_fk_count,
         )
-        audit_open_quantities(kite, db)
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
     delete_query = text("""
         DELETE FROM market_trades
-        WHERE entry_time >= :day_start AND tradingsymbol IN :symbols
+        WHERE entry_time >= :day_start
+          AND user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND tradingsymbol IN :symbols
     """).bindparams(bindparam("symbols", expanding=True))
-    db.execute(delete_query, {"day_start": day_start, "symbols": sorted(repairable)})
+    db.execute(delete_query, {
+        "day_start": day_start,
+        "symbols": sorted(repairable),
+        "user_id": trade_user_id,
+        "exchange_link_id": exchange_link_id,
+    })
 
     insert_query = text("""
         INSERT INTO market_trades (
+            user_id, exchange_link_id,
             symbol, tradingsymbol, option_type, entry_order_id, exit_order_id,
             trade_type, quantity, entry_price, exit_price, realized_pnl, total_charges,
             status, entry_time, exit_time, created_at, updated_at
         ) VALUES (
+            :user_id, CAST(:exchange_link_id AS UUID),
             :symbol, :tradingsymbol, :option_type, :entry_order_id, :exit_order_id,
             :trade_type, :quantity, :entry_price, :exit_price, :realized_pnl, :total_charges,
             :status, :entry_time, :exit_time, NOW(), NOW()
         )
     """)
     for row in expected_repairable:
-        db.execute(insert_query, row)
+        db.execute(insert_query, {
+            **row,
+            "user_id": trade_user_id,
+            "exchange_link_id": exchange_link_id,
+        })
     db.commit()
 
     root_symbols = {row["symbol"] for row in expected_repairable}
@@ -475,7 +561,7 @@ def reconcile_trades_from_start_of_day(kite, db: Session) -> set[str]:
         "Trade reconciliation repaired %d rows across %d symbols",
         len(expected_repairable), len(repairable),
     )
-    audit_open_quantities(kite, db)
+    audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
     return root_symbols
 
 
@@ -484,10 +570,10 @@ class TradeReconciliationScheduler:
         self.interval_seconds = interval_seconds
         self._last_run = 0.0
 
-    def run_if_due(self, kite, db: Session) -> set[str]:
+    def run_if_due(self, kite, db: Session, user_id: int) -> set[str]:
         now = monotonic_time.monotonic()
         if now - self._last_run < self.interval_seconds:
             return set()
         # Set before the network call to avoid a rapid failure loop.
         self._last_run = now
-        return reconcile_trades_from_start_of_day(kite, db)
+        return reconcile_trades_from_start_of_day(kite, db, user_id)
