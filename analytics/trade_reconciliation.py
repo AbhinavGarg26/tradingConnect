@@ -16,7 +16,18 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger("MarketAnalytics")
 IST = ZoneInfo("Asia/Kolkata")
+SESSION_RESET_TIME = time(6, 0)
 _TOTAL_CHARGES_CACHE: dict[tuple, float] = {}
+
+
+def is_before_session_reset(now: datetime | None = None) -> bool:
+    """Keep the previous trading session intact until the 06:00 IST reset."""
+    moment = now or datetime.now(IST)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=IST)
+    else:
+        moment = moment.astimezone(IST)
+    return moment.time() < SESSION_RESET_TIME
 
 
 def resolve_trade_attribution(
@@ -365,7 +376,16 @@ def reconcile_trades_from_start_of_day(
     user_id: int,
     provider: str = "zerodha",
 ) -> set[str]:
-    """Audit and repair today's non-carryover trade rows from Kite's trade book."""
+    """Audit and repair today's non-carryover trade rows from Kite's trade book.
+
+    Kite's day trade book rolls over at midnight, while the Trading Desk keeps a
+    session visible until 06:00 IST.  Do not reconcile during that gap: an empty
+    broker day book must never replace the prior session's rows or charges.
+    """
+    if is_before_session_reset():
+        logger.info("Trade reconciliation is paused until the 06:00 IST session reset")
+        return set()
+
     attribution = resolve_trade_attribution(db, user_id, provider)
     if attribution is None:
         return set()

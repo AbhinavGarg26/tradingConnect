@@ -6,6 +6,7 @@ from analytics.trade_reconciliation import (
     attach_order_charges,
     build_fifo_trade_rows,
     compare_open_quantities,
+    is_before_session_reset,
     signatures_match,
 )
 
@@ -25,6 +26,10 @@ def execution(order_id, trade_id, side, quantity, price, timestamp, symbol="NIFT
 
 
 class TradeReconciliationTests(unittest.TestCase):
+    def test_reconciliation_waits_for_the_six_am_session_reset(self):
+        self.assertTrue(is_before_session_reset(datetime(2026, 9, 30, 5, 59)))
+        self.assertFalse(is_before_session_reset(datetime(2026, 9, 30, 6, 0)))
+
     def test_signature_comparison_handles_open_and_closed_optional_values(self):
         base = {
             "tradingsymbol": "NIFTY26AUG25000CE",

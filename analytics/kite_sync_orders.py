@@ -72,15 +72,15 @@ def trigger_summary_updates(db: Session, user_id: int, symbol: str = "ALL"):
         result = db.execute(text("""
             SELECT
                 COUNT(*) AS total_trades,
-                COUNT(CASE WHEN realized_pnl > 0 THEN 1 END) AS winning_trades,
-                COUNT(CASE WHEN realized_pnl < 0 THEN 1 END) AS losing_trades,
+                COUNT(CASE WHEN realized_pnl - COALESCE(total_charges, 0) > 0 THEN 1 END) AS winning_trades,
+                COUNT(CASE WHEN realized_pnl - COALESCE(total_charges, 0) < 0 THEN 1 END) AS losing_trades,
                 COUNT(CASE WHEN option_type = 'CE' THEN 1 END) AS ce_trades_count,
                 COUNT(CASE WHEN option_type = 'PE' THEN 1 END) AS pe_trades_count,
-                COUNT(CASE WHEN option_type = 'CE' AND realized_pnl > 0 THEN 1 END) AS ce_winning_count,
-                COUNT(CASE WHEN option_type = 'PE' AND realized_pnl > 0 THEN 1 END) AS pe_winning_count,
-                COALESCE(SUM(realized_pnl), 0) AS total_pnl,
-                COALESCE(SUM(CASE WHEN realized_pnl > 0 THEN realized_pnl ELSE 0 END), 0) AS gross_profit,
-                COALESCE(SUM(CASE WHEN realized_pnl < 0 THEN ABS(realized_pnl) ELSE 0 END), 0) AS gross_loss
+                COUNT(CASE WHEN option_type = 'CE' AND realized_pnl - COALESCE(total_charges, 0) > 0 THEN 1 END) AS ce_winning_count,
+                COUNT(CASE WHEN option_type = 'PE' AND realized_pnl - COALESCE(total_charges, 0) > 0 THEN 1 END) AS pe_winning_count,
+                COALESCE(SUM(realized_pnl - COALESCE(total_charges, 0)), 0) AS total_pnl,
+                COALESCE(SUM(CASE WHEN realized_pnl - COALESCE(total_charges, 0) > 0 THEN realized_pnl - COALESCE(total_charges, 0) ELSE 0 END), 0) AS gross_profit,
+                COALESCE(SUM(CASE WHEN realized_pnl - COALESCE(total_charges, 0) < 0 THEN ABS(realized_pnl - COALESCE(total_charges, 0)) ELSE 0 END), 0) AS gross_loss
             FROM market_trades
             WHERE status = 'CLOSED'
               AND user_id = :user_id
