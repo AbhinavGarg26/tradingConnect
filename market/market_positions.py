@@ -176,12 +176,6 @@ def process_open_positions(
                 reference_price=ltp,
                 limit_price=limit_price,
             )
-        elif exit_reason:
-            logger.warning(
-                "[%s] Auto exit is disabled; would have exited for %s",
-                symbol,
-                exit_reason,
-            )
 
         if publish_live_state:
             try:
