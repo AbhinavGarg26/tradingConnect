@@ -75,8 +75,8 @@ def process_open_positions(
     stop_tracker: PositionStopTracker,
     exit_executor: MarketExitExecutor,
     entry_price_tracker: CurrentEntryPriceTracker,
-    auto_exit_enabled: bool = False,
     publish_live_state: bool = False,
+    auto_exit_enabled: bool = False,
     positions_response: dict | None = None,
 ):
     if positions_response is None:
