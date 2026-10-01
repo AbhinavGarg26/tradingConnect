@@ -20,6 +20,7 @@ from market.market_positions import process_open_positions
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
 from market.account_risk import AccountRiskMonitor
+from market.recovery_gtt_executor import GrowwRecoveryGttMonitor, ZerodhaRecoveryGttExecutor
 
 load_dotenv()
 
@@ -41,6 +42,9 @@ FINAL_SESSION_START_HOUR = 15
 BROKER_POSITION_REFRESH_INTERVAL = 1.0
 PCT_LOSS = 5.5
 KITE_AUTO_EXIT_ENABLED = os.getenv("KITE_AUTO_EXIT_ENABLED", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+RECOVERY_GTT_ENABLED = os.getenv("RECOVERY_GTT_ENABLED", "false").strip().lower() in {
     "1", "true", "yes", "on"
 }
 
@@ -113,6 +117,8 @@ if __name__ == "__main__":
     )
     stop_tracker = PositionStopTracker()
     exit_executor = MarketExitExecutor(kite, logger)
+    recovery_gtt_executor = ZerodhaRecoveryGttExecutor(kite, logger, user_id) if RECOVERY_GTT_ENABLED else None
+    groww_recovery_monitor = GrowwRecoveryGttMonitor(logger, user_id) if RECOVERY_GTT_ENABLED else None
     entry_price_tracker = CurrentEntryPriceTracker()
     account_risk_monitor = AccountRiskMonitor(user_id, logger)
     price_stream.start()
@@ -122,10 +128,11 @@ if __name__ == "__main__":
     positions_response = None
 
     logger.info(
-        "Starting Position Manager (%.2fs active, %.2fs final-session interval, auto exits %s)...",
+        "Starting Position Manager (%.2fs active, %.2fs final-session interval, auto exits %s, recovery GTTs %s)...",
         ACTIVE_POLL_INTERVAL,
         FINAL_SESSION_POLL_INTERVAL,
         "enabled" if KITE_AUTO_EXIT_ENABLED else "disabled",
+        "enabled" if RECOVERY_GTT_ENABLED else "disabled",
     )
     threading.Thread(
         target=_warm_market_snapshots,
@@ -172,6 +179,8 @@ if __name__ == "__main__":
 
                         trigger_summary_updates(db, user_id=user_id, symbol="ALL")
                     account_risk_monitor.run_if_due(kite, db)
+                    if groww_recovery_monitor is not None:
+                        groww_recovery_monitor.run_if_due(db, now_monotonic)
                     pos_count = process_open_positions(
                         IGNORE_SYMBOL,
                         PCT_LOSS,
@@ -184,6 +193,7 @@ if __name__ == "__main__":
                         entry_price_tracker,
                         publish_live_state,
                         auto_exit_enabled=KITE_AUTO_EXIT_ENABLED,
+                        recovery_gtt_executor=recovery_gtt_executor,
                         positions_response=positions_response,
                     )
 

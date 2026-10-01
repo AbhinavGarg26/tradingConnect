@@ -77,6 +77,7 @@ def process_open_positions(
     entry_price_tracker: CurrentEntryPriceTracker,
     publish_live_state: bool = False,
     auto_exit_enabled: bool = False,
+    recovery_gtt_executor=None,
     positions_response: dict | None = None,
 ):
     if positions_response is None:
@@ -144,6 +145,9 @@ def process_open_positions(
             stop_tracker.reset(position_key)
             exit_executor.reset_position(position_key)
             logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
+
+        if recovery_gtt_executor is not None:
+            recovery_gtt_executor.process(db, position, buy_price, ltp)
 
         pnl_pct = ((ltp - buy_price) / buy_price) * 100
         if publish_live_state:
