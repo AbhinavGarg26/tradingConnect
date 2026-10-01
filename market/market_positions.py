@@ -75,6 +75,7 @@ def process_open_positions(
     stop_tracker: PositionStopTracker,
     exit_executor: MarketExitExecutor,
     entry_price_tracker: CurrentEntryPriceTracker,
+    auto_exit_enabled: bool = False,
     publish_live_state: bool = False,
     positions_response: dict | None = None,
 ):
@@ -120,7 +121,10 @@ def process_open_positions(
             logger.info("[%s] Ignored", symbol)
             continue
 
-        if not exit_executor.remove_legacy_gtts(position):
+        # Disabling automatic exits must never change broker-side protection.
+        # In particular, do not delete a user-managed GTT while the monitor is
+        # in observation-only mode.
+        if auto_exit_enabled and not exit_executor.remove_legacy_gtts(position):
             logger.critical("[%s] Risk evaluation paused until legacy GTT cleanup succeeds", symbol)
             continue
 
@@ -154,7 +158,7 @@ def process_open_positions(
             soft_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
         )
-        if exit_reason:
+        if exit_reason and auto_exit_enabled:
             stop_state = stop_tracker.snapshot(position_key) or {}
             target_pct = stop_state.get("profit_limit_target_pct")
             limit_price = (
@@ -167,6 +171,12 @@ def process_open_positions(
                 exit_reason,
                 reference_price=ltp,
                 limit_price=limit_price,
+            )
+        elif exit_reason:
+            logger.warning(
+                "[%s] Auto exit is disabled; would have exited for %s",
+                symbol,
+                exit_reason,
             )
 
         if publish_live_state:

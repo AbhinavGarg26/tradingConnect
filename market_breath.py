@@ -1,6 +1,7 @@
 import time
 import logging
 import threading
+import os
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -39,6 +40,9 @@ IDLE_POLL_INTERVAL = 2.0
 FINAL_SESSION_START_HOUR = 15
 BROKER_POSITION_REFRESH_INTERVAL = 1.0
 PCT_LOSS = 5.5
+KITE_AUTO_EXIT_ENABLED = os.getenv("KITE_AUTO_EXIT_ENABLED", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 IGNORE_SYMBOL = []
 
@@ -118,9 +122,10 @@ if __name__ == "__main__":
     positions_response = None
 
     logger.info(
-        "Starting Position Manager (%.2fs active, %.2fs final-session interval)...",
+        "Starting Position Manager (%.2fs active, %.2fs final-session interval, auto exits %s)...",
         ACTIVE_POLL_INTERVAL,
         FINAL_SESSION_POLL_INTERVAL,
+        "enabled" if KITE_AUTO_EXIT_ENABLED else "disabled",
     )
     threading.Thread(
         target=_warm_market_snapshots,
@@ -178,6 +183,7 @@ if __name__ == "__main__":
                         exit_executor,
                         entry_price_tracker,
                         publish_live_state,
+                        auto_exit_enabled=KITE_AUTO_EXIT_ENABLED,
                         positions_response=positions_response,
                     )
 
