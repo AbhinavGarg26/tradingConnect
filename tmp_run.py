@@ -1,4 +1,4 @@
-# groww_order_probe.py
+# groww_fno_gtt_probe.py
 import json
 import os
 import sys
@@ -14,22 +14,32 @@ from trading.exchange_link import ExchangeLinkRepo
 
 USER_ID = int(os.environ["GROWW_USER_ID"])
 
-# Change these values for the intended test order.
-ORDER = {
-    "trading_symbol": os.environ["GROWW_SYMBOL"],       # e.g. NIFTY26O1723000PE
-    "quantity": int(os.environ["GROWW_QUANTITY"]),      # must respect lot size
-    "price": float(os.environ["GROWW_PRICE"]),          # use a safe LIMIT price
-    "validity": "DAY",
+segment = os.environ.get("GROWW_SEGMENT", "FNO").upper()
+if segment != "FNO":
+    sys.exit("This probe is restricted to F&O. Set GROWW_SEGMENT=FNO.")
+
+# A recovery GTT for a long position: when price rises to trigger_price,
+# Groww submits a full-quantity SELL LIMIT order at order_price.
+GTT = {
+    "reference_id": os.environ.get("GROWW_REFERENCE", "groww-gtt-01"),
+    "smart_order_type": "GTT",
+    "segment": segment,
+    "trading_symbol": os.environ["GROWW_SYMBOL"],
+    "quantity": int(os.environ["GROWW_QUANTITY"]),
+    "trigger_price": f"{float(os.environ['GROWW_TRIGGER_PRICE']):.2f}",
+    "trigger_direction": os.environ.get("GROWW_TRIGGER_DIRECTION", "UP").upper(),
+    "order": {
+        "order_type": "LIMIT",
+        "price": f"{float(os.environ['GROWW_ORDER_PRICE']):.2f}",
+        "transaction_type": "SELL",
+    },
+    "product_type": os.environ.get("GROWW_PRODUCT", "NRML"),
     "exchange": os.environ.get("GROWW_EXCHANGE", "NSE"),
-    "segment": os.environ.get("GROWW_SEGMENT", "FNO"),
-    "product": os.environ.get("GROWW_PRODUCT", "NRML"),
-    "order_type": "LIMIT",
-    "transaction_type": os.environ.get("GROWW_SIDE", "BUY"),
-    "order_reference_id": os.environ.get("GROWW_REFERENCE", "groww-probe-01"),
+    "duration": "DAY",
 }
 
 if os.environ.get("CONFIRM_LIVE_ORDER") != "YES":
-    sys.exit("Refusing to place a live order. Set CONFIRM_LIVE_ORDER=YES.")
+    sys.exit("Refusing to create a live GTT. Set CONFIRM_LIVE_ORDER=YES.")
 
 with get_db() as db:
     link = ExchangeLinkRepo.get_for_user(db, USER_ID, provider="groww")
@@ -38,8 +48,8 @@ with get_db() as db:
     token = link.decrypt_session_token(db)
 
 request = Request(
-    "https://api.groww.in/v1/order/create",
-    data=json.dumps(ORDER).encode("utf-8"),
+    "https://api.groww.in/v1/order-advance/create",
+    data=json.dumps(GTT).encode("utf-8"),
     method="POST",
     headers={
         "Authorization": f"Bearer {token}",
