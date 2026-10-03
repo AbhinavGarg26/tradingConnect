@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 
-EMERGENCY_BUFFER_PCT = 2.0
+HARD_STOP_LOSS_PCT = 12.0
+PROFIT_TARGET_PCT = 15.0
 PROFIT_LADDER_START_PCT = 10.0
 PROFIT_LADDER_STEP_PCT = 5.0
 PROFIT_LOCK_STEP_PCT = 2.5
@@ -84,7 +85,7 @@ class PositionStopTracker:
         atr_trail_distance_pct: Optional[float] = None,
     ) -> Optional[str]:
         """Return an exit instruction reason, or None while holding."""
-        del recent_prices, now, charge_floor_pct
+        del recent_prices, now, charge_floor_pct, soft_loss_pct
         state = self._states.setdefault(
             position_key,
             PositionStopState(peak_pnl_pct=pnl_pct, worst_pnl_pct=pnl_pct),
@@ -92,9 +93,12 @@ class PositionStopTracker:
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
-        emergency_loss_pct = soft_loss_pct + EMERGENCY_BUFFER_PCT
-        if pnl_pct <= -emergency_loss_pct:
-            return "EMERGENCY_STOP"
+        # These two absolute risk boundaries take priority over all trailing
+        # logic.  They intentionally produce market exits.
+        if pnl_pct <= -HARD_STOP_LOSS_PCT:
+            return "HARD_STOP_12PCT"
+        if pnl_pct >= PROFIT_TARGET_PCT:
+            return "PROFIT_TARGET_15PCT"
 
         # Arm the requested profit ladder from the highest observed P&L peak.
         del atr_trail_distance_pct

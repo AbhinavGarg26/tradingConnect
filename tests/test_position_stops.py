@@ -6,10 +6,18 @@ from market.position_stops import PositionStopTracker, locked_profit_for_peak
 class PositionStopTrackerTests(unittest.TestCase):
     def test_only_hard_loss_exits_with_market_instruction(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", -5.8, 5.8, []))
+        self.assertIsNone(tracker.evaluate("NFO:X", -11.99, 5.8, []))
         self.assertEqual(
-            tracker.evaluate("NFO:X", -7.8, 5.8, []),
-            "EMERGENCY_STOP",
+            tracker.evaluate("NFO:X", -12.0, 5.8, []),
+            "HARD_STOP_12PCT",
+        )
+
+    def test_fifteen_percent_profit_exits_immediately(self):
+        tracker = PositionStopTracker()
+        self.assertIsNone(tracker.evaluate("NFO:X", 14.99, 5.8, []))
+        self.assertEqual(
+            tracker.evaluate("NFO:X", 15.0, 5.8, []),
+            "PROFIT_TARGET_15PCT",
         )
 
     def test_profit_ladder_does_not_arm_before_ten_percent(self):
@@ -53,9 +61,9 @@ class PositionStopTrackerTests(unittest.TestCase):
 
     def test_profit_floor_never_moves_down(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 45.0, 5.8, [])
-        tracker.evaluate("NFO:X", 42.0, 5.8, [])
-        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 20.0)
+        tracker.evaluate("NFO:X", 14.0, 5.8, [])
+        tracker.evaluate("NFO:X", 12.0, 5.8, [])
+        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 2.5)
 
 
 if __name__ == "__main__":
