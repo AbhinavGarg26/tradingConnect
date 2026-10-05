@@ -7,6 +7,7 @@ import uuid
 
 from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
+from market.kite_ltp import live_prices
 
 
 TERMINAL_ORDER_STATUSES = {
@@ -105,9 +106,10 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
 class GrowwPositionRiskMonitor:
     """Poll Groww positions and enforce the same -12%/+15% exits as Kite."""
 
-    def __init__(self, logger, user_id: int, interval_seconds: float = 1.0):
+    def __init__(self, logger, user_id: int, kite, interval_seconds: float = 1.0):
         self.logger = logger
         self.user_id = user_id
+        self.kite = kite
         self.interval_seconds = interval_seconds
         self._last_run = 0.0
         self._executor: GrowwMarketExitExecutor | None = None
@@ -141,8 +143,16 @@ class GrowwPositionRiskMonitor:
                 payload = self._executor._get("/positions/user", {"segment": segment})
                 positions.extend(payload.get("positions", []))
 
+            open_rows = [
+                row for row in positions
+                if int(row.get("quantity") or row.get("net_quantity") or 0) > 0
+            ]
+            # Groww's portfolio endpoint remains the source of positions, but
+            # Kite is the single source of live LTPs for all broker monitors.
+            # One batched request avoids Groww live-data permissions/rate errors.
+            prices = live_prices(self.kite, open_rows)
             active_keys: set[str] = set()
-            for row in positions:
+            for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)
                 if quantity <= 0:
                     continue
@@ -165,11 +175,10 @@ class GrowwPositionRiskMonitor:
                     "quantity": quantity,
                 }
                 active_keys.add(self._executor._position_key(position))
-                ltp_payload = self._executor._get("/live-data/ltp", {
-                    "segment": position["segment"],
-                    "exchange_symbols": f'{position["exchange"]}_{symbol}',
-                })
-                ltp = float(ltp_payload.get(f'{position["exchange"]}_{symbol}') or 0)
+                ltp = prices.get((position["exchange"], position["segment"], position["tradingsymbol"]), 0)
+                if ltp <= 0:
+                    self.logger.warning("[%s] Kite LTP unavailable; Groww protection did not evaluate this cycle", symbol)
+                    continue
                 reason = hard_exit_reason(entry, ltp, hard_stop_loss_pct)
                 if reason:
                     pnl_pct = ((ltp - entry) / entry) * 100

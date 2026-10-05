@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from sqlalchemy import text
 
 from database.live_market_state import upsert_live_metric
+from market.kite_ltp import live_prices
 from market.recovery_gtt import RecoveryGttState, evaluate
 
 
@@ -127,8 +128,8 @@ class GrowwRecoveryGttExecutor:
 
 class GrowwRecoveryGttMonitor:
     """Poll active Groww long positions and arm recovery GTTs at most every 10s."""
-    def __init__(self, logger, user_id: int, interval_seconds: float = 10.0):
-        self.logger, self.user_id, self.interval_seconds = logger, user_id, interval_seconds
+    def __init__(self, logger, user_id: int, kite, interval_seconds: float = 10.0):
+        self.logger, self.user_id, self.kite, self.interval_seconds = logger, user_id, kite, interval_seconds
         self._last_run = 0.0
 
     def run_if_due(self, db, monotonic_now: float) -> None:
@@ -144,18 +145,17 @@ class GrowwRecoveryGttMonitor:
             positions = []
             for segment in ("CASH", "FNO"):
                 positions.extend(client._get("/positions/user", {"segment": segment}).get("positions", []))
-            for row in positions:
+            open_rows = [row for row in positions if int(row.get("quantity") or row.get("net_quantity") or 0) > 0]
+            prices = live_prices(self.kite, open_rows)
+            for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)
-                if quantity <= 0:
-                    continue
                 segment = str(row.get("segment") or "FNO").upper()
                 symbol = row.get("trading_symbol") or row.get("symbol")
                 exchange = row.get("exchange") or "NSE"
                 entry = float(row.get("average_price") or row.get("average_buy_price") or row.get("buy_average_price") or 0)
                 if not symbol or entry <= 0:
                     continue
-                ltp_payload = client._get("/live-data/ltp", {"segment": segment, "exchange_symbols": f"{exchange}_{symbol}"})
-                ltp = float(ltp_payload.get(f"{exchange}_{symbol}") or 0)
+                ltp = prices.get((str(exchange).upper(), segment, str(symbol)), 0)
                 if ltp <= 0:
                     continue
                 client.process(db, {"exchange": exchange, "segment": segment, "tradingsymbol": symbol, "product": row.get("product") or row.get("product_type") or ("NRML" if segment == "FNO" else "CNC"), "quantity": quantity}, entry, ltp)

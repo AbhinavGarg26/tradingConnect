@@ -140,11 +140,11 @@ if __name__ == "__main__":
     stop_tracker = PositionStopTracker()
     exit_executor = MarketExitExecutor(kite, logger)
     recovery_gtt_executor = ZerodhaRecoveryGttExecutor(kite, logger, user_id) if RECOVERY_GTT_ENABLED else None
-    groww_recovery_monitor = GrowwRecoveryGttMonitor(logger, user_id) if RECOVERY_GTT_ENABLED else None
+    groww_recovery_monitor = GrowwRecoveryGttMonitor(logger, user_id, kite) if RECOVERY_GTT_ENABLED else None
     auto_exit_settings = AutoExitSettings()
     with get_db() as db:
         auto_exit_settings.refresh(db, user_id, force=True)
-    groww_risk_monitor = GrowwPositionRiskMonitor(logger, user_id)
+    groww_risk_monitor = GrowwPositionRiskMonitor(logger, user_id, kite)
     groww_stop_event = threading.Event()
     entry_price_tracker = CurrentEntryPriceTracker()
     account_risk_monitor = AccountRiskMonitor(user_id, logger)
