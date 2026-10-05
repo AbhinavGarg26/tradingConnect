@@ -183,6 +183,9 @@ class MarketConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "support_zone_buffer": ("0.3",   "float",   "sl_strategy"),
         "telegram_bot_token":  ("",      "string",  "alert"),
         "telegram_chat_id":    ("",      "string",  "alert"),
+        "kite_auto_exit_enabled":  ("true", "boolean", "exit_automation"),
+        "groww_auto_exit_enabled": ("true", "boolean", "exit_automation"),
+        "hard_stop_loss_pct":      ("12",   "float",   "exit_automation"),
     }
 
 

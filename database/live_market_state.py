@@ -207,7 +207,7 @@ def sync_position_risk_state(
     ltp: float,
     buy_price: float,
     pnl_pct: float,
-    soft_loss_pct: float,
+    hard_stop_loss_pct: float,
     stop_state: dict,
     exit_reason: str | None,
 ) -> None:
@@ -225,8 +225,7 @@ def sync_position_risk_state(
         "buy_price": buy_price,
         "ltp": ltp,
         "current_pnl_pct": pnl_pct,
-        "soft_stop_pct": -soft_loss_pct,
-        "emergency_stop_pct": -(soft_loss_pct + 2.0),
+        "hard_stop_pct": -hard_stop_loss_pct,
         "exit_reason": exit_reason,
         **stop_state,
     }

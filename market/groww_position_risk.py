@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 
-from market.position_stops import HARD_STOP_LOSS_PCT, PROFIT_TARGET_PCT
+from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
 
 
@@ -14,14 +14,16 @@ TERMINAL_ORDER_STATUSES = {
 }
 
 
-def hard_exit_reason(entry_price: float, ltp: float) -> str | None:
+def hard_exit_reason(
+    entry_price: float,
+    ltp: float,
+    hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
+) -> str | None:
     if entry_price <= 0 or ltp <= 0:
         return None
     pnl_pct = ((ltp - entry_price) / entry_price) * 100
-    if pnl_pct <= -HARD_STOP_LOSS_PCT:
-        return "HARD_STOP_12PCT"
-    if pnl_pct >= PROFIT_TARGET_PCT:
-        return "PROFIT_TARGET_15PCT"
+    if pnl_pct <= -hard_stop_loss_pct:
+        return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
     return None
 
 
@@ -111,7 +113,12 @@ class GrowwPositionRiskMonitor:
         self._executor: GrowwMarketExitExecutor | None = None
         self._token: str | None = None
 
-    def run_if_due(self, db, monotonic_now: float | None = None) -> None:
+    def run_if_due(
+        self,
+        db,
+        monotonic_now: float | None = None,
+        hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
+    ) -> None:
         now = time.monotonic() if monotonic_now is None else monotonic_now
         if now - self._last_run < self.interval_seconds:
             return
@@ -163,7 +170,7 @@ class GrowwPositionRiskMonitor:
                     "exchange_symbols": f'{position["exchange"]}_{symbol}',
                 })
                 ltp = float(ltp_payload.get(f'{position["exchange"]}_{symbol}') or 0)
-                reason = hard_exit_reason(entry, ltp)
+                reason = hard_exit_reason(entry, ltp, hard_stop_loss_pct)
                 if reason:
                     pnl_pct = ((ltp - entry) / entry) * 100
                     self.logger.critical(

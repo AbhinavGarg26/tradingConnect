@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 
-HARD_STOP_LOSS_PCT = 12.0
-PROFIT_TARGET_PCT = 15.0
+DEFAULT_HARD_STOP_LOSS_PCT = 12.0
 PROFIT_LADDER_START_PCT = 10.0
 PROFIT_LADDER_STEP_PCT = 5.0
 PROFIT_LOCK_STEP_PCT = 2.5
@@ -78,14 +77,14 @@ class PositionStopTracker:
         self,
         position_key: str,
         pnl_pct: float,
-        soft_loss_pct: float,
+        hard_stop_loss_pct: float,
         recent_prices: Iterable[float],
         now=None,
         charge_floor_pct: float = 0.0,
         atr_trail_distance_pct: Optional[float] = None,
     ) -> Optional[str]:
         """Return an exit instruction reason, or None while holding."""
-        del recent_prices, now, charge_floor_pct, soft_loss_pct
+        del recent_prices, now, charge_floor_pct
         state = self._states.setdefault(
             position_key,
             PositionStopState(peak_pnl_pct=pnl_pct, worst_pnl_pct=pnl_pct),
@@ -93,12 +92,10 @@ class PositionStopTracker:
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
-        # These two absolute risk boundaries take priority over all trailing
-        # logic.  They intentionally produce market exits.
-        if pnl_pct <= -HARD_STOP_LOSS_PCT:
-            return "HARD_STOP_12PCT"
-        if pnl_pct >= PROFIT_TARGET_PCT:
-            return "PROFIT_TARGET_15PCT"
+        # The configurable absolute loss boundary takes priority over all
+        # trailing logic and always produces a market exit.
+        if pnl_pct <= -hard_stop_loss_pct:
+            return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
 
         # Arm the requested profit ladder from the highest observed P&L peak.
         del atr_trail_distance_pct

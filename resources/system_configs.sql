@@ -13,6 +13,9 @@
 # support_zone_buffer  | 0.3      | float   | sl_strategy   | % buffer around support levels for rejection detection
 # telegram_bot_token   |          | string  | alert         | Telegram bot token from @BotFather
 # telegram_chat_id     |          | string  | alert         | Telegram chat ID to send alerts to
+# kite_auto_exit_enabled  | true   | boolean | exit_automation | Enable monitored Kite market exits
+# groww_auto_exit_enabled | true   | boolean | exit_automation | Enable monitored Groww market exits
+# hard_stop_loss_pct       | 12     | float   | exit_automation | Hard market-exit loss percentage
 
 # SQL to seed defaults for a user:
 #
@@ -25,7 +28,10 @@
 --   (gen_random_uuid(), '975447485', 'max_open_trades',     '5',     'integer', 'risk', now(), now()),
 --   (gen_random_uuid(), '975447485', 'support_zone_buffer', '0.3',   'float',   'sl_strategy', now(), now()),
 --   (gen_random_uuid(), '975447485', 'telegram_bot_token',  '',      'string',  'alert', now(), now()),
---   (gen_random_uuid(), '975447485', 'telegram_chat_id',    '',      'string',  'alert', now(), now());
+--   (gen_random_uuid(), '975447485', 'telegram_chat_id',    '',      'string',  'alert', now(), now()),
+--   (gen_random_uuid(), '975447485', 'kite_auto_exit_enabled',  'true', 'boolean', 'exit_automation', now(), now()),
+--   (gen_random_uuid(), '975447485', 'groww_auto_exit_enabled', 'true', 'boolean', 'exit_automation', now(), now()),
+--   (gen_random_uuid(), '975447485', 'hard_stop_loss_pct',       '12',   'float',   'exit_automation', now(), now());
 
 
 --

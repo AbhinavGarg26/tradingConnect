@@ -33,13 +33,13 @@ class GrowwPositionRiskTests(unittest.TestCase):
     def test_hard_boundaries(self):
         self.assertIsNone(hard_exit_reason(100, 88.01))
         self.assertEqual(hard_exit_reason(100, 88), "HARD_STOP_12PCT")
-        self.assertIsNone(hard_exit_reason(100, 114.99))
-        self.assertEqual(hard_exit_reason(100, 115), "PROFIT_TARGET_15PCT")
+        self.assertIsNone(hard_exit_reason(100, 115))
+        self.assertEqual(hard_exit_reason(100, 91.5, 8.5), "HARD_STOP_8.5PCT")
 
     def test_market_sell_payload_and_deduplication(self):
         executor = FakeGrowwExit()
-        self.assertEqual(executor.exit_position(POSITION, "PROFIT_TARGET_15PCT"), "G1")
-        self.assertIsNone(executor.exit_position(POSITION, "PROFIT_TARGET_15PCT"))
+        self.assertEqual(executor.exit_position(POSITION, "HARD_STOP_12PCT"), "G1")
+        self.assertIsNone(executor.exit_position(POSITION, "HARD_STOP_12PCT"))
         creates = [item for item in executor.requests if item[1] == "/order/create"]
         self.assertEqual(len(creates), 1)
         self.assertEqual(creates[0][2]["order_type"], "MARKET")

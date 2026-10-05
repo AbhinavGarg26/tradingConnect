@@ -159,7 +159,7 @@ def process_open_positions(
         exit_reason = stop_tracker.evaluate(
             position_key=position_key,
             pnl_pct=pnl_pct,
-            soft_loss_pct=pct_loss,
+            hard_stop_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
         )
         if exit_reason and auto_exit_enabled:
@@ -194,7 +194,7 @@ def process_open_positions(
                             ltp=ltp,
                             buy_price=buy_price,
                             pnl_pct=pnl_pct,
-                            soft_loss_pct=pct_loss,
+                            hard_stop_loss_pct=pct_loss,
                             stop_state=stop_state,
                             exit_reason=exit_reason,
                         )

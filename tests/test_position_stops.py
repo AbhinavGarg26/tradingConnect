@@ -6,19 +6,20 @@ from market.position_stops import PositionStopTracker, locked_profit_for_peak
 class PositionStopTrackerTests(unittest.TestCase):
     def test_only_hard_loss_exits_with_market_instruction(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", -11.99, 5.8, []))
+        self.assertIsNone(tracker.evaluate("NFO:X", -11.99, 12.0, []))
         self.assertEqual(
-            tracker.evaluate("NFO:X", -12.0, 5.8, []),
+            tracker.evaluate("NFO:X", -12.0, 12.0, []),
             "HARD_STOP_12PCT",
         )
 
-    def test_fifteen_percent_profit_exits_immediately(self):
+    def test_profit_target_has_been_removed(self):
         tracker = PositionStopTracker()
-        self.assertIsNone(tracker.evaluate("NFO:X", 14.99, 5.8, []))
-        self.assertEqual(
-            tracker.evaluate("NFO:X", 15.0, 5.8, []),
-            "PROFIT_TARGET_15PCT",
-        )
+        self.assertIsNone(tracker.evaluate("NFO:X", 15.0, 12.0, []))
+
+    def test_hard_loss_uses_configured_percentage(self):
+        tracker = PositionStopTracker()
+        self.assertIsNone(tracker.evaluate("NFO:X", -8.49, 8.5, []))
+        self.assertEqual(tracker.evaluate("NFO:X", -8.5, 8.5, []), "HARD_STOP_8.5PCT")
 
     def test_profit_ladder_does_not_arm_before_ten_percent(self):
         tracker = PositionStopTracker()

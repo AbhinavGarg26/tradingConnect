@@ -20,6 +20,7 @@ from market.market_positions import process_open_positions
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker
 from market.account_risk import AccountRiskMonitor
+from market.auto_exit_config import AutoExitSettings
 from market.recovery_gtt_executor import GrowwRecoveryGttMonitor, ZerodhaRecoveryGttExecutor
 from market.groww_position_risk import GrowwPositionRiskMonitor
 
@@ -41,13 +42,9 @@ FINAL_SESSION_POLL_INTERVAL = 0.10
 IDLE_POLL_INTERVAL = 2.0
 FINAL_SESSION_START_HOUR = 15
 BROKER_POSITION_REFRESH_INTERVAL = 1.0
-PCT_LOSS = 10.0  # Retained for compatibility; hard loss is fixed at -12%.
-KITE_AUTO_EXIT_ENABLED = os.getenv("KITE_AUTO_EXIT_ENABLED", "true").strip().lower() in {
-    "1", "true", "yes", "on"
-}
-GROWW_AUTO_EXIT_ENABLED = os.getenv("GROWW_AUTO_EXIT_ENABLED", "true").strip().lower() in {
-    "1", "true", "yes", "on"
-}
+PCT_LOSS = 12.0  # Startup fallback; live value comes from Market Config.
+KITE_AUTO_EXIT_ENABLED = True  # DB setting; environment is the missing-row fallback.
+GROWW_AUTO_EXIT_ENABLED = True  # DB setting; environment is the missing-row fallback.
 RECOVERY_GTT_ENABLED = os.getenv("RECOVERY_GTT_ENABLED", "false").strip().lower() in {
     "1", "true", "yes", "on"
 }
@@ -102,16 +99,23 @@ def _warm_market_snapshots() -> None:
 
 def _monitor_groww_positions(
     monitor: GrowwPositionRiskMonitor,
+    settings: AutoExitSettings,
+    user_id: int,
     stop_event: threading.Event,
 ) -> None:
     """Keep Groww API latency isolated from the Kite protection loop."""
     while not stop_event.is_set() and is_market_open():
         try:
             with get_db() as db:
-                monitor.run_if_due(db)
+                settings.refresh(db, user_id)
+                if settings.groww_enabled:
+                    monitor.run_if_due(
+                        db,
+                        hard_stop_loss_pct=settings.hard_stop_loss_pct,
+                    )
         except Exception as exc:
             logger.exception("Groww risk-monitor worker failed: %s", exc)
-        stop_event.wait(0.25)
+        stop_event.wait(0.5)
 
 if __name__ == "__main__":
     # Do not authenticate just because deploy.sh is run after market close or
@@ -137,7 +141,10 @@ if __name__ == "__main__":
     exit_executor = MarketExitExecutor(kite, logger)
     recovery_gtt_executor = ZerodhaRecoveryGttExecutor(kite, logger, user_id) if RECOVERY_GTT_ENABLED else None
     groww_recovery_monitor = GrowwRecoveryGttMonitor(logger, user_id) if RECOVERY_GTT_ENABLED else None
-    groww_risk_monitor = GrowwPositionRiskMonitor(logger, user_id) if GROWW_AUTO_EXIT_ENABLED else None
+    auto_exit_settings = AutoExitSettings()
+    with get_db() as db:
+        auto_exit_settings.refresh(db, user_id, force=True)
+    groww_risk_monitor = GrowwPositionRiskMonitor(logger, user_id)
     groww_stop_event = threading.Event()
     entry_price_tracker = CurrentEntryPriceTracker()
     account_risk_monitor = AccountRiskMonitor(user_id, logger)
@@ -148,11 +155,12 @@ if __name__ == "__main__":
     positions_response = None
 
     logger.info(
-        "Starting Position Manager (%.2fs active, %.2fs final-session interval, Kite exits %s, Groww exits %s, recovery GTTs %s)...",
+        "Starting Position Manager (%.2fs active, %.2fs final-session interval, Kite exits %s, Groww exits %s, hard stop %.2f%%, recovery GTTs %s)...",
         ACTIVE_POLL_INTERVAL,
         FINAL_SESSION_POLL_INTERVAL,
-        "enabled" if KITE_AUTO_EXIT_ENABLED else "disabled",
-        "enabled" if GROWW_AUTO_EXIT_ENABLED else "disabled",
+        "enabled" if auto_exit_settings.kite_enabled else "disabled",
+        "enabled" if auto_exit_settings.groww_enabled else "disabled",
+        auto_exit_settings.hard_stop_loss_pct,
         "enabled" if RECOVERY_GTT_ENABLED else "disabled",
     )
     threading.Thread(
@@ -160,13 +168,12 @@ if __name__ == "__main__":
         name="market-snapshot-warmup",
         daemon=True,
     ).start()
-    if groww_risk_monitor is not None:
-        threading.Thread(
-            target=_monitor_groww_positions,
-            args=(groww_risk_monitor, groww_stop_event),
-            name="groww-position-risk",
-            daemon=True,
-        ).start()
+    threading.Thread(
+        target=_monitor_groww_positions,
+        args=(groww_risk_monitor, auto_exit_settings, user_id, groww_stop_event),
+        name="groww-position-risk",
+        daemon=True,
+    ).start()
 
     try:
         with get_db() as db:
@@ -189,6 +196,7 @@ if __name__ == "__main__":
             try:
 
                 with get_db() as db:
+                    auto_exit_settings.refresh(db, user_id)
                     active_symbols = trade_reconciler.run_if_due(kite, db, user_id)
                     now_monotonic = time.monotonic()
                     publish_live_state = now_monotonic - last_live_state_sync >= 2.0
@@ -211,7 +219,7 @@ if __name__ == "__main__":
                         groww_recovery_monitor.run_if_due(db, now_monotonic)
                     pos_count = process_open_positions(
                         IGNORE_SYMBOL,
-                        PCT_LOSS,
+                        auto_exit_settings.hard_stop_loss_pct,
                         logger,
                         kite,
                         db,
@@ -220,7 +228,7 @@ if __name__ == "__main__":
                         exit_executor,
                         entry_price_tracker,
                         publish_live_state,
-                        auto_exit_enabled=KITE_AUTO_EXIT_ENABLED,
+                        auto_exit_enabled=auto_exit_settings.kite_enabled,
                         recovery_gtt_executor=recovery_gtt_executor,
                         positions_response=positions_response,
                     )

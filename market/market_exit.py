@@ -247,11 +247,9 @@ class MarketExitExecutor:
     def _is_hard_exit(reason: str) -> bool:
         return reason in {
             "EMERGENCY_STOP",
-            "HARD_STOP_12PCT",
-            "PROFIT_TARGET_15PCT",
             "PROFIT_HARD_FLOOR",
             "PROFIT_LADDER_STOP",
-        }
+        } or reason.startswith("HARD_STOP_")
 
     @staticmethod
     def _round_up_to_tick(reference_price: float) -> float:
