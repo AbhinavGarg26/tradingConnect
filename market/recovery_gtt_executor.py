@@ -8,11 +8,13 @@ from __future__ import annotations
 from decimal import Decimal, ROUND_HALF_UP
 import json
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from sqlalchemy import text
 
 from database.live_market_state import upsert_live_metric
+from market.groww_entry_price import execution_entry_price
 from market.kite_ltp import live_prices
 from market.recovery_gtt import RecoveryGttState, evaluate
 
@@ -42,14 +44,15 @@ def _save(db, key: str, state: RecoveryGttState, **extra) -> None:
 
 
 class ZerodhaRecoveryGttExecutor:
-    def __init__(self, kite, logger, user_id: int):
+    def __init__(self, kite, logger, user_id: int, allow_loss_recovery: bool = True):
         self.kite, self.logger, self.user_id = kite, logger, user_id
+        self.allow_loss_recovery = allow_loss_recovery
 
     def process(self, db, position: dict, entry_price: float, ltp: float) -> None:
         key = _key("zerodha", self.user_id, position)
         payload = _load(db, key)
         state = RecoveryGttState.from_payload(payload)
-        event = evaluate(entry_price, ltp, state)
+        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery)
         if not event:
             _save(db, key, state, gtt_id=payload.get("gtt_id"))
             return
@@ -74,28 +77,30 @@ class GrowwRecoveryGttExecutor:
     """Groww smart-GTT adapter; caller supplies the encrypted-link access token."""
     BASE_URL = "https://api.groww.in/v1"
 
-    def __init__(self, access_token: str, logger, user_id: int):
+    def __init__(self, access_token: str, logger, user_id: int, allow_loss_recovery: bool = True):
         self.access_token, self.logger, self.user_id = access_token, logger, user_id
+        self.allow_loss_recovery = allow_loss_recovery
 
     def process(self, db, position: dict, entry_price: float, ltp: float) -> None:
         key = _key("groww", self.user_id, position)
         payload = _load(db, key)
         state = RecoveryGttState.from_payload(payload)
-        event = evaluate(entry_price, ltp, state)
+        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery)
         if not event:
             _save(db, key, state, gtt_id=payload.get("gtt_id"))
             return
         trigger = _tick(entry_price * (1 + event.trigger_pct / 100))
         segment = position["segment"]
+        direction = "DOWN" if trigger < ltp else "UP"
         order = {"order_type": "LIMIT", "price": f"{trigger:.2f}", "transaction_type": "SELL"}
         gtt_id = payload.get("gtt_id")
         try:
             if gtt_id:
-                self._request("PUT", f"/order-advance/modify/{gtt_id}", {"smart_order_type": "GTT", "segment": segment, "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": "UP", "order": order})
+                self._request("PUT", f"/order-advance/modify/{gtt_id}", {"smart_order_type": "GTT", "segment": segment, "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order})
                 action = "replaced"
             else:
                 reference_id = f"RG{str(self.user_id)[-4:]}{abs(hash(key + event.key)) % 10_000_000:07d}"
-                response = self._request("POST", "/order-advance/create", {"reference_id": reference_id, "smart_order_type": "GTT", "segment": segment, "trading_symbol": position["tradingsymbol"], "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": "UP", "order": order, "product_type": position["product"], "exchange": position["exchange"], "duration": "DAY"})
+                response = self._request("POST", "/order-advance/create", {"reference_id": reference_id, "smart_order_type": "GTT", "segment": segment, "trading_symbol": position["tradingsymbol"], "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order, "product_type": position["product"], "exchange": position["exchange"], "duration": "DAY"})
                 gtt_id, action = response["smart_order_id"], "placed"
             _save(db, key, state, gtt_id=gtt_id, event=event.key, trigger_price=trigger)
             self.logger.warning("[%s] Groww recovery GTT %s at ₹%.2f (%s)", position["tradingsymbol"], action, trigger, event.key)
@@ -108,8 +113,17 @@ class GrowwRecoveryGttExecutor:
         request.add_header("Accept", "application/json")
         request.add_header("Content-Type", "application/json")
         request.add_header("X-API-VERSION", "1.0")
-        with urlopen(request, timeout=8) as response:
-            payload = json.loads(response.read())
+        try:
+            with urlopen(request, timeout=8) as response:
+                payload = json.loads(response.read())
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            try:
+                parsed = json.loads(detail)
+                detail = parsed.get("message") or parsed.get("error") or detail
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            raise RuntimeError(f"Groww {path} failed (HTTP {exc.code}): {detail}") from exc
         if payload.get("status") != "SUCCESS":
             raise RuntimeError(payload.get("message") or "Groww GTT request failed")
         return payload["payload"]
@@ -128,8 +142,9 @@ class GrowwRecoveryGttExecutor:
 
 class GrowwRecoveryGttMonitor:
     """Poll active Groww long positions and arm recovery GTTs at most every 10s."""
-    def __init__(self, logger, user_id: int, kite, interval_seconds: float = 10.0):
+    def __init__(self, logger, user_id: int, kite, interval_seconds: float = 10.0, allow_loss_recovery: bool = True):
         self.logger, self.user_id, self.kite, self.interval_seconds = logger, user_id, kite, interval_seconds
+        self.allow_loss_recovery = allow_loss_recovery
         self._last_run = 0.0
 
     def run_if_due(self, db, monotonic_now: float) -> None:
@@ -141,10 +156,14 @@ class GrowwRecoveryGttMonitor:
             link = ExchangeLinkRepo.get_for_user(db, self.user_id, provider="groww")
             if not link or not link.is_session_valid:
                 return
-            client = GrowwRecoveryGttExecutor(link.decrypt_session_token(db), self.logger, self.user_id)
+            client = GrowwRecoveryGttExecutor(link.decrypt_session_token(db), self.logger, self.user_id, allow_loss_recovery=self.allow_loss_recovery)
             positions = []
+            orders_by_segment = {}
             for segment in ("CASH", "FNO"):
                 positions.extend(client._get("/positions/user", {"segment": segment}).get("positions", []))
+                orders_by_segment[segment] = client._get(
+                    "/order/list", {"segment": segment, "page": 0, "page_size": 100}
+                ).get("order_list", [])
             open_rows = [row for row in positions if int(row.get("quantity") or row.get("net_quantity") or 0) > 0]
             prices = live_prices(self.kite, open_rows)
             for row in open_rows:
@@ -152,8 +171,8 @@ class GrowwRecoveryGttMonitor:
                 segment = str(row.get("segment") or "FNO").upper()
                 symbol = row.get("trading_symbol") or row.get("symbol")
                 exchange = row.get("exchange") or "NSE"
-                entry = float(row.get("average_price") or row.get("average_buy_price") or row.get("buy_average_price") or 0)
-                if not symbol or entry <= 0:
+                entry = execution_entry_price(orders_by_segment.get(segment, []), row)
+                if not symbol or entry is None or entry <= 0:
                     continue
                 ltp = prices.get((str(exchange).upper(), segment, str(symbol)), 0)
                 if ltp <= 0:

@@ -29,13 +29,13 @@ class PositionStopTrackerTests(unittest.TestCase):
         snapshot = tracker.snapshot("NFO:X")
         self.assertIsNone(snapshot["locked_profit_pct"])
 
-    def test_ten_percent_peak_locks_two_and_a_half_percent(self):
+    def test_ten_percent_peak_uses_broker_gtt_not_software_floor(self):
         tracker = PositionStopTracker()
         tracker.evaluate("NFO:X", 10.0, 5.8, [])
         reason = tracker.evaluate("NFO:X", 2.5, 5.8, [])
-        self.assertEqual(reason, "PROFIT_LADDER_STOP")
+        self.assertIsNone(reason)
         snapshot = tracker.snapshot("NFO:X")
-        self.assertEqual(snapshot["locked_profit_pct"], 2.5)
+        self.assertIsNone(snapshot["locked_profit_pct"])
         self.assertIsNone(snapshot["profit_limit_target_pct"])
 
     def test_fifteen_percent_peak_locks_five_percent(self):
@@ -62,9 +62,9 @@ class PositionStopTrackerTests(unittest.TestCase):
 
     def test_profit_floor_never_moves_down(self):
         tracker = PositionStopTracker()
-        tracker.evaluate("NFO:X", 14.0, 5.8, [])
+        tracker.evaluate("NFO:X", 15.0, 5.8, [])
         tracker.evaluate("NFO:X", 12.0, 5.8, [])
-        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 2.5)
+        self.assertEqual(tracker.snapshot("NFO:X")["locked_profit_pct"], 5.0)
 
 
 if __name__ == "__main__":

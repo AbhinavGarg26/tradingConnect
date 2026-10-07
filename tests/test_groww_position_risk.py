@@ -1,7 +1,11 @@
 import logging
 import unittest
 
-from market.groww_position_risk import GrowwMarketExitExecutor, hard_exit_reason
+from market.groww_position_risk import (
+    GrowwMarketExitExecutor,
+    execution_entry_price,
+    hard_exit_reason,
+)
 
 
 POSITION = {
@@ -58,6 +62,33 @@ class GrowwPositionRiskTests(unittest.TestCase):
         self.assertIsNone(executor.exit_position(POSITION, "HARD_STOP_12PCT"))
         self.assertEqual(executor.requests[0][1], "/order/cancel")
         self.assertFalse(any(item[1] == "/order/create" for item in executor.requests))
+
+    def test_cancellation_requested_is_waited_on_without_repeating_cancel(self):
+        executor = FakeGrowwExit([{
+            "groww_order_id": "OLD1", "trading_symbol": POSITION["tradingsymbol"],
+            "exchange": "NSE", "product": "NRML", "transaction_type": "SELL",
+            "order_status": "CANCELLATION_REQUESTED",
+        }])
+        self.assertIsNone(executor.exit_position(POSITION, "HARD_STOP_12PCT"))
+        self.assertEqual(executor.requests, [])
+
+    def test_executed_sell_does_not_block_market_exit(self):
+        executor = FakeGrowwExit([{
+            "groww_order_id": "DONE1", "trading_symbol": POSITION["tradingsymbol"],
+            "exchange": "NSE", "product": "NRML", "transaction_type": "SELL",
+            "order_status": "EXECUTED",
+        }])
+        self.assertEqual(executor.exit_position(POSITION, "HARD_STOP_12PCT"), "G1")
+        self.assertEqual([item[1] for item in executor.requests], ["/order/create"])
+
+    def test_execution_entry_resets_after_position_is_flat(self):
+        orders = [
+            {"trading_symbol": POSITION["tradingsymbol"], "exchange": "NSE", "product": "NRML", "transaction_type": "BUY", "filled_quantity": 130, "average_fill_price": 86.70, "exchange_time": "10:00"},
+            {"trading_symbol": POSITION["tradingsymbol"], "exchange": "NSE", "product": "NRML", "transaction_type": "SELL", "filled_quantity": 130, "average_fill_price": 80.00, "exchange_time": "10:05"},
+            {"trading_symbol": POSITION["tradingsymbol"], "exchange": "NSE", "product": "NRML", "transaction_type": "BUY", "filled_quantity": 130, "average_fill_price": 31.70, "exchange_time": "12:45"},
+        ]
+        row = {**POSITION, "trading_symbol": POSITION["tradingsymbol"], "quantity": 130}
+        self.assertEqual(execution_entry_price(orders, row), 31.70)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ class RecoveryGttState:
     peak_pct: float = 0.0
     armed_loss_levels: set[int] = field(default_factory=set)
     armed_profit_peaks: set[int] = field(default_factory=set)
+    profit_floor_10_armed: bool = False
 
     @classmethod
     def from_payload(cls, payload: dict | None) -> "RecoveryGttState":
@@ -29,6 +30,7 @@ class RecoveryGttState:
             peak_pct=float(payload.get("peak_pct") or 0),
             armed_loss_levels={int(value) for value in payload.get("armed_loss_levels", [])},
             armed_profit_peaks={int(value) for value in payload.get("armed_profit_peaks", [])},
+            profit_floor_10_armed=bool(payload.get("profit_floor_10_armed", False)),
         )
 
     def payload(self) -> dict:
@@ -36,6 +38,7 @@ class RecoveryGttState:
             "peak_pct": round(self.peak_pct, 4),
             "armed_loss_levels": sorted(self.armed_loss_levels),
             "armed_profit_peaks": sorted(self.armed_profit_peaks),
+            "profit_floor_10_armed": self.profit_floor_10_armed,
         }
 
 
@@ -47,7 +50,12 @@ class RecoveryGttEvent:
     observed_pct: float
 
 
-def evaluate(entry_price: float, ltp: float, state: RecoveryGttState) -> RecoveryGttEvent | None:
+def evaluate(
+    entry_price: float,
+    ltp: float,
+    state: RecoveryGttState,
+    allow_loss_recovery: bool = True,
+) -> RecoveryGttEvent | None:
     """Return one new recovery event, or None when an existing event still holds.
 
     Examples: entry 100, LTP 95 -> loss-5 at 99.  Entry 100, after a
@@ -59,8 +67,19 @@ def evaluate(entry_price: float, ltp: float, state: RecoveryGttState) -> Recover
     pnl_pct = ((ltp - entry_price) / entry_price) * 100
     state.peak_pct = max(state.peak_pct, pnl_pct)
 
+    # Once +10% is observed, protect +5% at the broker immediately. This is a
+    # downside GTT, not a software market exit, and is persisted across restarts.
+    if state.peak_pct >= PROFIT_PEAK_STEP and not state.profit_floor_10_armed:
+        state.profit_floor_10_armed = True
+        return RecoveryGttEvent(
+            key="profit-floor-10",
+            kind="profit_floor",
+            trigger_pct=5.0,
+            observed_pct=pnl_pct,
+        )
+
     loss_level = int(max(0, -pnl_pct) // LOSS_STEP)
-    if loss_level >= 1 and loss_level not in state.armed_loss_levels:
+    if allow_loss_recovery and loss_level >= 1 and loss_level not in state.armed_loss_levels:
         state.armed_loss_levels.add(loss_level)
         return RecoveryGttEvent(
             key=f"loss-{loss_level * LOSS_STEP}",
@@ -71,7 +90,8 @@ def evaluate(entry_price: float, ltp: float, state: RecoveryGttState) -> Recover
 
     peak_band = int(state.peak_pct // PROFIT_PEAK_STEP) * PROFIT_PEAK_STEP
     if (
-        peak_band >= PROFIT_PEAK_STEP
+        allow_loss_recovery
+        and peak_band >= PROFIT_PEAK_STEP * 2
         and pnl_pct <= peak_band - PROFIT_DRAWDOWN
         and peak_band not in state.armed_profit_peaks
     ):

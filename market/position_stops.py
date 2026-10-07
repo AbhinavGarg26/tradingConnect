@@ -101,6 +101,12 @@ class PositionStopTracker:
         del atr_trail_distance_pct
         requested_floor = locked_profit_for_peak(state.peak_pnl_pct)
         if requested_floor is not None:
+            # The first +10% milestone is protected by a broker-side +5% GTT.
+            # Do not duplicate it with the old +2.5% software market exit.
+            if state.peak_pnl_pct < PROFIT_LADDER_START_PCT + PROFIT_LADDER_STEP_PCT:
+                state.profit_breach_level = None
+                state.profit_limit_target_pct = None
+                return None
             state.profit_breach_level = max(
                 state.profit_breach_level or requested_floor,
                 requested_floor,

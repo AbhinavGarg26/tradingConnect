@@ -139,8 +139,14 @@ if __name__ == "__main__":
     )
     stop_tracker = PositionStopTracker()
     exit_executor = MarketExitExecutor(kite, logger)
-    recovery_gtt_executor = ZerodhaRecoveryGttExecutor(kite, logger, user_id) if RECOVERY_GTT_ENABLED else None
-    groww_recovery_monitor = GrowwRecoveryGttMonitor(logger, user_id, kite) if RECOVERY_GTT_ENABLED else None
+    # The +10% peak -> +5% broker GTT is always active. The optional flag only
+    # controls the older loss-recovery GTT behavior.
+    recovery_gtt_executor = ZerodhaRecoveryGttExecutor(
+        kite, logger, user_id, allow_loss_recovery=RECOVERY_GTT_ENABLED
+    )
+    groww_recovery_monitor = GrowwRecoveryGttMonitor(
+        logger, user_id, kite, allow_loss_recovery=RECOVERY_GTT_ENABLED
+    )
     auto_exit_settings = AutoExitSettings()
     with get_db() as db:
         auto_exit_settings.refresh(db, user_id, force=True)
@@ -215,8 +221,7 @@ if __name__ == "__main__":
 
                         trigger_summary_updates(db, user_id=user_id, symbol="ALL")
                     account_risk_monitor.run_if_due(kite, db)
-                    if groww_recovery_monitor is not None:
-                        groww_recovery_monitor.run_if_due(db, now_monotonic)
+                    groww_recovery_monitor.run_if_due(db, now_monotonic)
                     pos_count = process_open_positions(
                         IGNORE_SYMBOL,
                         auto_exit_settings.hard_stop_loss_pct,

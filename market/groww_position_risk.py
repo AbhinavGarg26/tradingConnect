@@ -6,13 +6,15 @@ import time
 import uuid
 
 from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT
+from market.groww_entry_price import execution_entry_price
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
 from market.kite_ltp import live_prices
 
 
 TERMINAL_ORDER_STATUSES = {
-    "COMPLETED", "COMPLETE", "CANCELLED", "REJECTED", "FAILED", "EXPIRED",
+    "COMPLETED", "COMPLETE", "EXECUTED", "CANCELLED", "REJECTED", "FAILED", "EXPIRED",
 }
+CANCELLING_ORDER_STATUSES = {"CANCELLATION_REQUESTED", "CANCEL_REQUESTED"}
 
 
 def hard_exit_reason(
@@ -71,6 +73,13 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
         ]
         if conflicts:
             for order in conflicts:
+                status = str(order.get("order_status", "")).upper()
+                if status in CANCELLING_ORDER_STATUSES:
+                    self.logger.warning(
+                        "[%s] Waiting for conflicting order %s cancellation to complete",
+                        symbol, order.get("groww_order_id"),
+                    )
+                    continue
                 self._request("POST", "/order/cancel", {
                     "segment": segment,
                     "groww_order_id": order["groww_order_id"],
@@ -104,7 +113,7 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
 
 
 class GrowwPositionRiskMonitor:
-    """Poll Groww positions and enforce the same -12%/+15% exits as Kite."""
+    """Poll Groww positions and enforce the configured hard-loss exit."""
 
     def __init__(self, logger, user_id: int, kite, interval_seconds: float = 1.0):
         self.logger = logger
@@ -139,9 +148,13 @@ class GrowwPositionRiskMonitor:
                 self._token = token
 
             positions: list[dict] = []
+            orders_by_segment: dict[str, list[dict]] = {}
             for segment in ("CASH", "FNO"):
                 payload = self._executor._get("/positions/user", {"segment": segment})
                 positions.extend(payload.get("positions", []))
+                orders_by_segment[segment] = self._executor._get(
+                    "/order/list", {"segment": segment, "page": 0, "page_size": 100}
+                ).get("order_list", [])
 
             open_rows = [
                 row for row in positions
@@ -157,15 +170,30 @@ class GrowwPositionRiskMonitor:
                 if quantity <= 0:
                     continue
                 symbol = row.get("trading_symbol") or row.get("symbol")
-                entry = float(
+                broker_entry = float(
                     row.get("net_price")
                     or row.get("average_price")
                     or row.get("average_buy_price")
                     or row.get("buy_average_price")
                     or 0
                 )
-                if not symbol or entry <= 0:
+                if not symbol or broker_entry <= 0:
                     continue
+                entry = execution_entry_price(
+                    orders_by_segment.get(str(row.get("segment") or "FNO").upper(), []),
+                    row,
+                )
+                if entry is None:
+                    self.logger.error(
+                        "[%s] Cannot reconcile Groww fills to open quantity; hard stop skipped (broker net_price=%.2f)",
+                        symbol, broker_entry,
+                    )
+                    continue
+                if abs(entry - broker_entry) >= 0.01:
+                    self.logger.warning(
+                        "[%s] Groww net_price %.2f differs from execution entry %.2f; using executions",
+                        symbol, broker_entry, entry,
+                    )
                 position = {
                     "exchange": str(row.get("exchange") or "NSE").upper(),
                     "segment": str(row.get("segment") or "FNO").upper(),

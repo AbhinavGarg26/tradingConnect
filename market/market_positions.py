@@ -122,13 +122,6 @@ def process_open_positions(
             logger.info("[%s] Ignored", symbol)
             continue
 
-        # Disabling automatic exits must never change broker-side protection.
-        # In particular, do not delete a user-managed GTT while the monitor is
-        # in observation-only mode.
-        if auto_exit_enabled and not exit_executor.remove_legacy_gtts(position):
-            logger.critical("[%s] Risk evaluation paused until legacy GTT cleanup succeeds", symbol)
-            continue
-
         token = int(position["instrument_token"])
         ltp = live_prices.get(token)
         if ltp is None or ltp <= 0:
@@ -163,6 +156,11 @@ def process_open_positions(
             recent_prices=price_stream.recent_prices(token),
         )
         if exit_reason and auto_exit_enabled:
+            # A broker GTT may be protecting profit. Remove it only when a
+            # software exit has actually won, never during ordinary monitoring.
+            if not exit_executor.remove_legacy_gtts(position):
+                logger.critical("[%s] Exit paused until broker GTT cleanup succeeds", symbol)
+                continue
             stop_state = stop_tracker.snapshot(position_key) or {}
             target_pct = stop_state.get("profit_limit_target_pct")
             limit_price = (
