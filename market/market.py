@@ -8,6 +8,6 @@ def is_market_open():
     if now.weekday() >= 5:
         return False
 
-    market_start = dtime(9, 15)
+    market_start = dtime(9, 00)
     market_end = dtime(15, 40)
     return market_start <= now.time() <= market_end
