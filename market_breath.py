@@ -49,7 +49,7 @@ RECOVERY_GTT_ENABLED = os.getenv("RECOVERY_GTT_ENABLED", "false").strip().lower(
     "1", "true", "yes", "on"
 }
 
-IGNORE_SYMBOL = ["NIFTY26O1322200PE", "NIFTY26O1322400PE"]
+IGNORE_SYMBOL = []
 
 timeframe_mappings = [
             ("minute", "1m"),
