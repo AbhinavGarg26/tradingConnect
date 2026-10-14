@@ -33,6 +33,14 @@ class RecoveryGttTests(unittest.TestCase):
         self.assertIsNone(evaluate(100, 120, state, allow_loss_recovery=False))
         self.assertIsNone(evaluate(100, 115, state, allow_loss_recovery=False))
 
+    def test_short_rules_use_inverse_price_triggers(self):
+        state = RecoveryGttState()
+        loss = evaluate(100, 105, state, quantity=-65)
+        self.assertEqual((loss.key, loss.trigger_pct), ("loss-5", 1))
+        state = RecoveryGttState()
+        profit = evaluate(100, 90, state, quantity=-65)
+        self.assertEqual((profit.key, profit.trigger_pct), ("profit-floor-10", -5.0))
+
 
 if __name__ == "__main__":
     unittest.main()

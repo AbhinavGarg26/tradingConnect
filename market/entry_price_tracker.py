@@ -34,15 +34,17 @@ class CurrentEntryPriceTracker:
             return cached[1], False
 
         rows = build_fifo_trade_rows(aggregate_order_executions(kite.trades()))
+        expected_quantity = int(position.get("quantity") or 0)
+        expected_side = "BUY" if expected_quantity > 0 else "SELL"
         matching = [
             row for row in rows
             if row["status"] == "OPEN"
-            and row["trade_type"] == "BUY"
+            and row["trade_type"] == expected_side
             and row["tradingsymbol"] == position["tradingsymbol"]
         ]
         total_qty = sum(int(row["quantity"]) for row in matching)
-        expected_qty = int(position.get("quantity") or 0)
-        if expected_qty <= 0 or total_qty != expected_qty:
+        expected_qty = abs(expected_quantity)
+        if expected_qty == 0 or total_qty != expected_qty:
             raise RuntimeError(
                 f"execution ledger quantity {total_qty} != broker position {expected_qty}"
             )

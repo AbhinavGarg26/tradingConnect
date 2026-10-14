@@ -1,9 +1,12 @@
 import unittest
 
-from market.position_stops import PositionStopTracker, locked_profit_for_peak
+from market.position_stops import PositionStopTracker, locked_profit_for_peak, position_pnl_pct
 
 
 class PositionStopTrackerTests(unittest.TestCase):
+    def test_short_profit_and_loss_are_inverted_from_price_movement(self):
+        self.assertEqual(position_pnl_pct(100, 88, -65), 12.0)
+        self.assertEqual(position_pnl_pct(100, 112, -65), -12.0)
     def test_only_hard_loss_exits_with_market_instruction(self):
         tracker = PositionStopTracker()
         self.assertIsNone(tracker.evaluate("NFO:X", -11.99, 12.0, []))

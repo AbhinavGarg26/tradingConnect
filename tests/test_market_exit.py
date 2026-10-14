@@ -6,14 +6,16 @@ from market.market_exit import MarketExitExecutor
 
 class FakeKite:
     TRANSACTION_TYPE_SELL = "SELL"
+    TRANSACTION_TYPE_BUY = "BUY"
     VARIETY_REGULAR = "regular"
     ORDER_TYPE_MARKET = "MARKET"
     ORDER_TYPE_LIMIT = "LIMIT"
     VALIDITY_DAY = "DAY"
 
-    def __init__(self):
+    def __init__(self, position=None):
         self.placed = []
         self.order_book = []
+        self.position = position or POSITION.copy()
 
     def get_gtts(self):
         return []
@@ -22,7 +24,7 @@ class FakeKite:
         return list(self.order_book)
 
     def positions(self):
-        return {"net": [POSITION.copy()]}
+        return {"net": [self.position.copy()]}
 
     def place_order(self, **kwargs):
         self.placed.append(kwargs)
@@ -138,6 +140,13 @@ class MarketExitExecutorTests(unittest.TestCase):
         executor = MarketExitExecutor(kite, logging.getLogger("test"))
         executor.exit_position(POSITION, "EMERGENCY_STOP", reference_price=42.30)
         self.assertEqual(kite.placed[0]["order_type"], "MARKET")
+
+    def test_short_position_is_closed_with_a_buy_market_order(self):
+        short_position = {**POSITION, "quantity": -75}
+        kite = FakeKite(short_position)
+        MarketExitExecutor(kite, logging.getLogger("test")).exit_position(short_position, "HARD_STOP_12PCT")
+        self.assertEqual(kite.placed[0]["transaction_type"], "BUY")
+        self.assertEqual(kite.placed[0]["quantity"], 75)
 
 
 if __name__ == "__main__":

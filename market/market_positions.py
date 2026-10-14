@@ -6,7 +6,7 @@ from database.live_market_state import (
 from market.market_exit import MarketExitExecutor
 from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.position_ltp_stream import PositionLtpStream
-from market.position_stops import PositionStopTracker
+from market.position_stops import PositionStopTracker, position_pnl_pct
 
 
 ATR_MULTIPLIER = 1.5
@@ -83,7 +83,7 @@ def process_open_positions(
     if positions_response is None:
         positions_response = kite.positions()
     net_positions = positions_response.get("net", [])
-    open_positions = [position for position in net_positions if position["quantity"] > 0]
+    open_positions = [position for position in net_positions if position["quantity"] != 0]
     active_keys = {_position_key(position) for position in open_positions}
 
     if publish_live_state:
@@ -97,7 +97,7 @@ def process_open_positions(
         price_stream.update_tokens([])
         stop_tracker.remove_missing(set())
         exit_executor.remove_missing(set())
-        logger.info("No open long positions found.")
+        logger.info("No open positions found.")
         return 0
 
     tokens = {int(position["instrument_token"]) for position in open_positions}
@@ -142,7 +142,10 @@ def process_open_positions(
         if recovery_gtt_executor is not None:
             recovery_gtt_executor.process(db, position, buy_price, ltp)
 
-        pnl_pct = ((ltp - buy_price) / buy_price) * 100
+        pnl_pct = position_pnl_pct(buy_price, ltp, position["quantity"])
+        if pnl_pct is None:
+            logger.critical("[%s] Invalid entry, LTP, or quantity; stop cannot be evaluated", symbol)
+            continue
         if publish_live_state:
             logger.info(
                 "[%s] Qty: %s | Buy Avg: ₹%.2f | Live LTP: ₹%.2f | P&L: %.2f%%",

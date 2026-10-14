@@ -52,12 +52,14 @@ class ZerodhaRecoveryGttExecutor:
         key = _key("zerodha", self.user_id, position)
         payload = _load(db, key)
         state = RecoveryGttState.from_payload(payload)
-        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery)
+        quantity = int(position["quantity"])
+        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery, quantity=quantity)
         if not event:
             _save(db, key, state, gtt_id=payload.get("gtt_id"))
             return
         trigger = _tick(entry_price * (1 + event.trigger_pct / 100))
-        order = [{"transaction_type": self.kite.TRANSACTION_TYPE_SELL, "quantity": int(position["quantity"]), "product": position["product"], "order_type": self.kite.ORDER_TYPE_LIMIT, "price": trigger}]
+        action = self.kite.TRANSACTION_TYPE_SELL if quantity > 0 else self.kite.TRANSACTION_TYPE_BUY
+        order = [{"transaction_type": action, "quantity": abs(quantity), "product": position["product"], "order_type": self.kite.ORDER_TYPE_LIMIT, "price": trigger}]
         gtt_id = payload.get("gtt_id")
         try:
             if gtt_id:
@@ -85,22 +87,24 @@ class GrowwRecoveryGttExecutor:
         key = _key("groww", self.user_id, position)
         payload = _load(db, key)
         state = RecoveryGttState.from_payload(payload)
-        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery)
+        quantity = int(position["quantity"])
+        event = evaluate(entry_price, ltp, state, allow_loss_recovery=self.allow_loss_recovery, quantity=quantity)
         if not event:
             _save(db, key, state, gtt_id=payload.get("gtt_id"))
             return
         trigger = _tick(entry_price * (1 + event.trigger_pct / 100))
         segment = position["segment"]
         direction = "DOWN" if trigger < ltp else "UP"
-        order = {"order_type": "LIMIT", "price": f"{trigger:.2f}", "transaction_type": "SELL"}
+        action = "SELL" if quantity > 0 else "BUY"
+        order = {"order_type": "LIMIT", "price": f"{trigger:.2f}", "transaction_type": action}
         gtt_id = payload.get("gtt_id")
         try:
             if gtt_id:
-                self._request("PUT", f"/order-advance/modify/{gtt_id}", {"smart_order_type": "GTT", "segment": segment, "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order})
+                self._request("PUT", f"/order-advance/modify/{gtt_id}", {"smart_order_type": "GTT", "segment": segment, "quantity": abs(quantity), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order})
                 action = "replaced"
             else:
                 reference_id = f"RG{str(self.user_id)[-4:]}{abs(hash(key + event.key)) % 10_000_000:07d}"
-                response = self._request("POST", "/order-advance/create", {"reference_id": reference_id, "smart_order_type": "GTT", "segment": segment, "trading_symbol": position["tradingsymbol"], "quantity": int(position["quantity"]), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order, "product_type": position["product"], "exchange": position["exchange"], "duration": "DAY"})
+                response = self._request("POST", "/order-advance/create", {"reference_id": reference_id, "smart_order_type": "GTT", "segment": segment, "trading_symbol": position["tradingsymbol"], "quantity": abs(quantity), "trigger_price": f"{trigger:.2f}", "trigger_direction": direction, "order": order, "product_type": position["product"], "exchange": position["exchange"], "duration": "DAY"})
                 gtt_id, action = response["smart_order_id"], "placed"
             _save(db, key, state, gtt_id=gtt_id, event=event.key, trigger_price=trigger)
             self.logger.warning("[%s] Groww recovery GTT %s at ₹%.2f (%s)", position["tradingsymbol"], action, trigger, event.key)
@@ -164,7 +168,7 @@ class GrowwRecoveryGttMonitor:
                 orders_by_segment[segment] = client._get(
                     "/order/list", {"segment": segment, "page": 0, "page_size": 100}
                 ).get("order_list", [])
-            open_rows = [row for row in positions if int(row.get("quantity") or row.get("net_quantity") or 0) > 0]
+            open_rows = [row for row in positions if int(row.get("quantity") or row.get("net_quantity") or 0) != 0]
             prices = live_prices(self.kite, open_rows)
             for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)

@@ -16,6 +16,14 @@ HUNDRED_PCT_PEAK = 100.0
 HUNDRED_PCT_LOCK_INCREMENT = 30.0
 
 
+def position_pnl_pct(entry_price: float, ltp: float, quantity: int | float) -> float | None:
+    """Return position P&L percent: price down profits a short position."""
+    if entry_price <= 0 or ltp <= 0 or not quantity:
+        return None
+    price_change_pct = ((ltp - entry_price) / entry_price) * 100
+    return price_change_pct if quantity > 0 else -price_change_pct
+
+
 def locked_profit_for_peak(peak_pnl_pct: float) -> Optional[float]:
     """Return the protected P&L floor for the highest completed 5% milestone.
 

@@ -39,6 +39,8 @@ class GrowwPositionRiskTests(unittest.TestCase):
         self.assertEqual(hard_exit_reason(100, 88), "HARD_STOP_12PCT")
         self.assertIsNone(hard_exit_reason(100, 115))
         self.assertEqual(hard_exit_reason(100, 91.5, 8.5), "HARD_STOP_8.5PCT")
+        self.assertEqual(hard_exit_reason(100, 112, quantity=-65), "HARD_STOP_12PCT")
+        self.assertIsNone(hard_exit_reason(100, 88, quantity=-65))
 
     def test_market_sell_payload_and_deduplication(self):
         executor = FakeGrowwExit()
@@ -48,6 +50,13 @@ class GrowwPositionRiskTests(unittest.TestCase):
         self.assertEqual(len(creates), 1)
         self.assertEqual(creates[0][2]["order_type"], "MARKET")
         self.assertEqual(creates[0][2]["transaction_type"], "SELL")
+
+    def test_short_position_uses_buy_to_exit(self):
+        executor = FakeGrowwExit()
+        short_position = {**POSITION, "quantity": -65}
+        self.assertEqual(executor.exit_position(short_position, "HARD_STOP_12PCT"), "G1")
+        self.assertEqual(executor.requests[0][2]["quantity"], 65)
+        self.assertEqual(executor.requests[0][2]["transaction_type"], "BUY")
 
     def test_conflicting_sell_is_cancelled_before_market_exit(self):
         executor = FakeGrowwExit([{

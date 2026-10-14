@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 
-from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT
+from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT, position_pnl_pct
 from market.groww_entry_price import execution_entry_price
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
 from market.kite_ltp import live_prices
@@ -21,17 +21,18 @@ def hard_exit_reason(
     entry_price: float,
     ltp: float,
     hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
+    quantity: int | float = 1,
 ) -> str | None:
-    if entry_price <= 0 or ltp <= 0:
+    pnl_pct = position_pnl_pct(entry_price, ltp, quantity)
+    if pnl_pct is None:
         return None
-    pnl_pct = ((ltp - entry_price) / entry_price) * 100
     if pnl_pct <= -hard_stop_loss_pct:
         return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
     return None
 
 
 class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
-    """Cancel conflicting sells, then submit one market exit per position."""
+    """Cancel a matching pending exit, then submit one market exit per position."""
 
     def __init__(self, access_token: str, logger, user_id: int):
         super().__init__(access_token, logger, user_id)
@@ -53,6 +54,7 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
         key = self._position_key(position)
         symbol = str(position["tradingsymbol"])
         segment = str(position["segment"])
+        exit_action = "SELL" if int(position["quantity"]) > 0 else "BUY"
         if key in self._submitted:
             return None
 
@@ -67,7 +69,7 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
                 == str(position["exchange"]).upper()
             and str(order.get("product", "")).upper()
                 == str(position["product"]).upper()
-            and str(order.get("transaction_type", "")).upper() == "SELL"
+            and str(order.get("transaction_type", "")).upper() == exit_action
             and str(order.get("order_status", "")).upper()
                 not in TERMINAL_ORDER_STATUSES
         ]
@@ -94,13 +96,13 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
         reference_id = f"MBX{uuid.uuid4().hex[:17]}"
         response = self._request("POST", "/order/create", {
             "trading_symbol": symbol,
-            "quantity": int(position["quantity"]),
+            "quantity": abs(int(position["quantity"])),
             "validity": "DAY",
             "exchange": position["exchange"],
             "segment": segment,
             "product": position["product"],
             "order_type": "MARKET",
-            "transaction_type": "SELL",
+            "transaction_type": exit_action,
             "order_reference_id": reference_id,
         })
         order_id = str(response["groww_order_id"])
@@ -158,7 +160,7 @@ class GrowwPositionRiskMonitor:
 
             open_rows = [
                 row for row in positions
-                if int(row.get("quantity") or row.get("net_quantity") or 0) > 0
+                if int(row.get("quantity") or row.get("net_quantity") or 0) != 0
             ]
             # Groww's portfolio endpoint remains the source of positions, but
             # Kite is the single source of live LTPs for all broker monitors.
@@ -167,8 +169,6 @@ class GrowwPositionRiskMonitor:
             active_keys: set[str] = set()
             for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)
-                if quantity <= 0:
-                    continue
                 symbol = row.get("trading_symbol") or row.get("symbol")
                 broker_entry = float(
                     row.get("net_price")
@@ -207,9 +207,9 @@ class GrowwPositionRiskMonitor:
                 if ltp <= 0:
                     self.logger.warning("[%s] Kite LTP unavailable; Groww protection did not evaluate this cycle", symbol)
                     continue
-                reason = hard_exit_reason(entry, ltp, hard_stop_loss_pct)
+                reason = hard_exit_reason(entry, ltp, hard_stop_loss_pct, quantity)
                 if reason:
-                    pnl_pct = ((ltp - entry) / entry) * 100
+                    pnl_pct = position_pnl_pct(entry, ltp, quantity)
                     self.logger.critical(
                         "[%s] Groww hard boundary reached: entry=%.2f ltp=%.2f P&L=%.2f%%",
                         symbol, entry, ltp, pnl_pct,

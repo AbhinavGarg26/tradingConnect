@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import logging
-from decimal import Decimal, ROUND_CEILING
+from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 
 from market.kite_orders import place_protected_market_order
 
@@ -88,6 +88,7 @@ class MarketExitExecutor:
         exchange = position["exchange"]
         product = position["product"]
         position_key = self._position_key(position)
+        exit_action = self._exit_action(position)
         try:
             now = datetime.now(timezone.utc)
             orders = self.kite.orders()
@@ -143,7 +144,7 @@ class MarketExitExecutor:
                 if order.get("tradingsymbol") == symbol
                 and order.get("exchange") == exchange
                 and order.get("product") == product
-                and order.get("transaction_type") == self.kite.TRANSACTION_TYPE_SELL
+                and order.get("transaction_type") == exit_action
                 and str(order.get("tag") or "").startswith(EXIT_TAG_PREFIX)
             ]
             pending = [o for o in matching if o.get("status") not in TERMINAL_STATUSES]
@@ -184,15 +185,15 @@ class MarketExitExecutor:
                 requested_price = (
                     limit_price
                     if limit_price is not None
-                    else float(reference_price) + float(OPTION_TICK_SIZE)
+                    else float(reference_price) + (float(OPTION_TICK_SIZE) if exit_action == self.kite.TRANSACTION_TYPE_SELL else -float(OPTION_TICK_SIZE))
                 )
-                rounded_limit_price = self._round_up_to_tick(requested_price)
+                rounded_limit_price = self._round_to_exit_tick(requested_price, exit_action)
                 tag = f"{LIMIT_EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
                 order_id = self.kite.place_order(
                     variety=self.kite.VARIETY_REGULAR,
                     exchange=exchange,
                     tradingsymbol=symbol,
-                    transaction_type=self.kite.TRANSACTION_TYPE_SELL,
+                    transaction_type=exit_action,
                     quantity=remaining,
                     product=product,
                     order_type=self.kite.ORDER_TYPE_LIMIT,
@@ -217,7 +218,7 @@ class MarketExitExecutor:
                 variety=self.kite.VARIETY_REGULAR,
                 exchange=exchange,
                 tradingsymbol=symbol,
-                transaction_type=self.kite.TRANSACTION_TYPE_SELL,
+                transaction_type=exit_action,
                 quantity=remaining,
                 product=product,
                 order_type=self.kite.ORDER_TYPE_MARKET,
@@ -256,6 +257,15 @@ class MarketExitExecutor:
         price = Decimal(str(reference_price))
         ticks = (price / OPTION_TICK_SIZE).to_integral_value(rounding=ROUND_CEILING)
         return float(ticks * OPTION_TICK_SIZE)
+
+    @staticmethod
+    def _round_down_to_tick(reference_price: float) -> float:
+        price = Decimal(str(reference_price))
+        ticks = (price / OPTION_TICK_SIZE).to_integral_value(rounding=ROUND_FLOOR)
+        return float(ticks * OPTION_TICK_SIZE)
+
+    def _round_to_exit_tick(self, reference_price: float, action: str) -> float:
+        return self._round_up_to_tick(reference_price) if action == self.kite.TRANSACTION_TYPE_SELL else self._round_down_to_tick(reference_price)
 
     def _conflicting_orders_are_cancelled(self, position: dict, orders: list[dict]) -> bool:
         """Cancel same-position pending orders and wait for terminal confirmation."""
@@ -296,8 +306,11 @@ class MarketExitExecutor:
     def _remaining_quantity(self, original_position: dict) -> int:
         for position in self.kite.positions().get("net", []):
             if self._position_key(position) == self._position_key(original_position):
-                return max(int(position.get("quantity", 0)), 0)
+                return abs(int(position.get("quantity", 0)))
         return 0
+
+    def _exit_action(self, position: dict) -> str:
+        return self.kite.TRANSACTION_TYPE_SELL if int(position.get("quantity", 0)) > 0 else self.kite.TRANSACTION_TYPE_BUY
 
     @staticmethod
     def _position_key(position: dict) -> str:

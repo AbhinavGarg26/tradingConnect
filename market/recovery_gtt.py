@@ -55,6 +55,7 @@ def evaluate(
     ltp: float,
     state: RecoveryGttState,
     allow_loss_recovery: bool = True,
+    quantity: int | float = 1,
 ) -> RecoveryGttEvent | None:
     """Return one new recovery event, or None when an existing event still holds.
 
@@ -64,7 +65,9 @@ def evaluate(
     if entry_price <= 0 or ltp <= 0:
         return None
 
+    is_long = quantity > 0
     pnl_pct = ((ltp - entry_price) / entry_price) * 100
+    pnl_pct = pnl_pct if is_long else -pnl_pct
     state.peak_pct = max(state.peak_pct, pnl_pct)
 
     # Once +10% is observed, protect +5% at the broker immediately. This is a
@@ -74,7 +77,7 @@ def evaluate(
         return RecoveryGttEvent(
             key="profit-floor-10",
             kind="profit_floor",
-            trigger_pct=5.0,
+            trigger_pct=5.0 if is_long else -5.0,
             observed_pct=pnl_pct,
         )
 
@@ -84,7 +87,7 @@ def evaluate(
         return RecoveryGttEvent(
             key=f"loss-{loss_level * LOSS_STEP}",
             kind="loss_recovery",
-            trigger_pct=-(loss_level * LOSS_STEP - LOSS_RECOVERY_OFFSET),
+            trigger_pct=-(loss_level * LOSS_STEP - LOSS_RECOVERY_OFFSET) if is_long else (loss_level * LOSS_STEP - LOSS_RECOVERY_OFFSET),
             observed_pct=pnl_pct,
         )
 
@@ -99,7 +102,7 @@ def evaluate(
         return RecoveryGttEvent(
             key=f"profit-{peak_band}",
             kind="profit_recovery",
-            trigger_pct=peak_band - PROFIT_RECOVERY_OFFSET,
+            trigger_pct=(peak_band - PROFIT_RECOVERY_OFFSET) if is_long else -(peak_band - PROFIT_RECOVERY_OFFSET),
             observed_pct=pnl_pct,
         )
 

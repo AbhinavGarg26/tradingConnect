@@ -25,13 +25,19 @@ def execution_entry_price(orders: list[dict], position: dict) -> float | None:
     for order in matching:
         filled = int(order.get("filled_quantity") or 0)
         price = float(order.get("average_fill_price") or 0)
-        if str(order.get("transaction_type") or "").upper() == "BUY":
-            average = ((average * quantity) + (price * filled)) / (quantity + filled)
-            quantity += filled
-        elif str(order.get("transaction_type") or "").upper() == "SELL":
-            quantity -= filled
-            if quantity <= 0:
-                quantity = 0
-                average = 0.0
+        side = str(order.get("transaction_type") or "").upper()
+        signed_filled = filled if side == "BUY" else -filled if side == "SELL" else 0
+        if not signed_filled:
+            continue
+        if quantity == 0 or (quantity > 0) == (signed_filled > 0):
+            average = ((average * abs(quantity)) + (price * abs(signed_filled))) / (abs(quantity) + abs(signed_filled))
+            quantity += signed_filled
+        elif abs(signed_filled) < abs(quantity):
+            quantity += signed_filled
+        elif abs(signed_filled) == abs(quantity):
+            quantity, average = 0, 0.0
+        else:
+            quantity = quantity + signed_filled
+            average = price
 
-    return average if quantity == expected_quantity and quantity > 0 else None
+    return average if quantity == expected_quantity and quantity != 0 else None

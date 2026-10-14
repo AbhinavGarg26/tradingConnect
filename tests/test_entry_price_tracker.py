@@ -47,6 +47,17 @@ class EntryPriceTrackerTests(unittest.TestCase):
         self.assertFalse(cached_changed)
         self.assertEqual(kite.calls, 1)
 
+    def test_resolves_open_short_leg(self):
+        trades = [fill("S1", "SELL", 100.0, "2026-09-01T09:16:25")]
+        position = {
+            "exchange": "NFO", "tradingsymbol": "NIFTYTESTCE", "product": "NRML",
+            "quantity": -65, "buy_quantity": 0, "buy_value": 0,
+            "sell_quantity": 65, "sell_value": 6500,
+        }
+        price, changed = CurrentEntryPriceTracker().resolve(FakeKite(trades), position)
+        self.assertEqual(price, 100.0)
+        self.assertFalse(changed)
+
 
 if __name__ == "__main__":
     unittest.main()
