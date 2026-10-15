@@ -104,6 +104,16 @@ def test_journal_uses_candle_close_timestamp_and_v3_identity(monkeypatch):
     assert (STRATEGY_KEY, STRATEGY_VERSION) == ("nifty_15m_breakout", "v3")
 
 
+def test_journal_supplies_rails_required_timestamps(monkeypatch):
+    monkeypatch.setenv("DB_ENCRYPTION_KEY", "test-only-key")
+    from trading.strategy_records import StrategyEvent, StrategyRun, StrategyTrade
+
+    for model in (StrategyRun, StrategyTrade, StrategyEvent):
+        for name in ("created_at", "updated_at"):
+            column = model.__table__.c[name]
+            assert column.default is not None
+
+
 def test_session_end_closes_position_and_new_day_resets_reference():
     strategy = Nifty15mBreakout()
     strategy.on_bar(make_bar(datetime(2026, 10, 14, 14, 30), 101, 99, 100))

@@ -1,0 +1,18 @@
+[Unit]
+Description=NIFTY 15-minute breakout v3 live option runner
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/nifty15-v3
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/nifty15-v3/nifty_15m_live.py --live
+Restart=no
+RuntimeMaxSec=7h
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal
+
