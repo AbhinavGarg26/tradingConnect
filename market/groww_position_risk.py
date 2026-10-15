@@ -131,6 +131,7 @@ class GrowwPositionRiskMonitor:
         db,
         monotonic_now: float | None = None,
         hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
+        ignored_symbols: set[str] | None = None,
     ) -> None:
         now = time.monotonic() if monotonic_now is None else monotonic_now
         if now - self._last_run < self.interval_seconds:
@@ -167,6 +168,7 @@ class GrowwPositionRiskMonitor:
             # One batched request avoids Groww live-data permissions/rate errors.
             prices = live_prices(self.kite, open_rows)
             active_keys: set[str] = set()
+            ignored = {str(symbol).strip().upper() for symbol in (ignored_symbols or set())}
             for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)
                 symbol = row.get("trading_symbol") or row.get("symbol")
@@ -178,6 +180,20 @@ class GrowwPositionRiskMonitor:
                     or 0
                 )
                 if not symbol or broker_entry <= 0:
+                    continue
+                position = {
+                    "exchange": str(row.get("exchange") or "NSE").upper(),
+                    "segment": str(row.get("segment") or "FNO").upper(),
+                    "tradingsymbol": str(symbol),
+                    "product": row.get("product") or row.get("product_type")
+                        or ("NRML" if str(row.get("segment")).upper() == "FNO" else "CNC"),
+                    "quantity": quantity,
+                }
+                # Keep ignored positions in the executor's active set. Ignoring a
+                # position pauses rules; it must not reset exit idempotency state.
+                active_keys.add(self._executor._position_key(position))
+                if str(symbol).strip().upper() in ignored:
+                    self.logger.info("[%s] Groww position ignored by Market Config", symbol)
                     continue
                 entry = execution_entry_price(
                     orders_by_segment.get(str(row.get("segment") or "FNO").upper(), []),
@@ -194,15 +210,6 @@ class GrowwPositionRiskMonitor:
                         "[%s] Groww net_price %.2f differs from execution entry %.2f; using executions",
                         symbol, broker_entry, entry,
                     )
-                position = {
-                    "exchange": str(row.get("exchange") or "NSE").upper(),
-                    "segment": str(row.get("segment") or "FNO").upper(),
-                    "tradingsymbol": str(symbol),
-                    "product": row.get("product") or row.get("product_type")
-                        or ("NRML" if str(row.get("segment")).upper() == "FNO" else "CNC"),
-                    "quantity": quantity,
-                }
-                active_keys.add(self._executor._position_key(position))
                 ltp = prices.get((position["exchange"], position["segment"], position["tradingsymbol"]), 0)
                 if ltp <= 0:
                     self.logger.warning("[%s] Kite LTP unavailable; Groww protection did not evaluate this cycle", symbol)

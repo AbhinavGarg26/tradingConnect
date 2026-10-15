@@ -186,6 +186,7 @@ class MarketConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "kite_auto_exit_enabled":  ("true", "boolean", "exit_automation"),
         "groww_auto_exit_enabled": ("true", "boolean", "exit_automation"),
         "hard_stop_loss_pct":      ("12",   "float",   "exit_automation"),
+        "ignore_symbols":          ("",     "string",  "exit_automation"),
     }
 
 

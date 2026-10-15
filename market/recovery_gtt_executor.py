@@ -151,7 +151,12 @@ class GrowwRecoveryGttMonitor:
         self.allow_loss_recovery = allow_loss_recovery
         self._last_run = 0.0
 
-    def run_if_due(self, db, monotonic_now: float) -> None:
+    def run_if_due(
+        self,
+        db,
+        monotonic_now: float,
+        ignored_symbols: set[str] | None = None,
+    ) -> None:
         if monotonic_now - self._last_run < self.interval_seconds:
             return
         self._last_run = monotonic_now
@@ -170,10 +175,13 @@ class GrowwRecoveryGttMonitor:
                 ).get("order_list", [])
             open_rows = [row for row in positions if int(row.get("quantity") or row.get("net_quantity") or 0) != 0]
             prices = live_prices(self.kite, open_rows)
+            ignored = {str(symbol).strip().upper() for symbol in (ignored_symbols or set())}
             for row in open_rows:
                 quantity = int(row.get("quantity") or row.get("net_quantity") or 0)
                 segment = str(row.get("segment") or "FNO").upper()
                 symbol = row.get("trading_symbol") or row.get("symbol")
+                if str(symbol or "").strip().upper() in ignored:
+                    continue
                 exchange = row.get("exchange") or "NSE"
                 entry = execution_entry_price(orders_by_segment.get(segment, []), row)
                 if not symbol or entry is None or entry <= 0:

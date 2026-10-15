@@ -119,7 +119,7 @@ def process_open_positions(
     for position in open_positions:
         symbol = str(position["tradingsymbol"]).strip().upper()
         if symbol in ignore_symbol:
-            logger.info("[%s] Ignored", symbol)
+            logger.info("[%s] Ignored by Market Config; automatic stop/profit rules skipped", symbol)
             continue
 
         token = int(position["instrument_token"])

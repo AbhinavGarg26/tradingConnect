@@ -31,6 +31,7 @@ class AutoExitSettings:
         self.hard_stop_loss_pct = self._valid_stop_pct(
             os.getenv("HARD_STOP_LOSS_PCT", DEFAULT_HARD_STOP_LOSS_PCT)
         )
+        self.ignored_symbols = self._valid_symbols(os.getenv("IGNORE_SYMBOLS", ""))
         self._last_refresh = 0.0
         self._lock = threading.Lock()
         self._loader = loader
@@ -61,6 +62,9 @@ class AutoExitSettings:
             self.hard_stop_loss_pct = self._valid_stop_pct(loader(
                 db, user_id, "hard_stop_loss_pct", self.hard_stop_loss_pct
             ))
+            self.ignored_symbols = self._valid_symbols(loader(
+                db, user_id, "ignore_symbols", ",".join(sorted(self.ignored_symbols))
+            ))
             self._last_refresh = now
             return self.kite_enabled, self.groww_enabled, self.hard_stop_loss_pct
 
@@ -71,3 +75,15 @@ class AutoExitSettings:
         except (TypeError, ValueError):
             return DEFAULT_HARD_STOP_LOSS_PCT
         return percentage if 0.1 <= percentage <= 99.0 else DEFAULT_HARD_STOP_LOSS_PCT
+
+    @staticmethod
+    def _valid_symbols(value) -> set[str]:
+        if isinstance(value, (list, tuple, set)):
+            values = value
+        else:
+            values = str(value or "").replace("\n", ",").split(",")
+        return {
+            str(symbol).strip().upper()
+            for symbol in values
+            if str(symbol).strip()
+        }

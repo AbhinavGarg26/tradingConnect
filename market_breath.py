@@ -112,6 +112,7 @@ def _monitor_groww_positions(
                     monitor.run_if_due(
                         db,
                         hard_stop_loss_pct=settings.hard_stop_loss_pct,
+                        ignored_symbols=set(IGNORE_SYMBOL) | settings.ignored_symbols,
                     )
         except Exception as exc:
             logger.exception("Groww risk-monitor worker failed: %s", exc)
@@ -221,9 +222,12 @@ if __name__ == "__main__":
 
                         trigger_summary_updates(db, user_id=user_id, symbol="ALL")
                     account_risk_monitor.run_if_due(kite, db)
-                    groww_recovery_monitor.run_if_due(db, now_monotonic)
+                    ignored_symbols = set(IGNORE_SYMBOL) | auto_exit_settings.ignored_symbols
+                    groww_recovery_monitor.run_if_due(
+                        db, now_monotonic, ignored_symbols=ignored_symbols
+                    )
                     pos_count = process_open_positions(
-                        IGNORE_SYMBOL,
+                        ignored_symbols,
                         auto_exit_settings.hard_stop_loss_pct,
                         logger,
                         kite,
