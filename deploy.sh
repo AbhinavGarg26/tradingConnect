@@ -4,6 +4,13 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 managed_dir="/home/deployer/apps/nifty15-v3"
 
+# Keep the server's original deployment path safe for existing operators.
+if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
+    && [[ -x "$managed_dir/deploy.sh" ]] \
+    && systemctl cat nifty-15m-v3.timer >/dev/null 2>&1; then
+  exec "$managed_dir/deploy.sh" "$@"
+fi
+
 # On the server, both managed services load code from the isolated checkout.
 # Never replace code under a running live strategy: its in-memory trade state
 # cannot be reconstructed safely from a fresh process.
