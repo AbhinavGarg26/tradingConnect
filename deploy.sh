@@ -2,48 +2,32 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-managed_dir="/home/deployer/apps/nifty15-v3"
 
-# Keep the server's original deployment path safe for existing operators.
+# Production uses this one checkout for both managed services. Do not restart
+# the live strategy while it may hold an option position; its in-memory state
+# cannot be reconstructed safely by a fresh process.
 if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
-    && [[ -x "$managed_dir/deploy.sh" ]] \
     && systemctl cat nifty-15m-v3.timer >/dev/null 2>&1; then
-  exec "$managed_dir/deploy.sh" "$@"
-fi
-
-# On the server, both managed services load code from the isolated checkout.
-# Never replace code under a running live strategy: its in-memory trade state
-# cannot be reconstructed safely from a fresh process.
-if [[ "$project_dir" == "$managed_dir" ]] && systemctl cat nifty-15m-v3.timer >/dev/null 2>&1; then
+  if [[ $# -ne 0 ]]; then
+    echo "Usage: $0" >&2
+    exit 2
+  fi
   if sudo -n systemctl is-active --quiet nifty-15m-v3.service; then
     echo "NIFTY live strategy is active; refusing to deploy or restart it mid-session." >&2
     exit 1
   fi
-  if [[ "${1:-}" != "--restart-only" ]]; then
-    if [[ $# -ne 0 ]]; then
-      echo "Usage: $0 [--restart-only]" >&2
-      exit 2
-    fi
-    if ! git -C "$project_dir" diff --quiet || ! git -C "$project_dir" diff --cached --quiet; then
-      echo "Managed checkout has local changes; refusing to overwrite them." >&2
-      exit 1
-    fi
-    git -C "$project_dir" fetch origin main
-    git -C "$project_dir" merge --ff-only origin/main
-    exec "$project_dir/deploy.sh" --restart-only
+  python_bin="$project_dir/.venv/bin/python"
+  if [[ ! -x "$python_bin" ]]; then
+    echo "Python virtual environment not found at $python_bin" >&2
+    exit 1
   fi
-  if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 [--restart-only]" >&2
-    exit 2
-  fi
-  python_bin="/home/deployer/apps/tradingConnect/.venv/bin/python"
   "$python_bin" -m compileall -q "$project_dir/nifty_15m_live.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py"
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
   sudo -n systemctl enable --now nifty-15m-v3.timer
-  echo "Kite fetcher restarted from $(git -C "$project_dir" rev-parse --short HEAD)."
-  echo "NIFTY v3 will load this code at its next 09:15 IST scheduled start."
+  echo "Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
+  echo "NIFTY v3 will load this checkout at its next 09:15 IST scheduled start."
   exit 0
 fi
 
