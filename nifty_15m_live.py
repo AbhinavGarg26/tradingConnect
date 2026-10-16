@@ -15,12 +15,44 @@ from datetime import date, datetime, timedelta, time as clock_time
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from kiteconnect.exceptions import TokenException
+
 from market.kite_orders import place_protected_market_order
 from strategies.nifty_15m_breakout import Bar, Nifty15mBreakout
 
 
 IST = ZoneInfo("Asia/Kolkata")
 log = logging.getLogger(__name__)
+
+
+def live_start_allowed(now: datetime) -> bool:
+    """A late or weekend start must not invent missing intraday trade state."""
+    return now.weekday() < 5 and clock_time(9, 15) <= now.time() < clock_time(9, 45)
+
+
+def connect_live_with_token_retry(fetch_token, *, attempts=5, retry_seconds=300,
+                                  now_fn=None, sleep_fn=None):
+    """Retry only missing/invalid Kite sessions before the safe-start cutoff."""
+    now_fn = now_fn or (lambda: datetime.now(IST))
+    sleep_fn = sleep_fn or time.sleep
+    for attempt in range(1, attempts + 1):
+        if not live_start_allowed(now_fn()):
+            raise RuntimeError(
+                "Live runner missed its safe 09:15-09:45 IST startup window; "
+                "do not restart mid-session without reconciling broker and strategy state"
+            )
+        try:
+            kite, user_id = fetch_token(log)
+            kite.profile()  # The DB expiry alone does not prove Kite accepts the token.
+            return kite, user_id
+        except (TokenException, SystemExit) as exc:
+            if isinstance(exc, SystemExit) and exc.code != 1:
+                raise
+            if attempt == attempts:
+                raise RuntimeError(f"Kite session unavailable after {attempts} attempts") from exc
+            log.warning("Kite session unavailable (attempt %s/%s); retrying in %s seconds",
+                        attempt, attempts, retry_seconds)
+            sleep_fn(retry_seconds)
 
 
 def next_week_expiry(instruments, today: date):
@@ -208,6 +240,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Place real one-lot NFO market orders")
     parser.add_argument("--poll-seconds", type=int, default=5)
+    parser.add_argument("--token-attempts", type=int, default=1,
+                        help="Live-mode Kite session attempts before giving up (default: 1)")
+    parser.add_argument("--token-retry-seconds", type=int, default=300,
+                        help="Seconds between live-mode token attempts (default: 300)")
     risk_group = parser.add_mutually_exclusive_group()
     risk_group.add_argument("--max-risk-points", type=Decimal, default=Decimal(30),
                             help="Maximum distance from NIFTY entry signal to stop (default: 30)")
@@ -216,6 +252,8 @@ def main():
     args = parser.parse_args()
     if args.poll_seconds < 1:
         parser.error("--poll-seconds must be positive")
+    if args.token_attempts < 1 or args.token_retry_seconds < 1:
+        parser.error("--token-attempts and --token-retry-seconds must be positive")
     if args.max_risk_points is not None and args.max_risk_points <= 0:
         parser.error("--max-risk-points must be positive")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -223,7 +261,12 @@ def main():
     load_nifty_environment()
 
     from trading.user_token import fetch_user_token
-    kite, user_id = fetch_user_token(log)
+    if args.live:
+        kite, user_id = connect_live_with_token_retry(
+            fetch_user_token, attempts=args.token_attempts,
+            retry_seconds=args.token_retry_seconds)
+    else:
+        kite, user_id = fetch_user_token(log)
     run(kite, user_id=user_id, live=args.live, poll_seconds=args.poll_seconds,
         max_risk_points=args.max_risk_points)
 

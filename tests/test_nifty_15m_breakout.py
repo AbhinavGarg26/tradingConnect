@@ -3,10 +3,12 @@ from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
+from kiteconnect.exceptions import TokenException
 
 from backtest.nifty_15m_breakout import completed_trades, main, next_open_fills, run, summarize
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout, Nifty15mLiveAdapter
-from nifty_15m_live import atm_option, confirmed_order, next_week_expiry
+from nifty_15m_live import (atm_option, confirmed_order, connect_live_with_token_retry,
+                            live_start_allowed, next_week_expiry)
 
 
 def make_bar(time, high, low, close):
@@ -93,6 +95,47 @@ def test_live_order_rejects_missing_fill_price(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="average fill price"):
         confirmed_order(kite, {"tradingsymbol": "NIFTY-TEST-CE"}, "BUY", 65)
+
+
+def test_live_token_retry_accepts_refreshed_session():
+    attempts, waits = [], []
+
+    def fetch(_logger):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise SystemExit(1)
+        return SimpleNamespace(profile=lambda: {"user_id": "test"}), 42
+
+    kite, user_id = connect_live_with_token_retry(
+        fetch, attempts=5, retry_seconds=300,
+        now_fn=lambda: datetime(2026, 10, 19, 9, 25), sleep_fn=waits.append)
+    assert (user_id, len(attempts), waits) == (42, 3, [300, 300])
+    assert kite.profile()["user_id"] == "test"
+
+
+def test_live_token_retry_checks_broker_and_stops_after_five_attempts():
+    attempts, waits = [], []
+
+    def fetch(_logger):
+        attempts.append(1)
+        return SimpleNamespace(profile=lambda: (_ for _ in ()).throw(TokenException("invalid token"))), 42
+
+    with pytest.raises(RuntimeError, match="after 5 attempts"):
+        connect_live_with_token_retry(
+            fetch, attempts=5, retry_seconds=300,
+            now_fn=lambda: datetime(2026, 10, 19, 9, 15), sleep_fn=waits.append)
+    assert (len(attempts), waits) == (5, [300] * 4)
+
+
+def test_live_retry_refuses_late_or_weekend_start():
+    assert live_start_allowed(datetime(2026, 10, 19, 9, 35))
+    assert not live_start_allowed(datetime(2026, 10, 19, 9, 45))
+    assert not live_start_allowed(datetime(2026, 10, 17, 9, 15))
+    with pytest.raises(RuntimeError, match="safe 09:15-09:45"):
+        connect_live_with_token_retry(
+            lambda _logger: pytest.fail("Late start must not access Kite"),
+            now_fn=lambda: datetime(2026, 10, 19, 9, 50),
+            sleep_fn=lambda _seconds: pytest.fail("Late start must not retry"))
 
 
 def test_journal_uses_candle_close_timestamp_and_v3_identity(monkeypatch):

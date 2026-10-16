@@ -4,7 +4,7 @@ Description=Start NIFTY 15-minute breakout v3 at 09:15 IST on weekdays
 [Timer]
 OnCalendar=Mon..Fri *-*-* 09:15:00 Asia/Kolkata
 AccuracySec=1s
-Persistent=false
+Persistent=true
 Unit=nifty-15m-v3.service
 
 [Install]
