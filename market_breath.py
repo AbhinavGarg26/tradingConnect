@@ -113,6 +113,7 @@ def _monitor_groww_positions(
                         db,
                         hard_stop_loss_pct=settings.hard_stop_loss_pct,
                         ignored_symbols=set(IGNORE_SYMBOL) | settings.ignored_symbols,
+                        max_loss_amount=settings.max_loss_amount,
                     )
         except Exception as exc:
             logger.exception("Groww risk-monitor worker failed: %s", exc)
@@ -162,12 +163,13 @@ if __name__ == "__main__":
     positions_response = None
 
     logger.info(
-        "Starting Position Manager (%.2fs active, %.2fs final-session interval, Kite exits %s, Groww exits %s, hard stop %.2f%%, recovery GTTs %s)...",
+        "Starting Position Manager (%.2fs active, %.2fs final-session interval, Kite exits %s, Groww exits %s, hard stop %.2f%%, max loss %s, recovery GTTs %s)...",
         ACTIVE_POLL_INTERVAL,
         FINAL_SESSION_POLL_INTERVAL,
         "enabled" if auto_exit_settings.kite_enabled else "disabled",
         "enabled" if auto_exit_settings.groww_enabled else "disabled",
         auto_exit_settings.hard_stop_loss_pct,
+        f"₹{auto_exit_settings.max_loss_amount:,.2f}" if auto_exit_settings.max_loss_amount else "disabled",
         "enabled" if RECOVERY_GTT_ENABLED else "disabled",
     )
     threading.Thread(
@@ -240,6 +242,7 @@ if __name__ == "__main__":
                         auto_exit_enabled=auto_exit_settings.kite_enabled,
                         recovery_gtt_executor=recovery_gtt_executor,
                         positions_response=positions_response,
+                        max_loss_amount=auto_exit_settings.max_loss_amount,
                     )
 
                     if publish_live_state:

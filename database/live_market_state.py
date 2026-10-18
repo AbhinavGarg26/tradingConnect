@@ -208,6 +208,7 @@ def sync_position_risk_state(
     buy_price: float,
     pnl_pct: float,
     hard_stop_loss_pct: float,
+    max_loss_amount: float | None,
     stop_state: dict,
     exit_reason: str | None,
 ) -> None:
@@ -226,6 +227,7 @@ def sync_position_risk_state(
         "ltp": ltp,
         "current_pnl_pct": pnl_pct,
         "hard_stop_pct": -hard_stop_loss_pct,
+        "max_loss_amount": max_loss_amount,
         "exit_reason": exit_reason,
         **stop_state,
     }

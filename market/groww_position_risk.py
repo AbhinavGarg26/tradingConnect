@@ -5,7 +5,11 @@ from __future__ import annotations
 import time
 import uuid
 
-from market.position_stops import DEFAULT_HARD_STOP_LOSS_PCT, position_pnl_pct
+from market.position_stops import (
+    DEFAULT_HARD_STOP_LOSS_PCT,
+    position_pnl_amount,
+    position_pnl_pct,
+)
 from market.groww_entry_price import execution_entry_price
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
 from market.kite_ltp import live_prices
@@ -22,12 +26,16 @@ def hard_exit_reason(
     ltp: float,
     hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
     quantity: int | float = 1,
+    max_loss_amount: float | None = None,
 ) -> str | None:
     pnl_pct = position_pnl_pct(entry_price, ltp, quantity)
     if pnl_pct is None:
         return None
     if pnl_pct <= -hard_stop_loss_pct:
         return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
+    pnl_amount = position_pnl_amount(entry_price, ltp, quantity)
+    if max_loss_amount is not None and pnl_amount is not None and pnl_amount <= -max_loss_amount:
+        return f"MAX_LOSS_{max_loss_amount:g}INR"
     return None
 
 
@@ -132,6 +140,7 @@ class GrowwPositionRiskMonitor:
         monotonic_now: float | None = None,
         hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
         ignored_symbols: set[str] | None = None,
+        max_loss_amount: float | None = None,
     ) -> None:
         now = time.monotonic() if monotonic_now is None else monotonic_now
         if now - self._last_run < self.interval_seconds:
@@ -214,7 +223,9 @@ class GrowwPositionRiskMonitor:
                 if ltp <= 0:
                     self.logger.warning("[%s] Kite LTP unavailable; Groww protection did not evaluate this cycle", symbol)
                     continue
-                reason = hard_exit_reason(entry, ltp, hard_stop_loss_pct, quantity)
+                reason = hard_exit_reason(
+                    entry, ltp, hard_stop_loss_pct, quantity, max_loss_amount
+                )
                 if reason:
                     pnl_pct = position_pnl_pct(entry, ltp, quantity)
                     self.logger.critical(

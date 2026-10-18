@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
-DEFAULT_HARD_STOP_LOSS_PCT = 12.0
+DEFAULT_HARD_STOP_LOSS_PCT = 10.0
 
 
 def _env_bool(name: str, default: bool = True) -> bool:
@@ -30,6 +30,9 @@ class AutoExitSettings:
         self.groww_enabled = _env_bool("GROWW_AUTO_EXIT_ENABLED")
         self.hard_stop_loss_pct = self._valid_stop_pct(
             os.getenv("HARD_STOP_LOSS_PCT", DEFAULT_HARD_STOP_LOSS_PCT)
+        )
+        self.max_loss_amount = self._valid_max_loss_amount(
+            os.getenv("MAX_LOSS_AMOUNT", "")
         )
         self.ignored_symbols = self._valid_symbols(os.getenv("IGNORE_SYMBOLS", ""))
         self._last_refresh = 0.0
@@ -62,6 +65,9 @@ class AutoExitSettings:
             self.hard_stop_loss_pct = self._valid_stop_pct(loader(
                 db, user_id, "hard_stop_loss_pct", self.hard_stop_loss_pct
             ))
+            self.max_loss_amount = self._valid_max_loss_amount(loader(
+                db, user_id, "max_loss_amount", self.max_loss_amount
+            ))
             self.ignored_symbols = self._valid_symbols(loader(
                 db, user_id, "ignore_symbols", ",".join(sorted(self.ignored_symbols))
             ))
@@ -75,6 +81,17 @@ class AutoExitSettings:
         except (TypeError, ValueError):
             return DEFAULT_HARD_STOP_LOSS_PCT
         return percentage if 0.1 <= percentage <= 99.0 else DEFAULT_HARD_STOP_LOSS_PCT
+
+    @staticmethod
+    def _valid_max_loss_amount(value) -> float | None:
+        """A blank/zero max-loss configuration deliberately disables this cap."""
+        if value is None or str(value).strip() == "":
+            return None
+        try:
+            amount = float(value)
+        except (TypeError, ValueError):
+            return None
+        return amount if amount > 0 else None
 
     @staticmethod
     def _valid_symbols(value) -> set[str]:

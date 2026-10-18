@@ -24,6 +24,21 @@ class PositionStopTrackerTests(unittest.TestCase):
         self.assertIsNone(tracker.evaluate("NFO:X", -8.49, 8.5, []))
         self.assertEqual(tracker.evaluate("NFO:X", -8.5, 8.5, []), "HARD_STOP_8.5PCT")
 
+    def test_max_loss_amount_exits_even_before_percentage_stop(self):
+        tracker = PositionStopTracker()
+        self.assertEqual(
+            tracker.evaluate(
+                "NFO:X", -4.0, 10.0, [], pnl_amount=-4000.0, max_loss_amount=4000.0
+            ),
+            "MAX_LOSS_4000INR",
+        )
+
+    def test_blank_max_loss_amount_skips_rupee_cap(self):
+        tracker = PositionStopTracker()
+        self.assertIsNone(
+            tracker.evaluate("NFO:X", -4.0, 10.0, [], pnl_amount=-4000.0)
+        )
+
     def test_profit_ladder_does_not_arm_before_ten_percent(self):
         tracker = PositionStopTracker()
         tracker.evaluate("NFO:X", 5.0, 5.8, [])

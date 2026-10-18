@@ -35,12 +35,22 @@ class FakeGrowwExit(GrowwMarketExitExecutor):
 
 class GrowwPositionRiskTests(unittest.TestCase):
     def test_hard_boundaries(self):
-        self.assertIsNone(hard_exit_reason(100, 88.01))
-        self.assertEqual(hard_exit_reason(100, 88), "HARD_STOP_12PCT")
+        self.assertIsNone(hard_exit_reason(100, 90.01))
+        self.assertEqual(hard_exit_reason(100, 90), "HARD_STOP_10PCT")
         self.assertIsNone(hard_exit_reason(100, 115))
         self.assertEqual(hard_exit_reason(100, 91.5, 8.5), "HARD_STOP_8.5PCT")
-        self.assertEqual(hard_exit_reason(100, 112, quantity=-65), "HARD_STOP_12PCT")
+        self.assertEqual(hard_exit_reason(100, 110, quantity=-65), "HARD_STOP_10PCT")
         self.assertIsNone(hard_exit_reason(100, 88, quantity=-65))
+
+    def test_rupee_max_loss_cap_works_for_long_and_short_positions(self):
+        self.assertEqual(
+            hard_exit_reason(100, 95, 10, quantity=1000, max_loss_amount=4000),
+            "MAX_LOSS_4000INR",
+        )
+        self.assertEqual(
+            hard_exit_reason(100, 105, 10, quantity=-1000, max_loss_amount=4000),
+            "MAX_LOSS_4000INR",
+        )
 
     def test_market_sell_payload_and_deduplication(self):
         executor = FakeGrowwExit()

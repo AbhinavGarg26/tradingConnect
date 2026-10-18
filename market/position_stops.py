@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 
-DEFAULT_HARD_STOP_LOSS_PCT = 12.0
+DEFAULT_HARD_STOP_LOSS_PCT = 10.0
 PROFIT_LADDER_START_PCT = 10.0
 PROFIT_LADDER_STEP_PCT = 5.0
 PROFIT_LOCK_STEP_PCT = 2.5
@@ -22,6 +22,13 @@ def position_pnl_pct(entry_price: float, ltp: float, quantity: int | float) -> f
         return None
     price_change_pct = ((ltp - entry_price) / entry_price) * 100
     return price_change_pct if quantity > 0 else -price_change_pct
+
+
+def position_pnl_amount(entry_price: float, ltp: float, quantity: int | float) -> float | None:
+    """Return position P&L in rupees, with the correct sign for a short."""
+    if entry_price <= 0 or ltp <= 0 or not quantity:
+        return None
+    return (ltp - entry_price) * quantity
 
 
 def locked_profit_for_peak(peak_pnl_pct: float) -> Optional[float]:
@@ -87,6 +94,8 @@ class PositionStopTracker:
         pnl_pct: float,
         hard_stop_loss_pct: float,
         recent_prices: Iterable[float],
+        pnl_amount: float | None = None,
+        max_loss_amount: float | None = None,
         now=None,
         charge_floor_pct: float = 0.0,
         atr_trail_distance_pct: Optional[float] = None,
@@ -104,6 +113,9 @@ class PositionStopTracker:
         # trailing logic and always produces a market exit.
         if pnl_pct <= -hard_stop_loss_pct:
             return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
+
+        if max_loss_amount is not None and pnl_amount is not None and pnl_amount <= -max_loss_amount:
+            return f"MAX_LOSS_{max_loss_amount:g}INR"
 
         # Arm the requested profit ladder from the highest observed P&L peak.
         del atr_trail_distance_pct

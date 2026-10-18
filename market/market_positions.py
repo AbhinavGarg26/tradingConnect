@@ -6,7 +6,7 @@ from database.live_market_state import (
 from market.market_exit import MarketExitExecutor
 from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.position_ltp_stream import PositionLtpStream
-from market.position_stops import PositionStopTracker, position_pnl_pct
+from market.position_stops import PositionStopTracker, position_pnl_amount, position_pnl_pct
 
 
 ATR_MULTIPLIER = 1.5
@@ -79,6 +79,7 @@ def process_open_positions(
     auto_exit_enabled: bool = False,
     recovery_gtt_executor=None,
     positions_response: dict | None = None,
+    max_loss_amount: float | None = None,
 ):
     if positions_response is None:
         positions_response = kite.positions()
@@ -143,7 +144,8 @@ def process_open_positions(
             recovery_gtt_executor.process(db, position, buy_price, ltp)
 
         pnl_pct = position_pnl_pct(buy_price, ltp, position["quantity"])
-        if pnl_pct is None:
+        pnl_amount = position_pnl_amount(buy_price, ltp, position["quantity"])
+        if pnl_pct is None or pnl_amount is None:
             logger.critical("[%s] Invalid entry, LTP, or quantity; stop cannot be evaluated", symbol)
             continue
         if publish_live_state:
@@ -157,6 +159,8 @@ def process_open_positions(
             pnl_pct=pnl_pct,
             hard_stop_loss_pct=pct_loss,
             recent_prices=price_stream.recent_prices(token),
+            pnl_amount=pnl_amount,
+            max_loss_amount=max_loss_amount,
         )
         if exit_reason and auto_exit_enabled:
             # A broker GTT may be protecting profit. Remove it only when a
@@ -196,6 +200,7 @@ def process_open_positions(
                             buy_price=buy_price,
                             pnl_pct=pnl_pct,
                             hard_stop_loss_pct=pct_loss,
+                            max_loss_amount=max_loss_amount,
                             stop_state=stop_state,
                             exit_reason=exit_reason,
                         )
