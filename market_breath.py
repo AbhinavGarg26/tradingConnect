@@ -37,7 +37,7 @@ runtime_monitor = ServiceRuntimeMonitor(
     "market_breath", logger, token_alerts_during_market_session=True
 )
 
-ACTIVE_POLL_INTERVAL = 0.25
+ACTIVE_POLL_INTERVAL = 0.20
 FINAL_SESSION_POLL_INTERVAL = 0.10
 IDLE_POLL_INTERVAL = 2.0
 FINAL_SESSION_START_HOUR = 15
