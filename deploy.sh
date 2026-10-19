@@ -28,16 +28,17 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
     echo "market-breath.timer is not installed; ask an administrator to install deploy/systemd units." >&2
     exit 1
   fi
-  # The timer, rather than boot, owns Market Breath startup. Do not stop an
-  # already-running session during a deployment; it will be timer-started on
-  # the next weekday at 09:15 IST.
+  # Keep boot disabled, but retain the 09:15 timer for normal daily starts.
+  # A deployment is also the manual recovery path if that timer was missed.
   sudo -n systemctl disable market-breath.service
   sudo -n systemctl enable --now market-breath.timer
+  sudo -n systemctl restart market-breath.service
+  sudo -n systemctl is-active --quiet market-breath.service
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
   sudo -n systemctl enable --now nifty-15m-v3.timer
-  echo "Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
-  echo "Market Breath and NIFTY v3 are scheduled for the next 09:15 IST weekday start."
+  echo "Market Breath and Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
+  echo "Market Breath and NIFTY v3 timers remain enabled for 09:15 IST weekday starts."
   exit 0
 fi
 
