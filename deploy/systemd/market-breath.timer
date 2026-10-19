@@ -1,0 +1,11 @@
+[Unit]
+Description=Start Market Breath at 09:15 IST on weekdays
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:15:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=true
+Unit=market-breath.service
+
+[Install]
+WantedBy=timers.target
