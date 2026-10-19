@@ -16,6 +16,7 @@
 # kite_auto_exit_enabled  | true   | boolean | exit_automation | Enable monitored Kite market exits
 # groww_auto_exit_enabled | true   | boolean | exit_automation | Enable monitored Groww market exits
 # hard_stop_loss_pct       | 12     | float   | exit_automation | Hard market-exit loss percentage
+# max_loss_amount          | 0      | float   | exit_automation | Maximum loss per open position in INR; 0 disables the cap
 
 # SQL to seed defaults for a user:
 #
@@ -32,6 +33,7 @@
 --   (gen_random_uuid(), '975447485', 'kite_auto_exit_enabled',  'true', 'boolean', 'exit_automation', now(), now()),
 --   (gen_random_uuid(), '975447485', 'groww_auto_exit_enabled', 'true', 'boolean', 'exit_automation', now(), now()),
 --   (gen_random_uuid(), '975447485', 'hard_stop_loss_pct',       '12',   'float',   'exit_automation', now(), now());
+--   (gen_random_uuid(), '975447485', 'max_loss_amount',          '0',    'float',   'exit_automation', now(), now());
 
 
 --
