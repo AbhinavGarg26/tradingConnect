@@ -22,11 +22,14 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
     exit 1
   fi
   "$python_bin" -m compileall -q "$project_dir/nifty_15m_live.py" \
-    "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py"
+    "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
+    "$project_dir/market_breath.py"
+  sudo -n systemctl restart market-breath.service
+  sudo -n systemctl is-active --quiet market-breath.service
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
   sudo -n systemctl enable --now nifty-15m-v3.timer
-  echo "Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
+  echo "Market breath and Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
   echo "NIFTY v3 will load this checkout at its next 09:15 IST scheduled start."
   exit 0
 fi
