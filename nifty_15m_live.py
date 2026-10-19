@@ -31,7 +31,7 @@ def live_start_allowed(now: datetime) -> bool:
 
 
 def connect_live_with_token_retry(fetch_token, *, attempts=5, retry_seconds=300,
-                                  now_fn=None, sleep_fn=None):
+                                  now_fn=None, sleep_fn=None, on_retry=None):
     """Retry only missing/invalid Kite sessions before the safe-start cutoff."""
     now_fn = now_fn or (lambda: datetime.now(IST))
     sleep_fn = sleep_fn or time.sleep
@@ -52,6 +52,8 @@ def connect_live_with_token_retry(fetch_token, *, attempts=5, retry_seconds=300,
                 raise RuntimeError(f"Kite session unavailable after {attempts} attempts") from exc
             log.warning("Kite session unavailable (attempt %s/%s); retrying in %s seconds",
                         attempt, attempts, retry_seconds)
+            if on_retry:
+                on_retry(attempt, attempts, retry_seconds)
             sleep_fn(retry_seconds)
 
 
@@ -102,13 +104,15 @@ def confirmed_order(kite, contract, transaction, quantity, *, on_placed=None):
     raise RuntimeError(f"Order {order_id} unconfirmed; inspect Kite orders before restarting")
 
 
-def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30):
+def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30,
+        runtime_monitor=None):
     from trading.strategy_records import StrategyRecorder
 
     recorder = StrategyRecorder(user_id, live=live, max_risk_points=max_risk_points)
     try:
         _run_session(kite, recorder=recorder, live=live,
-                     poll_seconds=poll_seconds, max_risk_points=max_risk_points)
+                     poll_seconds=poll_seconds, max_risk_points=max_risk_points,
+                     runtime_monitor=runtime_monitor)
     except KeyboardInterrupt:
         recorder.mark_pending_uncertain("Runner interrupted while an order was pending")
         recorder.finish("stopped")
@@ -119,7 +123,8 @@ def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30):
         raise
 
 
-def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=30):
+def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=30,
+                 runtime_monitor=None):
     instruments = kite.instruments("NFO")
     index_instruments = kite.instruments("NSE")
     nifty = next((item for item in index_instruments if item["tradingsymbol"] == "NIFTY 50"), None)
@@ -184,6 +189,8 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                 last_time = completed[-1].time
                 initialized = True
                 log.info("Primed from completed candle %s; awaiting next close", last_time)
+                if runtime_monitor:
+                    runtime_monitor.success("Primed from first NIFTY candle; awaiting breakout")
             time.sleep(poll_seconds)
             continue
         for bar in completed:
@@ -219,6 +226,9 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                         kite, contract, kite.TRANSACTION_TYPE_BUY, quantity,
                         on_placed=lambda order_id: recorder.order_submitted(order_id, exit_order=False))
                     recorder.entry_filled(order_id, premium)
+                if runtime_monitor:
+                    runtime_monitor.success(f"{decision.action} {contract['tradingsymbol']} filled" if live
+                                            else f"{decision.action} paper signal recorded")
                 position_date = today
             else:
                 if contract is None or position_date != today:
@@ -231,6 +241,8 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                     recorder.exit_filled(order_id, premium)
                 else:
                     recorder.paper_exit_complete()
+                if runtime_monitor:
+                    runtime_monitor.success(f"{decision.action} completed: {decision.reason}")
                 contract = None
                 position_date = None
         time.sleep(poll_seconds)
@@ -261,14 +273,30 @@ def main():
     load_nifty_environment()
 
     from trading.user_token import fetch_user_token
-    if args.live:
-        kite, user_id = connect_live_with_token_retry(
-            fetch_user_token, attempts=args.token_attempts,
-            retry_seconds=args.token_retry_seconds)
-    else:
-        kite, user_id = fetch_user_token(log)
-    run(kite, user_id=user_id, live=args.live, poll_seconds=args.poll_seconds,
-        max_risk_points=args.max_risk_points)
+    from trading.service_runtime import ServiceRuntimeMonitor
+    runtime_monitor = ServiceRuntimeMonitor(
+        "nifty_15m_v3", log, token_alerts_during_market_session=True)
+    runtime_monitor.start("Checking Kite session")
+    try:
+        if args.live:
+            kite, user_id = connect_live_with_token_retry(
+                fetch_user_token, attempts=args.token_attempts,
+                retry_seconds=args.token_retry_seconds,
+                on_retry=lambda attempt, total, seconds: runtime_monitor.degraded(
+                    f"Kite session unavailable; retry {attempt + 1}/{total} in {seconds // 60} minutes"))
+        else:
+            kite, user_id = fetch_user_token(log)
+        runtime_monitor.user_id = user_id
+        runtime_monitor.success("Kite authenticated; monitoring NIFTY 15-minute closes")
+        run(kite, user_id=user_id, live=args.live, poll_seconds=args.poll_seconds,
+            max_risk_points=args.max_risk_points, runtime_monitor=runtime_monitor)
+        runtime_monitor.stop("Trading session complete")
+    except KeyboardInterrupt:
+        runtime_monitor.stop("Strategy stopped")
+        raise
+    except Exception as exc:
+        runtime_monitor.exception(exc, "NIFTY 15-minute strategy")
+        raise
 
 
 if __name__ == "__main__":

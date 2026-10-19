@@ -98,7 +98,7 @@ def test_live_order_rejects_missing_fill_price(monkeypatch):
 
 
 def test_live_token_retry_accepts_refreshed_session():
-    attempts, waits = [], []
+    attempts, waits, retries = [], [], []
 
     def fetch(_logger):
         attempts.append(1)
@@ -108,8 +108,10 @@ def test_live_token_retry_accepts_refreshed_session():
 
     kite, user_id = connect_live_with_token_retry(
         fetch, attempts=5, retry_seconds=300,
-        now_fn=lambda: datetime(2026, 10, 19, 9, 25), sleep_fn=waits.append)
+        now_fn=lambda: datetime(2026, 10, 19, 9, 25), sleep_fn=waits.append,
+        on_retry=lambda attempt, total, seconds: retries.append((attempt, total, seconds)))
     assert (user_id, len(attempts), waits) == (42, 3, [300, 300])
+    assert retries == [(1, 5, 300), (2, 5, 300)]
     assert kite.profile()["user_id"] == "test"
 
 
