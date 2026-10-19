@@ -250,7 +250,7 @@ class MarketExitExecutor:
             "EMERGENCY_STOP",
             "PROFIT_HARD_FLOOR",
             "PROFIT_LADDER_STOP",
-        } or reason.startswith("HARD_STOP_")
+        } or reason.startswith(("HARD_STOP_", "MAX_LOSS_"))
 
     @staticmethod
     def _round_up_to_tick(reference_price: float) -> float:
