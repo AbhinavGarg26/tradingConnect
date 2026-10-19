@@ -24,11 +24,10 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
   "$python_bin" -m compileall -q "$project_dir/nifty_15m_live.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
     "$project_dir/market_breath.py"
-  sudo -n install -m 0644 "$project_dir/deploy/systemd/market-breath.service" \
-    /etc/systemd/system/market-breath.service
-  sudo -n install -m 0644 "$project_dir/deploy/systemd/market-breath.timer" \
-    /etc/systemd/system/market-breath.timer
-  sudo -n systemctl daemon-reload
+  if ! systemctl cat market-breath.timer >/dev/null 2>&1; then
+    echo "market-breath.timer is not installed; ask an administrator to install deploy/systemd units." >&2
+    exit 1
+  fi
   # The timer, rather than boot, owns Market Breath startup. Do not stop an
   # already-running session during a deployment; it will be timer-started on
   # the next weekday at 09:15 IST.
