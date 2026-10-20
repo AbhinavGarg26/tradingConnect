@@ -11,6 +11,7 @@ CONSTANT_NAMES = {
     "IDLE_POLL_INTERVAL",
     "FINAL_SESSION_START_HOUR",
     "BROKER_POSITION_REFRESH_INTERVAL",
+    "KITE_RATE_LIMIT_COOLDOWN_SECONDS",
 }
 CONSTANTS = [
     node for node in TREE.body
@@ -30,7 +31,7 @@ def test_open_position_polling_is_fastest_in_final_session():
     regular = position_poll_interval(1, datetime(2026, 9, 18, 14, 30))
     final_session = position_poll_interval(1, datetime(2026, 9, 18, 15, 15))
 
-    assert regular == 0.25
+    assert regular == 0.20
     assert final_session == 0.10
     assert final_session < regular
 
@@ -39,5 +40,6 @@ def test_idle_polling_avoids_unnecessary_broker_pressure():
     assert position_poll_interval(0, datetime(2026, 9, 18, 15, 15)) == 2.0
 
 
-def test_broker_inventory_has_a_separate_one_second_refresh_limit():
-    assert NAMESPACE["BROKER_POSITION_REFRESH_INTERVAL"] == 1.0
+def test_broker_inventory_is_throttled_and_rate_limit_has_cooldown():
+    assert NAMESPACE["BROKER_POSITION_REFRESH_INTERVAL"] == 2.0
+    assert NAMESPACE["KITE_RATE_LIMIT_COOLDOWN_SECONDS"] == 10.0

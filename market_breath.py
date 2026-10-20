@@ -4,6 +4,7 @@ import threading
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+from kiteconnect.exceptions import NetworkException
 
 from analytics.kite_sync_orders import trigger_summary_updates
 from analytics.trade_reconciliation import TradeReconciliationScheduler
@@ -41,7 +42,8 @@ ACTIVE_POLL_INTERVAL = 0.20
 FINAL_SESSION_POLL_INTERVAL = 0.10
 IDLE_POLL_INTERVAL = 2.0
 FINAL_SESSION_START_HOUR = 15
-BROKER_POSITION_REFRESH_INTERVAL = 1.0
+BROKER_POSITION_REFRESH_INTERVAL = 2.0
+KITE_RATE_LIMIT_COOLDOWN_SECONDS = 10.0
 PCT_LOSS = 12.0  # Startup fallback; live value comes from Market Config.
 KITE_AUTO_EXIT_ENABLED = True  # DB setting; environment is the missing-row fallback.
 GROWW_AUTO_EXIT_ENABLED = True  # DB setting; environment is the missing-row fallback.
@@ -269,6 +271,17 @@ if __name__ == "__main__":
                     break
 
             except Exception as e:
+                if isinstance(e, NetworkException) and "Too many requests" in str(e):
+                    # Kite's 429 cooldown extends if requests keep arriving.
+                    # Discard the cached broker inventory and wait for a fresh
+                    # response before evaluating another position exit.
+                    positions_response = None
+                    last_position_refresh = 0.0
+                    logger.warning("Kite rate limit reached; pausing position monitoring for %.0fs",
+                                   KITE_RATE_LIMIT_COOLDOWN_SECONDS)
+                    runtime_monitor.degraded("Kite rate limit; waiting before retry")
+                    time.sleep(KITE_RATE_LIMIT_COOLDOWN_SECONDS)
+                    continue
                 logger.exception("Error encountered during monitoring cycle: %s", e)
                 runtime_monitor.exception(e, "Position monitoring cycle")
 
