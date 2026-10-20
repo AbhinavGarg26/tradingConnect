@@ -138,9 +138,14 @@ The live runner polls Kite's 15-minute historical candles, waits five seconds
 past the bar boundary, and does not replay earlier signals when it starts.
 Start either runner mode before the 09:30 candle closes; a later startup is
 rejected because the earlier entry/re-entry state cannot be safely recovered.
-It confirms order status before continuing. It refuses to start when an open
-NIFTY option position or unresolved tagged order exists. If it stops while a
-position is open, reconcile and close that position manually before starting
-again. Keep it running and supervised during market hours: the NIFTY-index
+It confirms order status before continuing. Existing NIFTY option positions in
+other contracts no longer block startup. A signal using an already-open option
+contract or one with a pending order is skipped and recorded; the strategy
+keeps monitoring later candles. An unresolved strategy-tagged order still
+blocks startup. Before selling a strategy lot, the runner requires exactly
+one MIS lot of that contract and no pending order, to avoid selling a manual
+position. If it stops while its own position is open, reconcile that position
+manually before starting again. Keep it running and supervised during market
+hours: the NIFTY-index
 stop and target are checked only at 15-minute closes, so there is no broker
 native option-premium stop between closes.

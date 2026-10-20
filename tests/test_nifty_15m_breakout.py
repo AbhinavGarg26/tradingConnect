@@ -8,6 +8,7 @@ from kiteconnect.exceptions import TokenException
 from backtest.nifty_15m_breakout import completed_trades, main, next_open_fills, run, summarize
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout, Nifty15mLiveAdapter
 from nifty_15m_live import (atm_option, confirmed_order, connect_live_with_token_retry,
+                            contract_conflict, ensure_strategy_lot_available,
                             live_start_allowed, next_week_expiry)
 
 
@@ -65,6 +66,44 @@ def test_next_week_expiry_and_one_atm_contract():
     assert expiry == date(2026, 10, 22)
     option = atm_option(contracts, expiry, "CE", Decimal("25140"))
     assert (option["strike"], option["lot_size"]) == (25150, 65)
+
+
+def test_unrelated_nifty_position_does_not_block_selected_contract():
+    kite = SimpleNamespace(
+        positions=lambda: {"net": [
+            {"exchange": "NFO", "tradingsymbol": "NIFTY26OCT23000CE", "quantity": 65},
+        ]},
+        orders=lambda: [],
+    )
+    assert contract_conflict(kite, {"tradingsymbol": "NIFTY26OCT23100CE"}) is None
+    assert contract_conflict(kite, {"tradingsymbol": "NIFTY26OCT23000CE"}) == "option_contract_in_use"
+
+
+def test_pending_order_on_selected_contract_blocks_entry_only():
+    kite = SimpleNamespace(
+        positions=lambda: {"net": []},
+        orders=lambda: [{"exchange": "NFO", "tradingsymbol": "NIFTY26OCT23000CE",
+                         "status": "OPEN"}],
+    )
+    assert contract_conflict(kite, {"tradingsymbol": "NIFTY26OCT23100CE"}) is None
+    assert contract_conflict(kite, {"tradingsymbol": "NIFTY26OCT23000CE"}) == "option_contract_order_pending"
+
+
+def test_exit_requires_exact_strategy_lot_not_manual_or_missing_quantity():
+    position = {"exchange": "NFO", "tradingsymbol": "NIFTY26OCT23100CE",
+                "product": "MIS", "quantity": 65}
+    orders = []
+    kite = SimpleNamespace(PRODUCT_MIS="MIS", positions=lambda: {"net": [position]},
+                           orders=lambda: orders)
+    ensure_strategy_lot_available(kite, {"tradingsymbol": position["tradingsymbol"]}, 65)
+    position["quantity"] = 130
+    with pytest.raises(RuntimeError, match="expected 65 MIS, broker has 130"):
+        ensure_strategy_lot_available(kite, {"tradingsymbol": position["tradingsymbol"]}, 65)
+    position["quantity"] = 65
+    orders.append({"exchange": "NFO", "tradingsymbol": position["tradingsymbol"],
+                   "status": "OPEN"})
+    with pytest.raises(RuntimeError, match="Pending order"):
+        ensure_strategy_lot_available(kite, {"tradingsymbol": position["tradingsymbol"]}, 65)
 
 
 def test_live_order_records_one_lot_only_after_confirmed_fill(monkeypatch):

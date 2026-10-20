@@ -9,6 +9,7 @@ option stop orders. Run this only while supervising the broker account.
 from __future__ import annotations
 
 import argparse
+import copy
 import logging
 import time
 from datetime import date, datetime, timedelta, time as clock_time
@@ -18,7 +19,7 @@ from zoneinfo import ZoneInfo
 from kiteconnect.exceptions import TokenException
 
 from market.kite_orders import place_protected_market_order
-from strategies.nifty_15m_breakout import Bar, Nifty15mBreakout
+from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout
 
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -74,6 +75,46 @@ def atm_option(instruments, expiry, side, index_price):
     if not choices:
         raise RuntimeError(f"No {side} contracts for {expiry}")
     return min(choices, key=lambda item: (abs(Decimal(str(item["strike"])) - index_price), item["strike"]))
+
+
+def contract_conflict(kite, contract):
+    """Only the selected contract, not unrelated NIFTY positions, can block entry."""
+    symbol = contract["tradingsymbol"]
+    if any(position.get("exchange") == "NFO"
+           and position.get("tradingsymbol") == symbol
+           and int(position.get("quantity") or 0) != 0
+           for position in kite.positions().get("net", [])):
+        return "option_contract_in_use"
+    if any(order.get("exchange") == "NFO"
+           and order.get("tradingsymbol") == symbol
+           and order.get("status") not in {"COMPLETE", "REJECTED", "CANCELLED"}
+           for order in kite.orders()):
+        return "option_contract_order_pending"
+    return None
+
+
+def ensure_strategy_lot_available(kite, contract, quantity):
+    """Never sell a manual lot or create a short if the strategy lot disappeared."""
+    matching_quantity = sum(
+        int(position.get("quantity") or 0)
+        for position in kite.positions().get("net", [])
+        if position.get("exchange") == "NFO"
+        and position.get("tradingsymbol") == contract["tradingsymbol"]
+        and position.get("product") == kite.PRODUCT_MIS
+    )
+    if matching_quantity != quantity:
+        raise RuntimeError(
+            f"Strategy option quantity changed for {contract['tradingsymbol']}: "
+            f"expected {quantity} MIS, broker has {matching_quantity}; reconcile manually"
+        )
+    if any(order.get("exchange") == "NFO"
+           and order.get("tradingsymbol") == contract["tradingsymbol"]
+           and order.get("status") not in {"COMPLETE", "REJECTED", "CANCELLED"}
+           for order in kite.orders()):
+        raise RuntimeError(
+            f"Pending order on strategy option {contract['tradingsymbol']}; "
+            "reconcile before sending the exit"
+        )
 
 
 def confirmed_order(kite, contract, transaction, quantity, *, on_placed=None):
@@ -144,11 +185,6 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                    and o.get("status") not in {"COMPLETE", "REJECTED", "CANCELLED"}]
         if pending:
             raise RuntimeError("Unresolved strategy order found; reconcile in Kite before restarting")
-        existing = [p for p in kite.positions().get("net", [])
-                    if p.get("exchange") == "NFO" and str(p.get("tradingsymbol", "")).startswith("NIFTY")
-                    and int(p.get("quantity", 0)) != 0]
-        if existing:
-            raise RuntimeError("Existing NIFTY option position found; reconcile before starting live runner")
     log.info("NIFTY token=%s; next-week expiry=%s; mode=%s", token, expiry, "LIVE" if live else "PAPER")
 
     while True:
@@ -199,6 +235,7 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                 continue
             if now - (bar_time + timedelta(minutes=15)) > timedelta(minutes=2):
                 raise RuntimeError("Missed candle close by over 2 minutes; restart and reconcile")
+            state_before_bar = copy.copy(strategy)
             decision = strategy.on_bar(bar)
             last_time = bar_time
             if decision.action == "HOLD":
@@ -219,6 +256,20 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                 quantity = int(contract["lot_size"])  # one exchange lot
                 if quantity < 1:
                     raise RuntimeError("Selected option has an invalid lot size")
+                if live:
+                    conflict = contract_conflict(kite, contract)
+                    if conflict:
+                        strategy = state_before_bar
+                        strategy.previous = bar
+                        log.warning("Skipped %s: %s on %s", decision.action, conflict,
+                                    contract["tradingsymbol"])
+                        recorder.event(
+                            Decision("HOLD", decision.time, decision.index_price,
+                                     reason=conflict),
+                            details={"option_symbol": contract["tradingsymbol"]},
+                        )
+                        contract = None
+                        continue
                 log.info("Selected %s quantity=%s", contract["tradingsymbol"], quantity)
                 recorder.begin_trade(decision, contract, quantity, strategy.entry_count)
                 if live:
@@ -235,6 +286,7 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                     raise RuntimeError("No matching option position; reconcile manually")
                 recorder.exit_intent(decision)
                 if live:
+                    ensure_strategy_lot_available(kite, contract, int(contract["lot_size"]))
                     order_id, premium = confirmed_order(
                         kite, contract, kite.TRANSACTION_TYPE_SELL, int(contract["lot_size"]),
                         on_placed=lambda order_id: recorder.order_submitted(order_id, exit_order=True))
