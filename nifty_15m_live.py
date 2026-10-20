@@ -279,6 +279,11 @@ def main():
     runtime_monitor.start("Checking Kite session")
     try:
         if args.live:
+            from market.trading_calendar import is_nse_trading_day
+            if not is_nse_trading_day(datetime.now(IST).date()):
+                runtime_monitor.stop("NSE holiday or weekend; no strategy run")
+                return
+        if args.live:
             kite, user_id = connect_live_with_token_retry(
                 fetch_user_token, attempts=args.token_attempts,
                 retry_seconds=args.token_retry_seconds,

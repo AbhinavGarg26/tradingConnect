@@ -15,6 +15,7 @@ from database.live_market_state import (
 )
 from market.candle_complete import CandleCompletionScheduler
 from market.market import is_market_open
+from market.trading_calendar import is_nse_trading_day
 from market.market_exit import MarketExitExecutor
 from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.market_positions import process_open_positions
@@ -122,6 +123,10 @@ def _monitor_groww_positions(
         stop_event.wait(0.5)
 
 if __name__ == "__main__":
+    if not is_nse_trading_day(datetime.now().date()):
+        logger.info("NSE holiday or weekend; position manager will not start")
+        runtime_monitor.stop("NSE holiday or weekend; next scheduled start")
+        raise SystemExit(0)
     # Do not authenticate just because deploy.sh is run after market close or
     # on a weekend.  Keep the launched process idle so a deployment remains
     # healthy; it will authenticate only once the next session opens.
