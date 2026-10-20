@@ -134,10 +134,13 @@ for one lot. Once paper mode is checked, real orders require the explicit flag:
 venv/bin/python nifty_15m_live.py --live
 ```
 
-The live runner polls Kite's 15-minute historical candles, waits five seconds
-past the bar boundary, and does not replay earlier signals when it starts.
-Start either runner mode before the 09:30 candle closes; a later startup is
-rejected because the earlier entry/re-entry state cannot be safely recovered.
+The live runner polls Kite's 15-minute historical candles and waits five seconds
+past each bar boundary. A runner started after 09:15 uses the most recent
+completed candle as its reference and only acts on future closes; it never
+places orders for missed signals. It retries an unavailable Kite session every
+five minutes until 15:00 IST. A late restart is refused if this strategy
+already recorded a live trade that day, because its position and re-entry
+state cannot safely be reconstructed.
 It confirms order status before continuing. Existing NIFTY option positions in
 other contracts no longer block startup. A signal using an already-open option
 contract or one with a pending order is skipped and recorded; the strategy

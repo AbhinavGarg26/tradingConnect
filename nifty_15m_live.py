@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, time as clock_time
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from kiteconnect.exceptions import TokenException
+from kiteconnect.exceptions import NetworkException, TokenException
 
 from market.kite_orders import place_protected_market_order
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout
@@ -27,32 +27,35 @@ log = logging.getLogger(__name__)
 
 
 def live_start_allowed(now: datetime) -> bool:
-    """A late or weekend start must not invent missing intraday trade state."""
-    return now.weekday() < 5 and clock_time(9, 15) <= now.time() < clock_time(9, 45)
+    """New signals may start after 09:15, but not near the session end."""
+    return now.weekday() < 5 and clock_time(9, 15) <= now.time() < clock_time(15, 0)
 
 
 def connect_live_with_token_retry(fetch_token, *, attempts=5, retry_seconds=300,
                                   now_fn=None, sleep_fn=None, on_retry=None):
-    """Retry only missing/invalid Kite sessions before the safe-start cutoff."""
+    """Retry Kite until authenticated, attempts are exhausted, or entries close."""
     now_fn = now_fn or (lambda: datetime.now(IST))
     sleep_fn = sleep_fn or time.sleep
-    for attempt in range(1, attempts + 1):
+    if attempts is not None and attempts < 1:
+        raise ValueError("attempts must be positive or None for session-long retries")
+    attempt = 0
+    while True:
         if not live_start_allowed(now_fn()):
             raise RuntimeError(
-                "Live runner missed its safe 09:15-09:45 IST startup window; "
-                "do not restart mid-session without reconciling broker and strategy state"
+                "Live runner cannot start outside the 09:15-15:00 IST entry window"
             )
+        attempt += 1
         try:
             kite, user_id = fetch_token(log)
             kite.profile()  # The DB expiry alone does not prove Kite accepts the token.
             return kite, user_id
-        except (TokenException, SystemExit) as exc:
+        except (TokenException, NetworkException, SystemExit) as exc:
             if isinstance(exc, SystemExit) and exc.code != 1:
                 raise
-            if attempt == attempts:
+            if attempts is not None and attempt == attempts:
                 raise RuntimeError(f"Kite session unavailable after {attempts} attempts") from exc
             log.warning("Kite session unavailable (attempt %s/%s); retrying in %s seconds",
-                        attempt, attempts, retry_seconds)
+                        attempt, attempts if attempts is not None else "session", retry_seconds)
             if on_retry:
                 on_retry(attempt, attempts, retry_seconds)
             sleep_fn(retry_seconds)
@@ -147,7 +150,13 @@ def confirmed_order(kite, contract, transaction, quantity, *, on_placed=None):
 
 def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30,
         runtime_monitor=None):
-    from trading.strategy_records import StrategyRecorder
+    from trading.strategy_records import StrategyRecorder, prior_strategy_trades
+
+    if live and prior_strategy_trades(user_id, datetime.now(IST).date()):
+        raise RuntimeError(
+            "This strategy already recorded a live trade today; "
+            "late restart cannot safely reconstruct its position and re-entry state"
+        )
 
     recorder = StrategyRecorder(user_id, live=live, max_risk_points=max_risk_points)
     try:
@@ -215,18 +224,12 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
             completed.append(bar)
         if not initialized:
             if completed:
-                if completed[-1].time.time() > clock_time(9, 15):
-                    raise RuntimeError(
-                        "Runner started after the first 15-minute candle; "
-                        "today's entry/re-entry state cannot be reconstructed safely. "
-                        "Start before the 09:30 candle closes on the next session."
-                    )
                 strategy.previous = completed[-1]
                 last_time = completed[-1].time
                 initialized = True
-                log.info("Primed from completed candle %s; awaiting next close", last_time)
+                log.info("Primed from latest completed candle %s; awaiting next close", last_time)
                 if runtime_monitor:
-                    runtime_monitor.success("Primed from first NIFTY candle; awaiting breakout")
+                    runtime_monitor.success("Primed from latest NIFTY candle; awaiting future breakout")
             time.sleep(poll_seconds)
             continue
         for bar in completed:
@@ -304,8 +307,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Place real one-lot NFO market orders")
     parser.add_argument("--poll-seconds", type=int, default=5)
-    parser.add_argument("--token-attempts", type=int, default=1,
-                        help="Live-mode Kite session attempts before giving up (default: 1)")
+    parser.add_argument("--token-attempts", type=int, default=0,
+                        help="Live-mode Kite session attempts (0 retries until 15:00 IST; default: 0)")
     parser.add_argument("--token-retry-seconds", type=int, default=300,
                         help="Seconds between live-mode token attempts (default: 300)")
     risk_group = parser.add_mutually_exclusive_group()
@@ -316,8 +319,8 @@ def main():
     args = parser.parse_args()
     if args.poll_seconds < 1:
         parser.error("--poll-seconds must be positive")
-    if args.token_attempts < 1 or args.token_retry_seconds < 1:
-        parser.error("--token-attempts and --token-retry-seconds must be positive")
+    if args.token_attempts < 0 or args.token_retry_seconds < 1:
+        parser.error("--token-attempts must be nonnegative and --token-retry-seconds positive")
     if args.max_risk_points is not None and args.max_risk_points <= 0:
         parser.error("--max-risk-points must be positive")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -337,10 +340,11 @@ def main():
                 return
         if args.live:
             kite, user_id = connect_live_with_token_retry(
-                fetch_user_token, attempts=args.token_attempts,
+                fetch_user_token, attempts=args.token_attempts or None,
                 retry_seconds=args.token_retry_seconds,
                 on_retry=lambda attempt, total, seconds: runtime_monitor.degraded(
-                    f"Kite session unavailable; retry {attempt + 1}/{total} in {seconds // 60} minutes"))
+                    f"Kite session unavailable; retry {attempt + 1}"
+                    f"{'/' + str(total) if total is not None else ''} in {seconds // 60} minutes"))
         else:
             kite, user_id = fetch_user_token(log)
         runtime_monitor.user_id = user_id

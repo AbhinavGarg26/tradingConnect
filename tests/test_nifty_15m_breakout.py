@@ -7,7 +7,7 @@ from kiteconnect.exceptions import TokenException
 
 from backtest.nifty_15m_breakout import completed_trades, main, next_open_fills, run, summarize
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout, Nifty15mLiveAdapter
-from nifty_15m_live import (atm_option, confirmed_order, connect_live_with_token_retry,
+from nifty_15m_live import (_run_session, atm_option, confirmed_order, connect_live_with_token_retry,
                             contract_conflict, ensure_strategy_lot_available,
                             live_start_allowed, next_week_expiry)
 
@@ -170,13 +170,64 @@ def test_live_token_retry_checks_broker_and_stops_after_five_attempts():
 
 def test_live_retry_refuses_late_or_weekend_start():
     assert live_start_allowed(datetime(2026, 10, 19, 9, 35))
-    assert not live_start_allowed(datetime(2026, 10, 19, 9, 45))
+    assert live_start_allowed(datetime(2026, 10, 19, 10, 45))
+    assert not live_start_allowed(datetime(2026, 10, 19, 15, 0))
     assert not live_start_allowed(datetime(2026, 10, 17, 9, 15))
-    with pytest.raises(RuntimeError, match="safe 09:15-09:45"):
+    with pytest.raises(RuntimeError, match="09:15-15:00"):
         connect_live_with_token_retry(
             lambda _logger: pytest.fail("Late start must not access Kite"),
-            now_fn=lambda: datetime(2026, 10, 19, 9, 50),
+            now_fn=lambda: datetime(2026, 10, 19, 15, 0),
             sleep_fn=lambda _seconds: pytest.fail("Late start must not retry"))
+
+
+def test_session_long_token_retry_can_connect_after_nine_forty_five():
+    calls, waits = [], []
+
+    def fetch(_logger):
+        calls.append(1)
+        if len(calls) < 8:
+            raise SystemExit(1)
+        return SimpleNamespace(profile=lambda: {"user_id": "test"}), 42
+
+    kite, user_id = connect_live_with_token_retry(
+        fetch, attempts=None, retry_seconds=300,
+        now_fn=lambda: datetime(2026, 10, 19, 9, 15 + 5 * len(calls))
+        if len(calls) < 9 else datetime(2026, 10, 19, 10, 0),
+        sleep_fn=waits.append,
+    )
+    assert (user_id, len(calls), len(waits)) == (42, 8, 7)
+    assert kite.profile()["user_id"] == "test"
+
+
+def test_late_start_primes_latest_completed_candle_without_replaying(monkeypatch):
+    from nifty_15m_live import IST
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, _tz=None):
+            return datetime(2026, 10, 21, 10, 30, 10, tzinfo=IST)
+
+    class EndTest(Exception):
+        pass
+
+    monkeypatch.setattr("nifty_15m_live.datetime", Clock)
+    monkeypatch.setattr("nifty_15m_live.time.sleep", lambda _seconds: (_ for _ in ()).throw(EndTest))
+    activities = []
+    kite = SimpleNamespace(
+        instruments=lambda exchange: ([{"tradingsymbol": "NIFTY 50", "instrument_token": 256265}]
+                                      if exchange == "NSE" else
+                                      [{"name": "NIFTY", "instrument_type": "CE",
+                                        "expiry": date(2026, 10, 27)}]),
+        historical_data=lambda *_args: [
+            {"date": datetime(2026, 10, 21, hour, minute, tzinfo=IST),
+             "open": 100, "high": 101, "low": 99, "close": 100}
+            for hour, minute in [(9, 15), (9, 30), (9, 45), (10, 0), (10, 15)]
+        ],
+    )
+    with pytest.raises(EndTest):
+        _run_session(kite, recorder=SimpleNamespace(), runtime_monitor=SimpleNamespace(
+            success=activities.append))
+    assert activities == ["Primed from latest NIFTY candle; awaiting future breakout"]
 
 
 def test_journal_uses_candle_close_timestamp_and_v3_identity(monkeypatch):
@@ -186,6 +237,28 @@ def test_journal_uses_candle_close_timestamp_and_v3_identity(monkeypatch):
     decision = Decision("BUY_CE", datetime(2026, 9, 4, 11, 15), Decimal("23982.15"))
     assert signal_time(decision) == datetime(2026, 9, 4, 11, 30)
     assert (STRATEGY_KEY, STRATEGY_VERSION) == ("nifty_15m_breakout", "v3")
+
+
+def test_late_restart_guard_counts_only_prior_live_strategy_trades(monkeypatch):
+    from trading.strategy_records import prior_strategy_trades
+
+    class FakeDb:
+        def __init__(self, count):
+            self.count = count
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def scalar(self, _query):
+            return self.count
+
+    monkeypatch.setattr("trading.strategy_records.get_db", lambda: FakeDb(0))
+    assert not prior_strategy_trades(42, date(2026, 10, 21))
+    monkeypatch.setattr("trading.strategy_records.get_db", lambda: FakeDb(1))
+    assert prior_strategy_trades(42, date(2026, 10, 21))
 
 
 def test_journal_supplies_rails_required_timestamps(monkeypatch):

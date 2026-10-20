@@ -16,6 +16,17 @@ from trading.database import Base, get_db
 STRATEGY_KEY = "nifty_15m_breakout"
 
 
+def prior_strategy_trades(user_id: int, trading_date: date) -> bool:
+    """A late live start is safe only if this strategy has not traded today."""
+    with get_db() as db:
+        return bool(db.scalar(select(func.count()).select_from(StrategyTrade).where(
+            StrategyTrade.user_id == user_id,
+            StrategyTrade.strategy_key == STRATEGY_KEY,
+            StrategyTrade.mode == "live",
+            StrategyTrade.trading_date == trading_date,
+        )))
+
+
 def signal_time(decision):
     """Kite historical candles are labelled by start; the decision is known at close."""
     return decision.time + timedelta(minutes=15)
