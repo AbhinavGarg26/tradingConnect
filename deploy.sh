@@ -29,6 +29,10 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
     echo "market-breath.timer is not installed; ask an administrator to install deploy/systemd units." >&2
     exit 1
   fi
+  if ! systemctl cat strategy-guardian.timer >/dev/null 2>&1; then
+    echo "strategy-guardian.timer is not installed; ask an administrator to install deploy/systemd units." >&2
+    exit 1
+  fi
   # Keep boot disabled, but retain the 09:15 timer for normal daily starts.
   # A deployment is also the manual recovery path if that timer was missed.
   sudo -n systemctl disable market-breath.service
@@ -38,11 +42,6 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
   sudo -n systemctl status market-breath >/dev/null
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
-  sudo -n install -m 0644 "$project_dir/deploy/systemd/strategy-guardian.service" \
-    /etc/systemd/system/strategy-guardian.service
-  sudo -n install -m 0644 "$project_dir/deploy/systemd/strategy-guardian.timer" \
-    /etc/systemd/system/strategy-guardian.timer
-  sudo -n systemctl daemon-reload
   sudo -n systemctl enable --now strategy-guardian.timer
   sudo -n systemctl enable --now nifty-15m-v3.timer
   echo "Market Breath and Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
