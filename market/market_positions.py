@@ -119,9 +119,7 @@ def process_open_positions(
 
     for position in open_positions:
         symbol = str(position["tradingsymbol"]).strip().upper()
-        if symbol in ignore_symbol:
-            logger.info("[%s] Ignored by Market Config; automatic stop/profit rules skipped", symbol)
-            continue
+        profit_rules_ignored = symbol in ignore_symbol
 
         token = int(position["instrument_token"])
         ltp = live_prices.get(token)
@@ -140,7 +138,9 @@ def process_open_positions(
             exit_executor.reset_position(position_key)
             logger.warning("[%s] New broker execution lifecycle detected; stop state reset", symbol)
 
-        if recovery_gtt_executor is not None:
+        # An ignored symbol never receives a new profit/recovery GTT. Its hard
+        # percentage and rupee-loss limits remain active below.
+        if recovery_gtt_executor is not None and not profit_rules_ignored:
             recovery_gtt_executor.process(db, position, buy_price, ltp)
 
         pnl_pct = position_pnl_pct(buy_price, ltp, position["quantity"])
@@ -154,14 +154,27 @@ def process_open_positions(
                 symbol, position["quantity"], buy_price, ltp, pnl_pct,
             )
 
-        exit_reason = stop_tracker.evaluate(
-            position_key=position_key,
-            pnl_pct=pnl_pct,
-            hard_stop_loss_pct=pct_loss,
-            recent_prices=price_stream.recent_prices(token),
-            pnl_amount=pnl_amount,
-            max_loss_amount=max_loss_amount,
-        )
+        if profit_rules_ignored:
+            logger.info(
+                "[%s] Profit rules ignored by Market Config; hard loss limits remain active",
+                symbol,
+            )
+            exit_reason = stop_tracker.evaluate_loss_only(
+                position_key=position_key,
+                pnl_pct=pnl_pct,
+                hard_stop_loss_pct=pct_loss,
+                pnl_amount=pnl_amount,
+                max_loss_amount=max_loss_amount,
+            )
+        else:
+            exit_reason = stop_tracker.evaluate(
+                position_key=position_key,
+                pnl_pct=pnl_pct,
+                hard_stop_loss_pct=pct_loss,
+                recent_prices=price_stream.recent_prices(token),
+                pnl_amount=pnl_amount,
+                max_loss_amount=max_loss_amount,
+            )
         if exit_reason and auto_exit_enabled:
             # A broker GTT may be protecting profit. Remove it only when a
             # software exit has actually won, never during ordinary monitoring.

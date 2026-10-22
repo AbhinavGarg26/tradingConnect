@@ -31,6 +31,20 @@ def position_pnl_amount(entry_price: float, ltp: float, quantity: int | float) -
     return (ltp - entry_price) * quantity
 
 
+def hard_loss_reason(
+    pnl_pct: float,
+    hard_stop_loss_pct: float,
+    pnl_amount: float | None = None,
+    max_loss_amount: float | None = None,
+) -> Optional[str]:
+    """Return the configured hard-loss exit reason, independent of profit rules."""
+    if pnl_pct <= -hard_stop_loss_pct:
+        return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
+    if max_loss_amount is not None and pnl_amount is not None and pnl_amount <= -max_loss_amount:
+        return f"MAX_LOSS_{max_loss_amount:g}INR"
+    return None
+
+
 def locked_profit_for_peak(peak_pnl_pct: float) -> Optional[float]:
     """Return the protected P&L floor for the highest completed 5% milestone.
 
@@ -88,6 +102,24 @@ class PositionStopTracker:
     def reset(self, position_key: str) -> None:
         self._states.pop(position_key, None)
 
+    def evaluate_loss_only(
+        self,
+        position_key: str,
+        pnl_pct: float,
+        hard_stop_loss_pct: float,
+        pnl_amount: float | None = None,
+        max_loss_amount: float | None = None,
+    ) -> Optional[str]:
+        """Track downside only, intentionally leaving profit rules inactive."""
+        state = self._states.setdefault(
+            position_key,
+            PositionStopState(peak_pnl_pct=pnl_pct, worst_pnl_pct=pnl_pct),
+        )
+        state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
+        return hard_loss_reason(
+            pnl_pct, hard_stop_loss_pct, pnl_amount, max_loss_amount
+        )
+
     def evaluate(
         self,
         position_key: str,
@@ -109,13 +141,12 @@ class PositionStopTracker:
         state.peak_pnl_pct = max(state.peak_pnl_pct, pnl_pct)
         state.worst_pnl_pct = min(state.worst_pnl_pct, pnl_pct)
 
-        # The configurable absolute loss boundary takes priority over all
-        # trailing logic and always produces a market exit.
-        if pnl_pct <= -hard_stop_loss_pct:
-            return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
-
-        if max_loss_amount is not None and pnl_amount is not None and pnl_amount <= -max_loss_amount:
-            return f"MAX_LOSS_{max_loss_amount:g}INR"
+        # The configurable loss boundary takes priority over all trailing logic.
+        reason = hard_loss_reason(
+            pnl_pct, hard_stop_loss_pct, pnl_amount, max_loss_amount
+        )
+        if reason:
+            return reason
 
         # Arm the requested profit ladder from the highest observed P&L peak.
         del atr_trail_distance_pct

@@ -7,6 +7,7 @@ import uuid
 
 from market.position_stops import (
     DEFAULT_HARD_STOP_LOSS_PCT,
+    hard_loss_reason,
     position_pnl_amount,
     position_pnl_pct,
 )
@@ -31,12 +32,10 @@ def hard_exit_reason(
     pnl_pct = position_pnl_pct(entry_price, ltp, quantity)
     if pnl_pct is None:
         return None
-    if pnl_pct <= -hard_stop_loss_pct:
-        return f"HARD_STOP_{hard_stop_loss_pct:g}PCT"
     pnl_amount = position_pnl_amount(entry_price, ltp, quantity)
-    if max_loss_amount is not None and pnl_amount is not None and pnl_amount <= -max_loss_amount:
-        return f"MAX_LOSS_{max_loss_amount:g}INR"
-    return None
+    return hard_loss_reason(
+        pnl_pct, hard_stop_loss_pct, pnl_amount, max_loss_amount
+    )
 
 
 class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
@@ -198,12 +197,9 @@ class GrowwPositionRiskMonitor:
                         or ("NRML" if str(row.get("segment")).upper() == "FNO" else "CNC"),
                     "quantity": quantity,
                 }
-                # Keep ignored positions in the executor's active set. Ignoring a
-                # position pauses rules; it must not reset exit idempotency state.
+                # Keep ignored positions in the executor's active set. Ignoring
+                # suppresses profit actions only; hard-loss protection remains.
                 active_keys.add(self._executor._position_key(position))
-                if str(symbol).strip().upper() in ignored:
-                    self.logger.info("[%s] Groww position ignored by Market Config", symbol)
-                    continue
                 entry = execution_entry_price(
                     orders_by_segment.get(str(row.get("segment") or "FNO").upper(), []),
                     row,
@@ -226,6 +222,11 @@ class GrowwPositionRiskMonitor:
                 reason = hard_exit_reason(
                     entry, ltp, hard_stop_loss_pct, quantity, max_loss_amount
                 )
+                if str(symbol).strip().upper() in ignored:
+                    self.logger.info(
+                        "[%s] Groww profit rules ignored; hard loss limits remain active",
+                        symbol,
+                    )
                 if reason:
                     pnl_pct = position_pnl_pct(entry, ltp, quantity)
                     self.logger.critical(

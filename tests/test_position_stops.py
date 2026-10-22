@@ -39,6 +39,28 @@ class PositionStopTrackerTests(unittest.TestCase):
             tracker.evaluate("NFO:X", -4.0, 10.0, [], pnl_amount=-4000.0)
         )
 
+    def test_ignored_position_keeps_hard_loss_but_never_uses_profit_ladder(self):
+        tracker = PositionStopTracker()
+        self.assertIsNone(
+            tracker.evaluate_loss_only("NFO:X", 20.0, 10.0, pnl_amount=5000.0)
+        )
+        self.assertIsNone(
+            tracker.evaluate_loss_only("NFO:X", 5.0, 10.0, pnl_amount=1250.0)
+        )
+        self.assertEqual(
+            tracker.evaluate_loss_only("NFO:X", -10.0, 10.0, pnl_amount=-2500.0),
+            "HARD_STOP_10PCT",
+        )
+
+    def test_ignored_position_also_uses_rupee_max_loss(self):
+        tracker = PositionStopTracker()
+        self.assertEqual(
+            tracker.evaluate_loss_only(
+                "NFO:X", -2.0, 10.0, pnl_amount=-4500.0, max_loss_amount=4500.0
+            ),
+            "MAX_LOSS_4500INR",
+        )
+
     def test_profit_ladder_does_not_arm_before_ten_percent(self):
         tracker = PositionStopTracker()
         tracker.evaluate("NFO:X", 5.0, 5.8, [])
