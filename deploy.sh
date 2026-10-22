@@ -33,8 +33,9 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
   # A deployment is also the manual recovery path if that timer was missed.
   sudo -n systemctl disable market-breath.service
   sudo -n systemctl enable --now market-breath.timer
-  sudo -n systemctl restart market-breath.service
-  sudo -n systemctl is-active --quiet market-breath.service
+  # Use the service alias permitted to the deployment account by sudoers.
+  sudo -n systemctl restart market-breath
+  sudo -n systemctl status market-breath >/dev/null
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
   sudo -n install -m 0644 "$project_dir/deploy/systemd/strategy-guardian.service" \
