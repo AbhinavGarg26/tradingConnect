@@ -1,0 +1,16 @@
+[Unit]
+Description=Frozen NIFTY 30m body reference V3 live options
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/nifty_30m_reference_live.py --live --not-before 2026-10-23
+Restart=no
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal

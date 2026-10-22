@@ -2,6 +2,9 @@
 
 Current live strategy identity: `nifty_15m_breakout`, version `v3`.
 
+Live entry now also requires enabled per-strategy rupee risk settings and a
+healthy independent guardian. See [shared strategy risk](strategy_risk.md).
+
 `Nifty15mBreakout.on_bar()` is the sole decision function used by the CSV
 backtest and the live candle adapter. The immediately previous completed
 15-minute NIFTY index candle supplies resistance (high) and support (low).

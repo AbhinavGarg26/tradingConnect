@@ -9,7 +9,7 @@ from backtest.nifty_15m_breakout import completed_trades, main, next_open_fills,
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout, Nifty15mLiveAdapter
 from nifty_15m_live import (_run_session, atm_option, confirmed_order, connect_live_with_token_retry,
                             contract_conflict, ensure_strategy_lot_available,
-                            live_start_allowed, next_week_expiry)
+                            live_start_allowed, next_week_expiry, risk_cap_event_details)
 
 
 def make_bar(time, high, low, close):
@@ -301,8 +301,14 @@ def test_summary_uses_realized_exit_points_and_handles_no_trades():
 def test_risk_cap_skips_wide_reference_candle():
     strategy = Nifty15mBreakout()
     strategy.on_bar(make_bar(1, 110, 90, 100))
+    reference = strategy.previous
     decision = strategy.on_bar(make_bar(2, 120, 111, 120))
     assert (decision.action, decision.reason, strategy.position) == ("HOLD", "risk_cap", None)
+    assert (decision.candidate_side, decision.proposed_risk_points) == ("CE", Decimal(35))
+    assert risk_cap_event_details(decision, reference, Decimal(30)) == {
+        "candidate_side": "CE", "proposed_risk_points": "35", "max_risk_points": "30",
+        "reference_high": "110", "reference_low": "90",
+    }
     emitted = []
     live = Nifty15mLiveAdapter(42, emitted.append, max_risk_points=30)
     for index, high, low, close in [(1, 110, 90, 100), (2, 120, 111, 120)]:
@@ -317,6 +323,16 @@ def test_risk_cap_skips_wide_reference_candle():
     ]
     assert run(rows) == []
     assert [decision.action for decision in run(rows, max_risk_points=None)] == ["BUY_CE"]
+
+
+def test_risk_cap_records_rejected_pe_direction_and_distance():
+    strategy = Nifty15mBreakout()
+    strategy.on_bar(make_bar(1, 110, 90, 100))
+    decision = strategy.on_bar(make_bar(2, 89, 70, 75))
+    assert (decision.action, decision.reason, decision.stop) == (
+        "HOLD", "risk_cap", Decimal(115))
+    assert (decision.candidate_side, decision.proposed_risk_points) == (
+        "PE", Decimal(40))
 
 
 def test_reentry_requires_break_of_previous_entry_candle_range():

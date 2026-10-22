@@ -1,0 +1,11 @@
+[Unit]
+Description=Start independent strategy guardian before NIFTY strategy
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:14:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=true
+Unit=strategy-guardian.service
+
+[Install]
+WantedBy=timers.target

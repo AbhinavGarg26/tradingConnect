@@ -85,6 +85,9 @@ class StrategyTrade(Base):
     target: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     entry_order_id: Mapped[str | None] = mapped_column(String)
     exit_order_id: Mapped[str | None] = mapped_column(String)
+    protection_order_id: Mapped[str | None] = mapped_column(String)
+    protection_trigger: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    protection_limit: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     entry_premium: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     exit_premium: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     gross_option_pnl: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
@@ -209,6 +212,14 @@ class StrategyRecorder:
                 trade.entry_order_id = str(order_id)
             trade.updated_at = datetime.now(timezone.utc)
 
+    def protection_submitted(self, order_id, trigger, limit):
+        with get_db() as db:
+            trade = db.get(StrategyTrade, self.trade_id)
+            trade.protection_order_id = str(order_id)
+            trade.protection_trigger = trigger
+            trade.protection_limit = limit
+            trade.updated_at = datetime.now(timezone.utc)
+
     def trail_stop(self, decision):
         with get_db() as db:
             trade = db.get(StrategyTrade, self.trade_id)
@@ -218,7 +229,9 @@ class StrategyRecorder:
 
     def exit_intent(self, decision):
         with get_db() as db:
-            trade = db.get(StrategyTrade, self.trade_id)
+            trade = db.get(StrategyTrade, self.trade_id, with_for_update=True)
+            if trade.status != "open":
+                raise RuntimeError(f"Trade {trade.id} is {trade.status}; another protector may be exiting it")
             trade.exit_signal_time = signal_time(decision)
             trade.exit_reason = decision.reason
             trade.exit_index = decision.index_price
@@ -247,6 +260,8 @@ class StrategyRecorder:
             return
         with get_db() as db:
             trade = db.get(StrategyTrade, self.trade_id)
+            if trade.status == "closed":
+                return
             trade.status = "reconcile"
             trade.error_message = message[:2000]
             trade.updated_at = datetime.now(timezone.utc)

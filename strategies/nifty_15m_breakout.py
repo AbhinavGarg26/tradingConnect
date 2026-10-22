@@ -38,6 +38,8 @@ class Decision:
     reference_low: Optional[Decimal] = None
     prior_entry_high: Optional[Decimal] = None
     prior_entry_low: Optional[Decimal] = None
+    candidate_side: Optional[str] = None
+    proposed_risk_points: Optional[Decimal] = None
 
 
 class Nifty15mBreakout:
@@ -84,6 +86,7 @@ class Nifty15mBreakout:
         reference_bar = self.previous
         prior_entry_bar = self.last_entry_bar
         action, reason = "HOLD", ""
+        candidate_side, proposed_risk_points = None, None
         stop, target = self.stop, self.target
         session_end = isinstance(bar.time, datetime) and bar.time.time() >= clock_time(15, 0)
         if self.position is not None:
@@ -122,6 +125,7 @@ class Nifty15mBreakout:
             if action.startswith("BUY") and self.max_risk_points is not None:
                 risk = bar.close - stop if action == "BUY_CE" else stop - bar.close
                 if risk > self.max_risk_points:
+                    candidate_side, proposed_risk_points = action[-2:], risk
                     action, reason = "HOLD", "risk_cap"
 
         if action.startswith("BUY"):
@@ -138,6 +142,8 @@ class Nifty15mBreakout:
             reference_low=reference_bar.low if action.startswith("BUY") and reference_bar else None,
             prior_entry_high=prior_entry_bar.high if action.startswith("BUY") and prior_entry_bar else None,
             prior_entry_low=prior_entry_bar.low if action.startswith("BUY") and prior_entry_bar else None,
+            candidate_side=candidate_side,
+            proposed_risk_points=proposed_risk_points,
         )
 
 

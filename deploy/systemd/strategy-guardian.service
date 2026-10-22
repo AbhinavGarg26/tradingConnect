@@ -1,0 +1,17 @@
+[Unit]
+Description=Independent Kite strategy option-risk guardian
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/strategy_guardian.py
+Restart=on-failure
+RestartSec=5
+RuntimeMaxSec=7h
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal

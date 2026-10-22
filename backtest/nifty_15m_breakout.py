@@ -175,7 +175,7 @@ def _time(value):
         return str(value)
 
 
-def fetch_from_kite(start, end):
+def fetch_from_kite(start, end, *, interval="15minute"):
     from nifty_15m_env import load_nifty_environment
     load_nifty_environment()
 
@@ -190,7 +190,7 @@ def fetch_from_kite(start, end):
     while day <= end:
         chunk_end = min(day + timedelta(days=29), end)
         for record in kite.historical_data(nifty["instrument_token"],
-                                           f"{day} 09:15:00", f"{chunk_end} 15:30:00", "15minute"):
+                                           f"{day} 09:15:00", f"{chunk_end} 15:30:00", interval):
             rows.append({"date": record["date"].isoformat(),
                          **{key: record[key] for key in ("open", "high", "low", "close")}})
         day = chunk_end + timedelta(days=1)

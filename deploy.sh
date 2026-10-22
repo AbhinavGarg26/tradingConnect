@@ -22,6 +22,7 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
     exit 1
   fi
   "$python_bin" -m compileall -q "$project_dir/nifty_15m_live.py" \
+    "$project_dir/strategy_guardian.py" "$project_dir/trading/strategy_risk.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
     "$project_dir/market_breath.py"
   if ! systemctl cat market-breath.timer >/dev/null 2>&1; then
@@ -36,9 +37,15 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
   sudo -n systemctl is-active --quiet market-breath.service
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
+  sudo -n install -m 0644 "$project_dir/deploy/systemd/strategy-guardian.service" \
+    /etc/systemd/system/strategy-guardian.service
+  sudo -n install -m 0644 "$project_dir/deploy/systemd/strategy-guardian.timer" \
+    /etc/systemd/system/strategy-guardian.timer
+  sudo -n systemctl daemon-reload
+  sudo -n systemctl enable --now strategy-guardian.timer
   sudo -n systemctl enable --now nifty-15m-v3.timer
   echo "Market Breath and Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
-  echo "Market Breath and NIFTY v3 timers remain enabled for 09:15 IST weekday starts."
+  echo "Market Breath, strategy guardian (09:14), and NIFTY v3 (09:15) timers remain enabled."
   exit 0
 fi
 

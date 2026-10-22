@@ -96,6 +96,17 @@ def contract_conflict(kite, contract):
     return None
 
 
+def risk_cap_event_details(decision, reference_bar, max_risk_points):
+    """Retain enough context to audit a rejected breakout without an order."""
+    return {
+        "candidate_side": decision.candidate_side,
+        "proposed_risk_points": str(decision.proposed_risk_points),
+        "max_risk_points": str(max_risk_points),
+        "reference_high": str(reference_bar.high),
+        "reference_low": str(reference_bar.low),
+    }
+
+
 def ensure_strategy_lot_available(kite, contract, quantity):
     """Never sell a manual lot or create a short if the strategy lot disappeared."""
     matching_quantity = sum(
@@ -148,6 +159,33 @@ def confirmed_order(kite, contract, transaction, quantity, *, on_placed=None):
     raise RuntimeError(f"Order {order_id} unconfirmed; inspect Kite orders before restarting")
 
 
+def place_broker_stop(kite, contract, quantity, premium, limits, recorder):
+    """Protect a confirmed long option lot with a broker-held sell SL limit."""
+    from trading.strategy_risk import stop_limit_prices
+    trigger, limit = stop_limit_prices(
+        premium, limits.risk_per_trade, quantity,
+        Decimal(str(contract["tick_size"])), limits.stop_limit_buffer_pct,
+    )
+    order_id = kite.place_order(
+        variety=kite.VARIETY_REGULAR, exchange="NFO",
+        tradingsymbol=contract["tradingsymbol"],
+        transaction_type=kite.TRANSACTION_TYPE_SELL,
+        quantity=quantity, product=kite.PRODUCT_MIS,
+        order_type=kite.ORDER_TYPE_SL, trigger_price=float(trigger),
+        price=float(limit), validity=kite.VALIDITY_DAY,
+        tag="NIFTY15STOP",
+    )
+    recorder.protection_submitted(order_id, trigger, limit)
+    for _ in range(10):
+        status = kite.order_history(order_id)[-1]["status"]
+        if status in {"TRIGGER PENDING", "OPEN"}:
+            return order_id
+        if status in {"REJECTED", "CANCELLED", "COMPLETE"}:
+            raise RuntimeError(f"Broker stop order {order_id} reached {status}; reconcile immediately")
+        time.sleep(0.5)
+    raise RuntimeError(f"Broker stop order {order_id} unconfirmed; reconcile immediately")
+
+
 def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30,
         runtime_monitor=None):
     from trading.strategy_records import StrategyRecorder, prior_strategy_trades
@@ -198,6 +236,16 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
 
     while True:
         now = datetime.now(IST)
+        if live and strategy.position and recorder.trade_id:
+            from trading.database import get_db
+            from trading.strategy_records import StrategyTrade
+            with get_db() as db:
+                broker_trade_status = db.get(StrategyTrade, recorder.trade_id).status
+            if broker_trade_status != "open":
+                raise RuntimeError(
+                    f"Strategy trade became {broker_trade_status} outside the signal runner; "
+                    "stop and reconcile before another entry"
+                )
         if now.date() != today:
             if strategy.position:
                 raise RuntimeError("Position remains open across sessions; reconcile manually")
@@ -244,7 +292,11 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
             if decision.action == "HOLD":
                 if decision.reason in {"risk_cap", "trade_limit"}:
                     log.info("Skipped breakout: %s", decision.reason)
-                    recorder.event(decision)
+                    details = None
+                    if decision.reason == "risk_cap":
+                        details = risk_cap_event_details(
+                            decision, state_before_bar.previous, max_risk_points)
+                    recorder.event(decision, details=details)
                 elif decision.reason == "trail_stop":
                     log.info("Trailed %s NIFTY stop to %s after close=%s",
                              strategy.position, decision.stop, decision.index_price)
@@ -260,6 +312,34 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                 if quantity < 1:
                     raise RuntimeError("Selected option has an invalid lot size")
                 if live:
+                    from trading.strategy_risk import RiskBlocked, check_new_entry, stop_limit_prices
+                    from trading.strategy_records import STRATEGY_KEY
+                    try:
+                        quote = kite.quote([f"NFO:{contract['tradingsymbol']}"])[
+                            f"NFO:{contract['tradingsymbol']}"]
+                        quote_time = quote.get("timestamp")
+                        if not isinstance(quote_time, datetime):
+                            raise RiskBlocked("Option quote has no timestamp")
+                        if quote_time.tzinfo is None:
+                            quote_time = quote_time.replace(tzinfo=IST)
+                        if datetime.now(IST) - quote_time > timedelta(seconds=20):
+                            raise RiskBlocked("Option quote is stale")
+                        premium_estimate = Decimal(str(quote["depth"]["sell"][0]["price"]))
+                        limits = check_new_entry(user_id, STRATEGY_KEY, today,
+                                                 premium_estimate, quantity)
+                        if limits.stop_mode == "broker_stop_limit":
+                            stop_limit_prices(premium_estimate, limits.risk_per_trade,
+                                              quantity, Decimal(str(contract["tick_size"])),
+                                              limits.stop_limit_buffer_pct)
+                    except (RiskBlocked, KeyError, IndexError, TypeError, ValueError) as exc:
+                        strategy = state_before_bar
+                        strategy.previous = bar
+                        log.warning("Skipped %s: strategy risk gate: %s", decision.action, exc)
+                        recorder.event(Decision("HOLD", decision.time, decision.index_price,
+                                                reason="strategy_risk_block"),
+                                       details={"message": str(exc)[:250]})
+                        contract = None
+                        continue
                     conflict = contract_conflict(kite, contract)
                     if conflict:
                         strategy = state_before_bar
@@ -280,6 +360,30 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                         kite, contract, kite.TRANSACTION_TYPE_BUY, quantity,
                         on_placed=lambda order_id: recorder.order_submitted(order_id, exit_order=False))
                     recorder.entry_filled(order_id, premium)
+                    if limits.stop_mode == "broker_stop_limit":
+                        try:
+                            place_broker_stop(kite, contract, quantity, premium,
+                                              limits, recorder)
+                        except Exception as exc:
+                            from strategy_guardian import emergency_exit
+                            from trading.database import get_db
+                            from trading.strategy_records import StrategyTrade
+                            with get_db() as db:
+                                trade = db.get(StrategyTrade, recorder.trade_id)
+                                db.expunge(trade)
+                            emergency_exit(kite, trade, "broker_protection_failed")
+                            raise RuntimeError("Broker protection failed after buy; "
+                                               "emergency exit attempted") from exc
+                    if premium * quantity > limits.amount_allocated:
+                        from strategy_guardian import emergency_exit
+                        from trading.database import get_db
+                        from trading.strategy_records import StrategyTrade
+                        with get_db() as db:
+                            trade = db.get(StrategyTrade, recorder.trade_id)
+                            db.expunge(trade)
+                        emergency_exit(kite, trade, "allocation_exceeded")
+                        raise RuntimeError("Actual option fill exceeded allocated capital; "
+                                           "emergency exit attempted")
                 if runtime_monitor:
                     runtime_monitor.success(f"{decision.action} {contract['tradingsymbol']} filled" if live
                                             else f"{decision.action} paper signal recorded")
@@ -287,6 +391,19 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
             else:
                 if contract is None or position_date != today:
                     raise RuntimeError("No matching option position; reconcile manually")
+                if live:
+                    from strategy_guardian import cancel_protection, finish_exit
+                    from trading.database import get_db
+                    from trading.strategy_records import StrategyTrade
+                    with get_db() as db:
+                        trade = db.get(StrategyTrade, recorder.trade_id)
+                        db.expunge(trade)
+                    completed_stop = cancel_protection(kite, trade)
+                    if completed_stop is not None:
+                        finish_exit(trade.id, trade.protection_order_id,
+                                    completed_stop["average_price"], "broker_stop")
+                        raise RuntimeError("Broker stop filled before strategy exit; "
+                                           "runner stopped to avoid duplicate order")
                 recorder.exit_intent(decision)
                 if live:
                     ensure_strategy_lot_available(kite, contract, int(contract["lot_size"]))

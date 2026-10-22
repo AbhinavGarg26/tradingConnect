@@ -1,0 +1,11 @@
+[Unit]
+Description=Start frozen NIFTY 30m V3 at 09:15 IST, weekdays, live gated from 2026-10-23
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:15:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=true
+Unit=nifty-30m-reference-v3.service
+
+[Install]
+WantedBy=timers.target
