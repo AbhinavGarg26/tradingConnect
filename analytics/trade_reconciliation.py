@@ -568,6 +568,8 @@ def reconcile_trades_from_start_of_day(
     if attribution is None:
         return set()
     trade_user_id, exchange_link_id = attribution
+    today = datetime.now(IST).date()
+    day_start = datetime.combine(today, time.min)
 
     attribution_columns = db.execute(text("""
         SELECT COUNT(*)
@@ -582,14 +584,32 @@ def reconcile_trades_from_start_of_day(
         )
         return set()
 
+    # Kite's positions endpoint is the authoritative aggregate for the broker
+    # day.  Reconcile it *before* relying on the execution feed: Kite can
+    # occasionally return an incomplete trade book after a restart or late in
+    # the session, which must not leave a material closed loss out of the
+    # journal.  This path only creates a deterministic per-symbol adjustment
+    # for fully closed positions; it never treats an open position as realised.
+    day_positions = None
+    repaired_broker_symbols: set[str] = set()
+    try:
+        day_positions = kite.positions().get("day", [])
+        repaired_broker_symbols = reconcile_broker_day_pnl(
+            db, trade_user_id, exchange_link_id, day_start, day_positions
+        )
+        if repaired_broker_symbols:
+            db.commit()
+    except Exception as exc:
+        logger.error("Kite day-position reconciliation failed; execution reconciliation will continue: %s", exc)
+
     try:
         executions = kite.trades()
     except Exception as exc:
         logger.error("Kite execution fetch failed: %s", exc)
-        return set()
+        return repaired_broker_symbols
     if not executions:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_broker_symbols
 
     total_charges_column_exists = db.execute(text("""
         SELECT EXISTS (
@@ -603,9 +623,8 @@ def reconcile_trades_from_start_of_day(
             "market_trades.total_charges is missing; apply "
             "resources/add_market_trades_total_charges.sql"
         )
-        return set()
+        return repaired_broker_symbols
 
-    today = datetime.now(IST).date()
     todays_executions = [e for e in executions if _execution_time(e).date() == today]
     order_executions = aggregate_order_executions(todays_executions)
     try:
@@ -615,13 +634,12 @@ def reconcile_trades_from_start_of_day(
         raw_orders = []
     if not attach_order_charges(kite, order_executions, raw_orders):
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_broker_symbols
     expected_rows = build_fifo_trade_rows(order_executions)
     if not expected_rows:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_broker_symbols
 
-    day_start = datetime.combine(today, time.min)
     repaired_carryover_symbols = reconcile_carryover_closures(
         db, trade_user_id, exchange_link_id, day_start, order_executions
     )
@@ -659,18 +677,14 @@ def reconcile_trades_from_start_of_day(
     repairable = all_symbols - carryover_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols
+        return repaired_carryover_symbols | repaired_broker_symbols
 
-    try:
-        day_positions = kite.positions().get("day", [])
-    except Exception as exc:
-        logger.error("Kite day-position validation failed; auto-repair skipped: %s", exc)
-        return repaired_carryover_symbols
-    repaired_broker_symbols = reconcile_broker_day_pnl(
-        db, trade_user_id, exchange_link_id, day_start, day_positions
-    )
-    if repaired_broker_symbols:
-        db.commit()
+    if day_positions is None:
+        try:
+            day_positions = kite.positions().get("day", [])
+        except Exception as exc:
+            logger.error("Kite day-position validation failed; auto-repair skipped: %s", exc)
+            return repaired_carryover_symbols | repaired_broker_symbols
     expected_day_quantities = _row_open_quantities(expected_rows)
     broker_day_quantities = _broker_position_quantities(day_positions)
     unsafe_symbols = {
@@ -697,6 +711,7 @@ def reconcile_trades_from_start_of_day(
         WHERE entry_time >= :day_start
           AND user_id = :user_id
           AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND entry_order_id NOT LIKE 'kite-day-adjustment:%'
           AND tradingsymbol IN :symbols
     """).bindparams(bindparam("symbols", expanding=True))
     actual_rows = [dict(row._mapping) for row in db.execute(
@@ -737,6 +752,7 @@ def reconcile_trades_from_start_of_day(
         WHERE entry_time >= :day_start
           AND user_id = :user_id
           AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND entry_order_id NOT LIKE 'kite-day-adjustment:%'
           AND tradingsymbol IN :symbols
     """).bindparams(bindparam("symbols", expanding=True))
     db.execute(delete_query, {
