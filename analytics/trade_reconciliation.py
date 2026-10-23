@@ -370,6 +370,81 @@ def audit_open_quantities(
     return mismatches
 
 
+def reconcile_carryover_closures(
+    db: Session,
+    user_id: int,
+    exchange_link_id: str,
+    day_start: datetime,
+    executions: Iterable[dict],
+) -> set[str]:
+    """Close exact carry-over lots with today's opposite-side Kite execution.
+
+    The old start-of-day replay deliberately treated overnight positions as
+    audit-only. That protected the original entry, but it also left a position
+    opened yesterday as OPEN forever when it was exited today.  We only update
+    an exact quantity match; partial or ambiguous inventory remains untouched
+    and is logged for review rather than guessed.
+    """
+    rows = db.execute(text("""
+        SELECT id, tradingsymbol, trade_type, quantity, entry_price, total_charges
+        FROM market_trades
+        WHERE user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND status = 'OPEN'
+          AND entry_time < :day_start
+        ORDER BY entry_time, id
+    """), {
+        "user_id": user_id,
+        "exchange_link_id": exchange_link_id,
+        "day_start": day_start,
+    }).mappings().all()
+    books: dict[tuple[str, str], deque] = defaultdict(deque)
+    for row in rows:
+        books[(str(row["tradingsymbol"]), str(row["trade_type"]).upper())].append(dict(row))
+
+    repaired: set[str] = set()
+    for execution in executions:
+        side = str(execution.get("transaction_type", "")).upper()
+        if side not in {"BUY", "SELL"}:
+            continue
+        opening_side = "SELL" if side == "BUY" else "BUY"
+        key = (str(execution["tradingsymbol"]), opening_side)
+        if not books[key]:
+            continue
+        opening = books[key][0]
+        exit_quantity = int(execution["quantity"])
+        if int(opening["quantity"]) != exit_quantity:
+            logger.warning(
+                "[%s] Carry-over closure needs manual review: open qty=%s, exit qty=%s",
+                key[0], opening["quantity"], exit_quantity,
+            )
+            continue
+        entry_price = float(opening["entry_price"])
+        exit_price = float(execution["price"])
+        pnl_multiplier = 1 if opening_side == "BUY" else -1
+        realized_pnl = round((exit_price - entry_price) * exit_quantity * pnl_multiplier, 2)
+        db.execute(text("""
+            UPDATE market_trades
+            SET status = 'CLOSED', exit_order_id = :exit_order_id,
+                exit_price = :exit_price, exit_time = :exit_time,
+                realized_pnl = :realized_pnl,
+                total_charges = COALESCE(total_charges, 0) + :exit_charges,
+                updated_at = NOW()
+            WHERE id = :id AND status = 'OPEN'
+        """), {
+            "id": opening["id"],
+            "exit_order_id": execution["order_id"],
+            "exit_price": exit_price,
+            "exit_time": execution["timestamp"],
+            "realized_pnl": realized_pnl,
+            "exit_charges": float(execution.get("total_charges", 0)),
+        })
+        books[key].popleft()
+        repaired.add(_extract_root_symbol(key[0]))
+        logger.warning("[%s] Reconciled carry-over position closed today", key[0])
+    return repaired
+
+
 def reconcile_trades_from_start_of_day(
     kite,
     db: Session,
@@ -443,8 +518,16 @@ def reconcile_trades_from_start_of_day(
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return set()
 
-    all_symbols = {row["tradingsymbol"] for row in expected_rows}
     day_start = datetime.combine(today, time.min)
+    repaired_carryover_symbols = reconcile_carryover_closures(
+        db, trade_user_id, exchange_link_id, day_start, order_executions
+    )
+    if repaired_carryover_symbols:
+        # Persist before any safe early return below; reconciliation can be
+        # carry-over-only with no repairable same-day symbols.
+        db.commit()
+
+    all_symbols = {row["tradingsymbol"] for row in expected_rows}
     carryover_query = text("""
         SELECT DISTINCT tradingsymbol
         FROM market_trades
@@ -473,13 +556,13 @@ def reconcile_trades_from_start_of_day(
     repairable = all_symbols - carryover_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_carryover_symbols
 
     try:
         day_positions = kite.positions().get("day", [])
     except Exception as exc:
         logger.error("Kite day-position validation failed; auto-repair skipped: %s", exc)
-        return set()
+        return repaired_carryover_symbols
     expected_day_quantities = _row_open_quantities(expected_rows)
     broker_day_quantities = _broker_position_quantities(day_positions)
     unsafe_symbols = {
@@ -496,7 +579,7 @@ def reconcile_trades_from_start_of_day(
     repairable -= unsafe_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_carryover_symbols
 
     actual_query = text("""
         SELECT tradingsymbol, trade_type, quantity, entry_price, exit_price,
@@ -521,7 +604,7 @@ def reconcile_trades_from_start_of_day(
     if signatures_match(actual_rows, expected_repairable):
         logger.info("Trade reconciliation passed for %d symbols", len(repairable))
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_carryover_symbols
 
     dependent_fk_count = db.execute(text("""
         SELECT COUNT(*)
@@ -539,7 +622,7 @@ def reconcile_trades_from_start_of_day(
             dependent_fk_count,
         )
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return set()
+        return repaired_carryover_symbols
 
     delete_query = text("""
         DELETE FROM market_trades
@@ -576,7 +659,7 @@ def reconcile_trades_from_start_of_day(
         })
     db.commit()
 
-    root_symbols = {row["symbol"] for row in expected_repairable}
+    root_symbols = repaired_carryover_symbols | {row["symbol"] for row in expected_repairable}
     logger.warning(
         "Trade reconciliation repaired %d rows across %d symbols",
         len(expected_repairable), len(repairable),
