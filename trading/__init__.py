@@ -10,6 +10,7 @@ from trading.models import (
     Position,
     StopLossHistory,
     OrderEvent,
+    RiskOverride,
 )
 from trading.repositories import (
     UserRepo,
@@ -18,13 +19,14 @@ from trading.repositories import (
     SupportLevelRepo,
     OrderEventRepo,
     MarketConfigRepo,
+    RiskOverrideRepo,
 )
 
 __all__ = [
     "Base", "get_db", "get_db_session", "engine",
     "User", "Instrument", "MarketConfig", "SupportLevel",
-    "Trade", "Position", "StopLossHistory", "OrderEvent",
+    "Trade", "Position", "StopLossHistory", "OrderEvent", "RiskOverride",
     "UserRepo", "InstrumentRepo", "TradeRepo",
-    "SupportLevelRepo", "OrderEventRepo", "MarketConfigRepo",
+    "SupportLevelRepo", "OrderEventRepo", "MarketConfigRepo", "RiskOverrideRepo",
     "is_market_hours", "current_ist", "is_trading_day"
 ]

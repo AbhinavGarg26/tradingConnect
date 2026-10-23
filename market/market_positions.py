@@ -80,6 +80,7 @@ def process_open_positions(
     recovery_gtt_executor=None,
     positions_response: dict | None = None,
     max_loss_amount: float | None = None,
+    stop_loss_override_symbols: set[str] | None = None,
 ):
     if positions_response is None:
         positions_response = kite.positions()
@@ -120,6 +121,7 @@ def process_open_positions(
     for position in open_positions:
         symbol = str(position["tradingsymbol"]).strip().upper()
         profit_rules_ignored = symbol in ignore_symbol
+        stop_loss_overridden = symbol in (stop_loss_override_symbols or set())
 
         token = int(position["instrument_token"])
         ltp = live_prices.get(token)
@@ -154,7 +156,14 @@ def process_open_positions(
                 symbol, position["quantity"], buy_price, ltp, pnl_pct,
             )
 
-        if profit_rules_ignored:
+        if stop_loss_overridden:
+            # A named, expiring, audited override intentionally bypasses both
+            # software hard-loss boundaries. Broker-side SL/GTTs are untouched.
+            logger.warning(
+                "[%s] Temporary stop-loss override active; expires automatically", symbol
+            )
+            exit_reason = None
+        elif profit_rules_ignored:
             logger.info(
                 "[%s] Profit rules ignored by Market Config; hard loss limits remain active",
                 symbol,

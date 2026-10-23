@@ -111,12 +111,15 @@ def _monitor_groww_positions(
         try:
             with get_db() as db:
                 settings.refresh(db, user_id)
+                from trading.repositories import RiskOverrideRepo
+                stop_loss_overrides = RiskOverrideRepo.active_stop_loss_symbols(db, user_id)
                 if settings.groww_enabled:
                     monitor.run_if_due(
                         db,
                         hard_stop_loss_pct=settings.hard_stop_loss_pct,
                         ignored_symbols=set(IGNORE_SYMBOL) | settings.ignored_symbols,
                         max_loss_amount=settings.max_loss_amount,
+                        stop_loss_override_symbols=stop_loss_overrides,
                     )
         except Exception as exc:
             logger.exception("Groww risk-monitor worker failed: %s", exc)
@@ -232,6 +235,8 @@ if __name__ == "__main__":
                         trigger_summary_updates(db, user_id=user_id, symbol="ALL")
                     account_risk_monitor.run_if_due(kite, db)
                     ignored_symbols = set(IGNORE_SYMBOL) | auto_exit_settings.ignored_symbols
+                    from trading.repositories import RiskOverrideRepo
+                    stop_loss_overrides = RiskOverrideRepo.active_stop_loss_symbols(db, user_id)
                     groww_recovery_monitor.run_if_due(
                         db, now_monotonic, ignored_symbols=ignored_symbols
                     )
@@ -250,6 +255,7 @@ if __name__ == "__main__":
                         recovery_gtt_executor=recovery_gtt_executor,
                         positions_response=positions_response,
                         max_loss_amount=auto_exit_settings.max_loss_amount,
+                        stop_loss_override_symbols=stop_loss_overrides,
                     )
 
                     if publish_live_state:

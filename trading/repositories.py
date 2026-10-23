@@ -6,6 +6,7 @@ The trade engine imports these instead of writing raw SQLAlchemy queries inline.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List
 
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from trading.models import (
     User, Instrument, Trade, Position,
-    SupportLevel, StopLossHistory, OrderEvent, MarketConfig,
+    SupportLevel, StopLossHistory, OrderEvent, MarketConfig, RiskOverride,
 )
 
 
@@ -266,3 +267,21 @@ class MarketConfigRepo:
                     data_type=data_type,
                     category=category,
                 ))
+
+
+class RiskOverrideRepo:
+    """Read only active overrides created and audited by the Rails app."""
+
+    @staticmethod
+    def active_stop_loss_symbols(db: Session, user_id: int, now=None) -> set[str]:
+        current = now or datetime.now(timezone.utc)
+        rows = db.scalars(
+            select(RiskOverride.symbol).where(
+                RiskOverride.user_id == user_id,
+                RiskOverride.kind == "stop_loss",
+                RiskOverride.starts_at <= current,
+                RiskOverride.expires_at > current,
+                RiskOverride.revoked_at.is_(None),
+            )
+        ).all()
+        return {str(symbol).strip().upper() for symbol in rows if str(symbol or "").strip()}

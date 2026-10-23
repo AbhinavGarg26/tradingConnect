@@ -140,6 +140,7 @@ class GrowwPositionRiskMonitor:
         hard_stop_loss_pct: float = DEFAULT_HARD_STOP_LOSS_PCT,
         ignored_symbols: set[str] | None = None,
         max_loss_amount: float | None = None,
+        stop_loss_override_symbols: set[str] | None = None,
     ) -> None:
         now = time.monotonic() if monotonic_now is None else monotonic_now
         if now - self._last_run < self.interval_seconds:
@@ -219,9 +220,14 @@ class GrowwPositionRiskMonitor:
                 if ltp <= 0:
                     self.logger.warning("[%s] Kite LTP unavailable; Groww protection did not evaluate this cycle", symbol)
                     continue
-                reason = hard_exit_reason(
+                overridden = str(symbol).strip().upper() in (stop_loss_override_symbols or set())
+                reason = None if overridden else hard_exit_reason(
                     entry, ltp, hard_stop_loss_pct, quantity, max_loss_amount
                 )
+                if overridden:
+                    self.logger.warning(
+                        "[%s] Temporary stop-loss override active; Groww software exit skipped", symbol
+                    )
                 if str(symbol).strip().upper() in ignored:
                     self.logger.info(
                         "[%s] Groww profit rules ignored; hard loss limits remain active",

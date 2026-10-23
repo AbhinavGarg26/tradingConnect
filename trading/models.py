@@ -64,6 +64,7 @@ class User(TimestampMixin, Base):
     # Relationships
     trades:         Mapped[List["Trade"]]        = relationship("Trade",        back_populates="user")
     market_configs:        Mapped[List["MarketConfig"]]       = relationship("MarketConfig",       back_populates="user")
+    risk_overrides: Mapped[List["RiskOverride"]] = relationship("RiskOverride", back_populates="user")
     support_levels: Mapped[List["SupportLevel"]] = relationship("SupportLevel", back_populates="user")
     positions:      Mapped[List["Position"]]     = relationship("Position",     back_populates="user")
     exchange_link:  Mapped[Optional["ExchangeLink"]]   = relationship("ExchangeLink",  back_populates="user", uselist=False)
@@ -185,10 +186,36 @@ class MarketConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "telegram_chat_id":    ("",      "string",  "alert"),
         "kite_auto_exit_enabled":  ("true", "boolean", "exit_automation"),
         "groww_auto_exit_enabled": ("true", "boolean", "exit_automation"),
-        "hard_stop_loss_pct":      ("12",   "float",   "exit_automation"),
+        "hard_stop_loss_pct":      ("10",   "float",   "exit_automation"),
         "max_loss_amount":         ("0",    "float",   "exit_automation"),
         "ignore_symbols":          ("",     "string",  "exit_automation"),
     }
+
+
+class RiskOverride(TimestampMixin, Base):
+    """Short-lived, user-approved exception to an automated risk safeguard."""
+
+    __tablename__ = "risk_overrides"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    symbol: Mapped[Optional[str]] = mapped_column(String(100))
+    reason_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    market_rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    invalidation_plan: Mapped[str] = mapped_column(Text, nullable=False)
+    risk_acknowledgement: Mapped[str] = mapped_column(Text, nullable=False)
+    lock_reason: Mapped[Optional[str]] = mapped_column(String(100))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped["User"] = relationship("User", back_populates="risk_overrides")
+
+    __table_args__ = (
+        Index("ix_risk_overrides_active_symbol", "user_id", "kind", "symbol", "expires_at"),
+        Index("ix_risk_overrides_active_user", "user_id", "kind", "expires_at"),
+    )
 
 
 # ─────────────────────────────────────────────────────────────
