@@ -445,6 +445,109 @@ def reconcile_carryover_closures(
     return repaired
 
 
+def reconcile_broker_day_pnl(
+    db: Session,
+    user_id: int,
+    exchange_link_id: str,
+    day_start: datetime,
+    day_positions: Iterable[dict],
+) -> set[str]:
+    """Make the journal's closed-symbol gross P&L agree with Kite day positions.
+
+    Kite's day positions are the broker-authoritative aggregate.  If the trade
+    book is temporarily incomplete (for example after a service restart), an
+    adjustment row preserves the missing P&L instead of understating risk. It
+    is deterministic per symbol/day and is deleted once detailed executions
+    catch up, so it cannot double count a later reconciliation.
+    """
+    repaired: set[str] = set()
+    day_key = day_start.strftime("%Y%m%d")
+    for position in day_positions:
+        symbol = str(position.get("tradingsymbol") or "")
+        buy_quantity = float(position.get("day_buy_quantity") or position.get("buy_quantity") or 0)
+        sell_quantity = float(position.get("day_sell_quantity") or position.get("sell_quantity") or 0)
+        buy_value = float(position.get("day_buy_value") or position.get("buy_value") or 0)
+        sell_value = float(position.get("day_sell_value") or position.get("sell_value") or 0)
+        if not symbol or int(position.get("quantity") or 0) != 0:
+            continue
+        if buy_quantity <= 0 or sell_quantity <= 0 or buy_quantity != sell_quantity:
+            continue
+
+        broker_pnl = round(sell_value - buy_value, 2)
+        adjustment_key = f"kite-day-adjustment:{day_key}:{symbol}"
+        journal_gross = db.execute(text("""
+            SELECT COALESCE(SUM(realized_pnl), 0)
+            FROM market_trades
+            WHERE user_id = :user_id
+              AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+              AND status = 'CLOSED'
+              AND tradingsymbol = :symbol
+              AND exit_time >= :day_start
+              AND entry_order_id <> :adjustment_key
+        """), {
+            "user_id": user_id,
+            "exchange_link_id": exchange_link_id,
+            "symbol": symbol,
+            "day_start": day_start,
+            "adjustment_key": adjustment_key,
+        }).scalar_one()
+        difference = round(broker_pnl - float(journal_gross or 0), 2)
+        existing_id = db.execute(text("""
+            SELECT id FROM market_trades
+            WHERE user_id = :user_id
+              AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+              AND entry_order_id = :adjustment_key
+            LIMIT 1
+        """), {
+            "user_id": user_id,
+            "exchange_link_id": exchange_link_id,
+            "adjustment_key": adjustment_key,
+        }).scalar()
+        if abs(difference) < 0.01:
+            if existing_id:
+                db.execute(text("DELETE FROM market_trades WHERE id = :id"), {"id": existing_id})
+            continue
+
+        values = {
+            "user_id": user_id,
+            "exchange_link_id": exchange_link_id,
+            "symbol": _extract_root_symbol(symbol),
+            "tradingsymbol": symbol,
+            "option_type": _parse_option_type(symbol),
+            "entry_order_id": adjustment_key,
+            "exit_order_id": f"kite-day-position:{day_key}:{symbol}",
+            "quantity": int(buy_quantity),
+            "entry_price": round(buy_value / buy_quantity, 4),
+            "exit_price": round(sell_value / sell_quantity, 4),
+            "realized_pnl": difference,
+            "entry_time": day_start,
+            "exit_time": datetime.now(IST).replace(tzinfo=None),
+        }
+        if existing_id:
+            db.execute(text("""
+                UPDATE market_trades SET quantity = :quantity, entry_price = :entry_price,
+                exit_price = :exit_price, realized_pnl = :realized_pnl,
+                exit_time = :exit_time, updated_at = NOW() WHERE id = :id
+            """), {**values, "id": existing_id})
+        else:
+            db.execute(text("""
+                INSERT INTO market_trades (
+                    user_id, exchange_link_id, symbol, tradingsymbol, option_type,
+                    entry_order_id, exit_order_id, trade_type, quantity, entry_price,
+                    exit_price, realized_pnl, total_charges, status, entry_time,
+                    exit_time, created_at, updated_at
+                ) VALUES (
+                    :user_id, CAST(:exchange_link_id AS UUID), :symbol, :tradingsymbol,
+                    :option_type, :entry_order_id, :exit_order_id, 'BUY', :quantity,
+                    :entry_price, :exit_price, :realized_pnl, 0, 'CLOSED', :entry_time,
+                    :exit_time, NOW(), NOW()
+                )
+            """), values)
+        repaired.add(_extract_root_symbol(symbol))
+        logger.warning("[%s] Added broker-day P&L reconciliation adjustment: %.2f", symbol, difference)
+    return repaired
+
+
 def reconcile_trades_from_start_of_day(
     kite,
     db: Session,
@@ -563,6 +666,11 @@ def reconcile_trades_from_start_of_day(
     except Exception as exc:
         logger.error("Kite day-position validation failed; auto-repair skipped: %s", exc)
         return repaired_carryover_symbols
+    repaired_broker_symbols = reconcile_broker_day_pnl(
+        db, trade_user_id, exchange_link_id, day_start, day_positions
+    )
+    if repaired_broker_symbols:
+        db.commit()
     expected_day_quantities = _row_open_quantities(expected_rows)
     broker_day_quantities = _broker_position_quantities(day_positions)
     unsafe_symbols = {
@@ -579,7 +687,7 @@ def reconcile_trades_from_start_of_day(
     repairable -= unsafe_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols
+        return repaired_carryover_symbols | repaired_broker_symbols
 
     actual_query = text("""
         SELECT tradingsymbol, trade_type, quantity, entry_price, exit_price,
@@ -604,7 +712,7 @@ def reconcile_trades_from_start_of_day(
     if signatures_match(actual_rows, expected_repairable):
         logger.info("Trade reconciliation passed for %d symbols", len(repairable))
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols
+        return repaired_carryover_symbols | repaired_broker_symbols
 
     dependent_fk_count = db.execute(text("""
         SELECT COUNT(*)
@@ -622,7 +730,7 @@ def reconcile_trades_from_start_of_day(
             dependent_fk_count,
         )
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols
+        return repaired_carryover_symbols | repaired_broker_symbols
 
     delete_query = text("""
         DELETE FROM market_trades
@@ -659,7 +767,7 @@ def reconcile_trades_from_start_of_day(
         })
     db.commit()
 
-    root_symbols = repaired_carryover_symbols | {row["symbol"] for row in expected_repairable}
+    root_symbols = repaired_carryover_symbols | repaired_broker_symbols | {row["symbol"] for row in expected_repairable}
     logger.warning(
         "Trade reconciliation repaired %d rows across %d symbols",
         len(expected_repairable), len(repairable),
