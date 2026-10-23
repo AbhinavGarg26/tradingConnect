@@ -506,6 +506,7 @@ def reconcile_broker_day_pnl(
         if abs(difference) < 0.01:
             if existing_id:
                 db.execute(text("DELETE FROM market_trades WHERE id = :id"), {"id": existing_id})
+                repaired.add(_extract_root_symbol(symbol))
             continue
 
         values = {
