@@ -1,3 +1,6 @@
+> Current deployment and dashboard status: see [Strategy operations](strategy_operations.md).
+> Paper-default units and database journaling updates supersede older activation instructions below.
+
 # Fixed Profit filtered candidate — user-operated runner
 
 Status on 24 October 2026: implementation and offline verification complete;

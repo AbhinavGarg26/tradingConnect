@@ -1,0 +1,11 @@
+[Unit]
+Description=Start Nifty 15m bearish EMA runner at 09:14 IST
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:14:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=nifty-bearish-15m-ema.service
+
+[Install]
+WantedBy=timers.target

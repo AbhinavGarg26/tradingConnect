@@ -1,0 +1,11 @@
+[Unit]
+Description=Observe strategy services and timers (no trading)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/strategy_service_status.py --user-id ${EMA_USER_ID}

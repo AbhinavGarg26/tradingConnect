@@ -1,0 +1,11 @@
+[Unit]
+Description=Start Nifty daily EMA calls runner at 09:14 IST
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:14:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=nifty-daily-ema-calls.service
+
+[Install]
+WantedBy=timers.target

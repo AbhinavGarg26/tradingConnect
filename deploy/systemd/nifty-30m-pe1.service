@@ -1,0 +1,17 @@
+[Unit]
+Description=nifty-30m-pe1 options runner (PAPER default)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/nifty_30m_reference_live.py --user-id ${EMA_USER_ID} --preset pe1-v1
+Restart=no
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,17 @@
+[Unit]
+Description=fixed-profit-filtered options runner (PAPER default)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/fixed_profit_filtered_live.py --user-id ${EMA_USER_ID} 
+Restart=no
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal

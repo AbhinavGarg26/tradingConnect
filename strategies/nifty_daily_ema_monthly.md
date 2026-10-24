@@ -1,3 +1,8 @@
+> Operational update: the shared EMA runner now supports paper and user-selected live execution.
+> Use [the deployment runbook](../deploy/ema_strategy_activation_steps.md).
+> The legacy preparation/paper commands described below remain separate tools;
+> statements below about missing execution integration describe that earlier implementation.
+
 # Nifty daily 20/50 monthly calls only — paper implementation
 
 User-selected rules: one lot, ATM calls on bullish EMA crossover, exit calls and

@@ -422,6 +422,7 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--user-id", type=int, help="Explicit account; preserves legacy default when omitted")
     parser.add_argument("--live", action="store_true", help="Place real one-lot NFO market orders")
     parser.add_argument("--poll-seconds", type=int, default=5)
     parser.add_argument("--token-attempts", type=int, default=0,
@@ -457,13 +458,13 @@ def main():
                 return
         if args.live:
             kite, user_id = connect_live_with_token_retry(
-                fetch_user_token, attempts=args.token_attempts or None,
+                lambda logger: fetch_user_token(logger, user_id=args.user_id), attempts=args.token_attempts or None,
                 retry_seconds=args.token_retry_seconds,
                 on_retry=lambda attempt, total, seconds: runtime_monitor.degraded(
                     f"Kite session unavailable; retry {attempt + 1}"
                     f"{'/' + str(total) if total is not None else ''} in {seconds // 60} minutes"))
         else:
-            kite, user_id = fetch_user_token(log)
+            kite, user_id = fetch_user_token(log, user_id=args.user_id)
         runtime_monitor.user_id = user_id
         runtime_monitor.success("Kite authenticated; monitoring NIFTY 15-minute closes")
         run(kite, user_id=user_id, live=args.live, poll_seconds=args.poll_seconds,

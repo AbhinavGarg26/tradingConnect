@@ -1,3 +1,6 @@
+> Current deployment and dashboard status: see [Strategy operations](strategy_operations.md).
+> Paper-default units and database journaling updates supersede older activation instructions below.
+
 # Frozen 30m V3 live deployment
 
 Production service: `nifty-30m-reference-v3.service`.

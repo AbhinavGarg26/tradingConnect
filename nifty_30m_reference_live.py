@@ -126,6 +126,7 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--user-id',type=int)
     parser.add_argument('--live',action='store_true')
     parser.add_argument('--preset',choices=('v3','pe1-v1'),default='v3')
     parser.add_argument('--not-before',type=date.fromisoformat,default=date(2026,10,23))
@@ -150,7 +151,7 @@ def main():
         verify_schema(db)
         eligible=is_nse_trading_day(args.not_before if args.check else now.date(),db)
     if args.check:
-        kite,user_id=fetch_user_token(log)
+        kite,user_id=fetch_user_token(log,user_id=args.user_id)
         kite.profile()
         options=[i for i in kite.instruments('NFO') if i.get('name')=='NIFTY' and i.get('instrument_type') in {'CE','PE'} and i.get('expiry') and i['expiry']>=args.not_before]
         if not options:raise RuntimeError('No Nifty options available for scheduled start')
@@ -174,7 +175,7 @@ def main():
     try:
         while startup_allowed(datetime.now(IST),args.not_before):
             try:
-                kite,user_id=fetch_user_token(log);kite.profile();break
+                kite,user_id=fetch_user_token(log,user_id=args.user_id);kite.profile();break
             except (Exception,SystemExit) as exc:
                 if isinstance(exc,SystemExit) and exc.code not in (None,1):raise
                 monitor.degraded('Kite session unavailable; retry in 5 minutes before 09:45 cutoff')
@@ -183,7 +184,10 @@ def main():
         else:
             monitor.stop('Session not authenticated before opening range completed; no late start');return
         monitor.user_id=user_id
-        run_session(kite,user_id,live=args.live,poll_seconds=args.poll_seconds,monitor=monitor,preset=args.preset)
+        from ema_strategy_runner import process_lock
+        from trading.database import engine as db_engine
+        with process_lock(db_engine,user_id,KEY,'execution'):
+            run_session(kite,user_id,live=args.live,poll_seconds=args.poll_seconds,monitor=monitor,preset=args.preset)
         monitor.stop('Frozen V3 session complete')
     except KeyboardInterrupt:
         monitor.stop('V3 interrupted; reconcile any open position');raise

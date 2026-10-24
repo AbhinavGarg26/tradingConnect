@@ -1,0 +1,17 @@
+[Unit]
+Description=Nifty daily EMA20/50 calls runner (PAPER default)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/ema_strategy_runner.py --strategy daily_calls --user-id ${EMA_USER_ID} --mode paper --skip-incomplete-days
+Restart=no
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal

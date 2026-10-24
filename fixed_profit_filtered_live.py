@@ -40,10 +40,10 @@ def startup_allowed(now):
 
 
 def run_session(kite,user_id,*,live=False,state_dir='outputs/fixed-profit-runtime',poll_seconds=3,
-                now_fn=None,sleep_fn=time.sleep):
+                now_fn=None,sleep_fn=time.sleep,journal_factory=SessionJournal):
     now_fn=now_fn or (lambda:datetime.now(IST))
     today=now_fn().date()
-    journal=SessionJournal(state_dir,user_id,today,live=live)
+    journal=journal_factory(state_dir,user_id,today,live=live)
     try:
         if any(o.get('tag')==TAG for o in kite.orders()):
             raise RuntimeError('Fixed-profit broker order already exists today; reconcile before restart')
@@ -88,6 +88,7 @@ def run_session(kite,user_id,*,live=False,state_dir='outputs/fixed-profit-runtim
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--user-id',type=int,required=True)
     parser.add_argument('--live',action='store_true',help='User-operated real broker orders; default is paper')
     parser.add_argument('--check',action='store_true',help='Read-only broker/calendar readiness; never starts a session')
     parser.add_argument('--state-dir',default='outputs/fixed-profit-runtime')
@@ -101,8 +102,16 @@ def main():
     from trading.user_token import fetch_user_token
     from trading.database import get_db
     from market.trading_calendar import is_nse_trading_day
+    from sqlalchemy import inspect
+    from trading.database import engine as db_engine
+    schema=inspect(db_engine)
+    if any(not schema.has_table(t) for t in ('strategy_runs','strategy_trades','strategy_events')):
+        raise RuntimeError('Apply strategy journal migrations before running')
+    columns={c['name']:c for c in schema.get_columns('strategy_trades')}
+    if any(not columns[k]['nullable'] for k in ('initial_stop','current_stop','target')):
+        raise RuntimeError('Apply nullable stop/target migrations before running')
     with get_db() as db:eligible=is_nse_trading_day(now.date(),db)
-    kite,user_id=fetch_user_token(log);kite.profile()
+    kite,user_id=fetch_user_token(log,user_id=args.user_id);kite.profile()
     if args.check:
         instruments=kite.instruments('NFO')
         available=[i for i in instruments if i.get('name')=='NIFTY' and i.get('instrument_type') in {'CE','PE'} and i.get('expiry') and i['expiry']>=now.date()]
@@ -111,7 +120,8 @@ def main():
         print(f'Broker authenticated; calendar_trading_day={eligible}; orders=DISABLED; config_hash={CONFIG_HASH}')
         print(dict(CONFIG));return
     if not eligible:print('No session: exchange calendar is closed.');return
-    run_session(kite,user_id,live=args.live,state_dir=args.state_dir)
+    from trading.fixed_profit_db_journal import DatabaseSessionJournal
+    run_session(kite,user_id,live=args.live,state_dir=args.state_dir,journal_factory=DatabaseSessionJournal)
 
 
 if __name__=='__main__':

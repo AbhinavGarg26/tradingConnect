@@ -1,3 +1,8 @@
+> Operational update: the shared EMA runner now supports paper and user-selected live execution.
+> Use [the deployment runbook](ema_strategy_activation_steps.md).
+> The legacy preparation/paper commands described below remain separate tools;
+> statements below about missing execution integration describe that earlier implementation.
+
 # Frozen 15m 9/21 bearish strategy — preparation handoff
 
 Key: nifty_bearish_15m_9_21. Version: bearish_15m_9_21_v1.

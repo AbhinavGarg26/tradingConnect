@@ -1,0 +1,11 @@
+[Unit]
+Description=Start nifty-30m-pe1 at 09:15 IST
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:15:05 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=nifty-30m-pe1.service
+
+[Install]
+WantedBy=timers.target

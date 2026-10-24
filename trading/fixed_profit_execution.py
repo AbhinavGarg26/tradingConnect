@@ -72,7 +72,7 @@ class FixedProfitExecutor:
         spot=fresh_price(self.kite,'NSE:NIFTY 50',self.now_fn())
         if not session.qualify_entry(spot,observed_at=self.now_fn()):return False
         self.journal.event('ENTRY_INTENT',side=signal.action[-2:],symbol=contract['tradingsymbol'],
-                           quantity=quantity,index=str(spot),reference_high=str(engine.reference.high),
+                           quantity=quantity,expiry=str(contract['expiry']),strike=str(contract['strike']),index=str(spot),reference_high=str(engine.reference.high),
                            reference_low=str(engine.reference.low),atr=str(session.filter_decision.atr),
                            crossings=session.filter_decision.crossings)
         order_id=None
