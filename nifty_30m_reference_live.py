@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from strategies.nifty_15m_breakout import Bar
 from strategies.nifty_30m_reference import IST, Nifty30mReference, ReferenceSignal
+from strategies.nifty_30m_reference_first_pe import Nifty30mReferenceFirstPE
 from nifty_15m_env import load_nifty_environment
 load_nifty_environment()
 
@@ -38,7 +39,21 @@ def completed_bars(records,now):
     return bars
 
 
-def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,sleep_fn=None):
+def configured_engine(preset):
+    if preset == 'pe1-v1':
+        return Nifty30mReferenceFirstPE(stop_points=25,max_entries=1,buffer_percent=5)
+    if preset == 'v3':
+        return Nifty30mReference(stop_points=25,max_entries=3,buffer_percent=5)
+    raise ValueError('Unknown 30m strategy preset')
+
+
+def validate_execution_mode(preset, live):
+    if preset not in {'v3','pe1-v1'}:
+        raise ValueError('Unknown 30m strategy preset')
+
+
+def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,sleep_fn=None,preset='v3'):
+    validate_execution_mode(preset,live)
     from trading.reference_live_records import ReferenceRecorder
     now_fn=now_fn or (lambda:datetime.now(IST));sleep_fn=sleep_fn or time.sleep
     today=now_fn().date()
@@ -47,14 +62,25 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
     if not nifty:raise RuntimeError('Nifty index instrument unavailable')
     if live and any(o.get('tag')==TAG and o.get('status') not in FINAL for o in kite.orders()):
         raise RuntimeError('Unresolved V3 broker order; reconcile before startup')
-    journal=ReferenceRecorder(user_id,today,live=live)
-    engine=Nifty30mReference(stop_points=25,max_entries=3,buffer_percent=5)
-    executor=ReferenceExecutor(kite,instruments,journal,live=live,now_fn=now_fn)
+    engine=configured_engine(preset)
+    journal=ReferenceRecorder(user_id,today,live=live,version=preset,max_entries=engine.max_entries)
+    executor_class=ReferenceExecutor
+    if preset=='pe1-v1':
+        from trading.reference_protected_execution import ProtectedReferenceExecutor
+        executor_class=ProtectedReferenceExecutor
+    executor=executor_class(kite,instruments,journal,live=live,now_fn=now_fn)
     last=None
     try:
         while True:
             now=now_fn()
             if now.date()!=today:raise RuntimeError('Session date changed; reconcile before restart')
+            if preset=='pe1-v1':
+                if executor.synchronize(engine):
+                    journal.heartbeat();sleep_fn(poll_seconds);continue
+                if engine.pending and engine.pending.action.startswith('EXIT_'):
+                    executor.handle(engine.pending,engine)
+                if engine.entry_count>=engine.max_entries and executor.position is None:
+                    journal.finish('completed');return
             # Same 15:15 square-off, also effective if historical candles become unavailable.
             if now.time()>=clock_time(15,15,2) and executor.position and engine.pending is None:
                 spot=fresh_price(kite,'NSE:NIFTY 50',now)
@@ -69,6 +95,9 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
             for bar in completed_bars(records,now):
                 if last and bar.time<=last:continue
                 signal=engine.on_bar(bar);last=bar.time
+                if preset=='pe1-v1' and engine.first_signal_side=='CE':
+                    journal.event('SESSION_SKIPPED','first_signal_ce')
+                    journal.finish('completed');return
                 if engine.reference_updates and engine.reference_updates[-1]['time']==bar.time+timedelta(minutes=1):
                     journal.reference_update(engine.reference_updates[-1])
                 if engine.count==30 and not engine.opening_eligible:
@@ -84,8 +113,8 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
                     executor.handle(signal,engine)
                     if monitor:
                         state='paper' if executor.position and executor.position.paper else 'live' if executor.position else 'closed'
-                        monitor.success(f'{signal.action} {state}; V3 entries {engine.entry_count}/3')
-                if engine.entry_count>=3 and executor.position is None:
+                        monitor.success(f'{signal.action} {state}; {preset} entries {engine.entry_count}/{engine.max_entries}')
+                if engine.entry_count>=engine.max_entries and executor.position is None:
                     journal.finish('completed');return
             journal.heartbeat()
             sleep_fn(poll_seconds)
@@ -98,10 +127,12 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live',action='store_true')
+    parser.add_argument('--preset',choices=('v3','pe1-v1'),default='v3')
     parser.add_argument('--not-before',type=date.fromisoformat,default=date(2026,10,23))
     parser.add_argument('--poll-seconds',type=int,default=3)
     parser.add_argument('--check',action='store_true',help='Read-only readiness check; never place orders')
     args=parser.parse_args()
+    validate_execution_mode(args.preset,args.live)
     if args.poll_seconds<1:parser.error('Poll interval must be positive')
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
     now=datetime.now(IST)
@@ -131,7 +162,7 @@ def main():
         positions,orders=kite.positions().get('net',[]),kite.orders()
         previews={side:select_offset_contract(options,args.not_before,side,spot,positions,orders)['strike'] for side in ('CE','PE')}
         print(f'Read-only strike preview: CE={previews["CE"]} PE={previews["PE"]}; actual entry reselects using fresh spot and conflicts')
-        print(f'CHECK OK: strategy={KEY} user_id={user_id} start={args.not_before} trading_day={eligible} nearest_expiry={min(i["expiry"] for i in options)} orders=DISABLED stop=25 max_entries=3 lot_count=1')
+        print(f'CHECK OK: strategy={KEY} user_id={user_id} start={args.not_before} trading_day={eligible} nearest_expiry={min(i["expiry"] for i in options)} orders=DISABLED preset={args.preset} stop=25 max_entries={configured_engine(args.preset).max_entries} lot_count=1')
         return
     if not eligible:
         log.info('NSE holiday/weekend; no session');return
@@ -152,7 +183,7 @@ def main():
         else:
             monitor.stop('Session not authenticated before opening range completed; no late start');return
         monitor.user_id=user_id
-        run_session(kite,user_id,live=args.live,poll_seconds=args.poll_seconds,monitor=monitor)
+        run_session(kite,user_id,live=args.live,poll_seconds=args.poll_seconds,monitor=monitor,preset=args.preset)
         monitor.stop('Frozen V3 session complete')
     except KeyboardInterrupt:
         monitor.stop('V3 interrupted; reconcile any open position');raise

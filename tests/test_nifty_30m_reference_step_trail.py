@@ -64,3 +64,21 @@ def test_invalid_step(step):
 def test_combined_experiments_disallowed():
     with pytest.raises(ValueError,match='separately'):
         run([],trail_step_points=10,ce_color_filter=True)
+
+
+def test_top_winner_retention_distinguishes_entry_profit_and_full_profit(capsys):
+    from unittest.mock import patch
+    from backtest.nifty_15m_breakout import TradeResult
+    def trade(i, points, side='CE'):
+        time = bar(i).time
+        return TradeResult(side, time, time, D(100), D(100)+D(points), D(75),
+                           'step_trail_stop', D(points), D(25))
+    baseline = [trade(1, 100), trade(2, 80), trade(3, 60), trade(4, 40), trade(5, 20), trade(6, -10)]
+    variant = [trade(1, 100), trade(2, 10), trade(3, -5), trade(4, 0)]
+    with patch('backtest.nifty_30m_reference.run', side_effect=[
+            (baseline, None, None, [], []), (variant, None, None, [], [])]):
+        print_step_trail_comparison([], stop_points=25)
+    output = capsys.readouterr().out
+    assert '4/5 same entries; 2/5 remain profitable; 1/5 preserve at least the full baseline profit' in output
+    assert 'baseline +300.00; matched variant +105.00; aggregate retained 35.00%' in output
+    assert 'not retained,N/A,N/A,N/A' in output

@@ -103,3 +103,25 @@ its current session.
  rolled back in full. No smoke trades/runs persisted.
 -Timer enabled/active. Verified live invocation on October22 returns at the
  not-before gate. No real order was placed during setup.
+
+## PE1-V1 local integration (24 October 2026)
+
+An explicit `--preset pe1-v1` selects frozen first-signal PE, one entry and
+baseline25-point index/reference/session exits. The local runner uses
+`ProtectedReferenceExecutor` for this preset; original v3 behavior is retained.
+Journal strategy key remains `nifty_30m_reference` and version is `pe1-v1`.
+Prior/unresolved reference positions continue to block startup across versions.
+
+This adapter enforces saved risk settings, live-enabled and guardian health
+before entry; installs a broker option-premium stop-limit and records its ID,
+trigger and limit; checks actual allocation; and reconciles guardian closures.
+Failed protection attempts emergency handling, never paper fallback for a real
+lot. Shared per-trade advisory locking coordinates reference exits with the
+guardian. Cancellation uncertainty, unrelated pending orders or quantity/
+product changes prevent additional automatic sells. Existing broker stops
+are not repriced by editing settings. Risk overlays may exit before frozen
+index rules; option-premium P&L limits are not part of the index backtest.
+
+No service file, timer, account setting, enabled flag or production deployment
+has been changed by this local integration. Broker and database operations
+in tests are simulated; no real orders are used for verification.

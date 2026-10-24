@@ -1,0 +1,20 @@
+{
+  "name": "selective_v1",
+  "status": "Frozen research baseline; never overwrite to select a better historical result",
+  "config": {
+    "reward": 2.0,
+    "tick": 0.05,
+    "slippage": 0.5,
+    "cost_points": 0.0,
+    "use_vwap": false,
+    "qualified_breakout": false,
+    "stop_buffer_atr": 0.1,
+    "max_risk_atr": 1.5,
+    "selective": true,
+    "opening_direction_ratio": 0.6,
+    "breakout_body_ratio": 0.6,
+    "retest_band_atr": 0.15,
+    "pullback_bars": 6,
+    "wait_for_strong_breakout": false
+  }
+}

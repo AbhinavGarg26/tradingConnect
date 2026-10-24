@@ -1,8 +1,10 @@
 -- NSE F&O trading holidays for 2026 (NSE/FAOP/71777, 12 Dec 2025).
+-- Includes the additional election closure (NSE/FAOP/72262, 12 Jan 2026).
 -- Keep trading_holidays updated from the exchange's annual circular.
 INSERT INTO trading_holidays (holiday, holiday_date, created_at, updated_at)
 SELECT dates.holiday, dates.holiday_date, NOW(), NOW()
 FROM (VALUES
+    ('Municipal Corporation Election - Maharashtra', DATE '2026-01-15'),
     ('Republic Day', DATE '2026-01-26'),
     ('Holi', DATE '2026-03-03'),
     ('Shri Ram Navami', DATE '2026-03-26'),

@@ -1,0 +1,12 @@
+# TEMPLATE ONLY: user must install and enable this themselves.
+[Unit]
+Description=Fixed Profit startup at 09:15 IST on weekdays
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:15:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=fixed-profit-filtered.service
+
+[Install]
+WantedBy=timers.target

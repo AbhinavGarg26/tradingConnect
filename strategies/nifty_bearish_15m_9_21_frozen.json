@@ -1,0 +1,53 @@
+{
+  "name": "nifty_bearish_15m_9_21_v1",
+  "status": "Frozen research baseline; not activated for paper or live execution",
+  "rules": {
+    "fast": 9,
+    "slow": 21,
+    "timeframe_minutes": 15,
+    "entry": "previous fast >= slow AND completed current fast < slow",
+    "exit": "previous fast <= slow AND completed current fast > slow",
+    "fill": "next candle open",
+    "direction": "bearish only; cash after exit",
+    "slippage_index_points_per_fill": 0.5,
+    "holding": "overnight allowed",
+    "stop": null,
+    "target": null,
+    "ema_seed": "first source close; alpha=2/(period+1)"
+  },
+  "evaluation_start": "2021-01-01",
+  "evaluation_end": "2026-10-23",
+  "warmup_start": "2020-01-01",
+  "data_source": "market_snapshots NIFTY 50 / 1m aggregated into session-aligned 15m candles",
+  "source_candles": "outputs/nifty_15m_put_comparison/candles_15m.csv",
+  "source_candles_sha256": "173e5c38042615a9461e3591c84f4aff3bf6708503d9a2b75840ee01d03edc32",
+  "excluded_incomplete_days": [
+    "2020-02-13",
+    "2020-03-04",
+    "2020-08-27",
+    "2020-11-02",
+    "2021-02-24",
+    "2021-12-20",
+    "2022-03-07",
+    "2023-06-05",
+    "2023-06-14",
+    "2023-07-12",
+    "2023-07-24",
+    "2023-08-07",
+    "2024-04-23"
+  ],
+  "frozen_metrics": {
+    "closed_trades": 680,
+    "wins": 218,
+    "losses": 462,
+    "win_rate_pct": 32.05882352941177,
+    "net_index_points": 7892.700000000077,
+    "profit_factor": 1.2448749749856924,
+    "max_closed_trade_drawdown_points": 3193.949999999986,
+    "average_holding_bars": 23.75588235294118
+  },
+  "max_marked_drawdown_points": 3353.5999999999876,
+  "historical_trade_file": "outputs/nifty_15m_put_comparison/9_21/trades.csv",
+  "historical_trade_sha256": "b09da9d1313469d545d51f50445f8319322473bfc9bf95726de19b06f60b2f95",
+  "limitations": "Underlying index signal benchmark only. No put premium, rollover, option costs or rupee returns established."
+}

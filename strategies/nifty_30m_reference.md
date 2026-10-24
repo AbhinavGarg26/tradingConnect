@@ -72,6 +72,41 @@ at the next session after all positions/orders are reconciled.
 
 ## Backtest
 
+`--fetch` (also named `--database`) now reads NIFTY 50 `1m` candles from
+`market_snapshots` first. For each weekday not listed in `trading_holidays`,
+it validates the completed minutes from 09:15 through 15:29 IST. Missing or
+invalid OHLC ranges are downloaded from Kite and upserted into the table;
+requests cover up to 30 calendar days at a time. The cache is read once per
+window, and new/invalid candles are saved with multi-row upserts in batches
+of up to 500. Valid cached candles between missing endpoints may be included
+in the broker response but are ignored and never overwritten. Each fetched
+window is committed before proceeding, so reruns reuse completed work.
+The backtest then rereads the saved values. Existing snapshot timestamps are
+interpreted as UTC, following the replay backfill convention. Valid cached
+minutes require no Kite login or download. Today includes only completed
+minutes with a two-second grace; future dates are rejected. Missing data that
+Kite cannot supply causes an explicit error rather than a partial backtest.
+Gaps remaining after a bulk fetch get two targeted, day-scoped retries. If
+they persist, the error lists their minute timestamps in IST and retains
+valid saved candles. Invalid OHLC responses are logged and never fabricated
+or forward-filled.
+To continue with an explicitly reduced sample, add `--skip-incomplete-days`.
+After retries it excludes each entire affected trading day, logs the missing
+minutes and prints excluded dates in the report, even with `--summary-only`.
+Valid database candles are retained. Default behavior remains strict. Use the
+same retained dates for strategy comparisons; excluded days can bias results.
+Published regular-session holidays for 2020–2026 are bundled as a fallback
+when the database calendar lacks an entry. Keep the holiday table current for
+additional closures and other years; special exchange sessions are excluded.
+CSV input remains available without either database flag.
+Every summary also includes yearly and monthly breakdowns: trade/win/loss/
+breakeven counts, win rate, net points, expectancy, profit factor, closed-trade
+drawdown, CE/PE net points and excluded-day counts. Trades are grouped by exit
+date in IST. Drawdown resets at each period, so period drawdowns do not sum to
+overall drawdown. Zero-trade periods within the data span are shown; partial
+first/last periods are not annualized. These tables also print with
+`--summary-only`.
+
 ```sh
 python3 -m backtest.nifty_30m_reference --fetch --from-date 2026-07-01 --to-date 2026-10-21 --stop-points 20 --max-entries 3 --slippage-points 1 --summary-only
 ```
@@ -175,6 +210,12 @@ python3 -m backtest.nifty_30m_reference --fetch --from-date 2026-07-01 --to-date
 ```
 
 Default `--trail-step-points 0` preserves V3. Select10 for V3D alone. The
+comparison also counts how many of the five largest positive baseline trades
+retain the same entry, remain profitable, and retain at least their full
+baseline profit. It lists variant exit time/reason and retained profit per
+trade. Aggregate retained profit treats unmatched entries as zero for this
+diagnostic; earlier exits and replacement trades can change the overall path.
+The
 comparison runs0 and10 on identical data and reports monthly results, win rate,
 profit factor, drawdown, worst loss, trail exits and matched-entry outcomes of
 the five largest V3 winners. Step trailing cannot combine with the other
@@ -185,3 +226,58 @@ original risk, not a later breakeven stop.
 A breakeven or positive index trigger does not guarantee a profitable exit:
 close-based monitoring, next-open fills, slippage and actual option-price
 behavior can all differ. Same-sample tests are not validation on untouched data.
+
+## Isolated candle-body midpoint trailing experiment
+
+`--compare-candle-trail` compares frozen V3 against separate 15m and 30m
+completed-candle trails. Live runners do not import this experiment. Use
+`--candle-trail-minutes 15` or `30` to run one variant alone. These switches
+cannot combine with step trailing, CE color or reference-buffer experiments.
+
+The initial 25-point stop is retained when `--stop-points 25` is supplied.
+Buckets align to 09:15. A candle must be held for its full interval; the
+bucket containing a mid-bucket entry is ineligible. A large candle has body
+`abs(close-open) >= 1.5 * mean(previous 3 completed same-timeframe bodies)`.
+The candidate itself is excluded from that mean. Both defaults can be set
+using `--candle-trail-body-multiple` and `--candle-trail-lookback`. History
+resets daily and requires the full lookback before a candidate qualifies.
+
+For CE only green bodies qualify; for PE only red bodies qualify. The
+candidate is the body midpoint `(open+close)/2`, not high-low midpoint. It
+must lock positive index points relative to the confirmed entry and improve
+the existing stop. Stops never loosen. Existing stop/reference exits are
+checked before the newly completed candle can update the stop; the new level
+protects subsequent completed one-minute closes. Fills remain next-open with
+slippage. Original reference and 15:15 exits remain active. Exit reason is
+`candle_trail_stop` once an activated candle stop is hit. A profit-protecting
+trigger does not guarantee a positive fill.
+
+The comparison prints total points, drawdown, win rate, profit factor, worst
+trade, candle-trail exit counts/points, yearly/monthly CE/PE results, and the
+five largest positive baseline trades' same-entry outcomes and retained
+profit. Every variant uses the same loaded candles and excluded dates. These
+parameters are research assumptions, not validated optimal settings.
+
+```sh
+python3 -m backtest.nifty_30m_reference --database --from-date 2020-01-01 --to-date 2026-10-23 --stop-points 25 --max-entries 1 --slippage-points 1 --summary-only --skip-incomplete-days --compare-candle-trail
+```
+
+## Isolated first-signal PE entry-selection experiment
+
+`--compare-first-signal-pe --max-entries 1` compares baseline against taking
+only the first qualifying signal when it is PE. If the first signal is CE,
+the entire day is skipped; a later PE is not traded. Minutes inside the band
+do not decide the day. This is a prospective side filter, not selection based
+on the eventual trade outcome. Day selection resets next session.
+
+The initial stop, reference updates/exits, session-end exit, fills and slippage
+remain unchanged. Each selected trade must exactly equal its baseline PE
+counterpart (entry, exit, prices, reason and P&L); comparison verifies this.
+No trailing, color or reference-buffer experiment may be combined. Run the
+selection alone with `--first-signal-pe --max-entries 1`. Existing live runners
+are unchanged. Results print total P&L, drawdown, expectancy, win rate, profit
+factor and yearly/monthly breakdowns on the same loaded data and exclusions.
+
+```sh
+python3 -m backtest.nifty_30m_reference --database --from-date 2020-01-01 --to-date 2026-10-23 --stop-points 25 --max-entries 1 --slippage-points 1 --summary-only --skip-incomplete-days --compare-first-signal-pe
+```

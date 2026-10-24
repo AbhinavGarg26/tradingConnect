@@ -164,3 +164,20 @@ class SessionTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class FirstPEPresetTest(unittest.TestCase):
+    def test_preset_uses_frozen_selection_and_limits(self):
+        from nifty_30m_reference_live import configured_engine
+        from strategies.nifty_30m_reference_first_pe import Nifty30mReferenceFirstPE
+        engine=configured_engine('pe1-v1')
+        self.assertIsInstance(engine,Nifty30mReferenceFirstPE)
+        self.assertEqual(engine.stop_points,25)
+        self.assertEqual(engine.max_entries,1)
+        self.assertEqual(engine.buffer_percent,5)
+        self.assertEqual(configured_engine('v3').max_entries,3)
+
+    def test_unknown_preset_rejected(self):
+        from nifty_30m_reference_live import validate_execution_mode
+        with self.assertRaises(ValueError):
+            validate_execution_mode('unknown',True)

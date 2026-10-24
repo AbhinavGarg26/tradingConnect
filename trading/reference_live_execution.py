@@ -144,6 +144,12 @@ class ReferenceExecutor:
             return self._enter(signal, engine)
         return self._exit(signal, engine)
 
+    def _before_entry(self, contract, premium, quantity):
+        pass
+
+    def _after_live_fill(self, contract, premium, quantity):
+        pass
+
     def _enter(self, signal, engine):
         if self.position is not None:
             raise RuntimeError('Entry while position already owned')
@@ -154,6 +160,8 @@ class ReferenceExecutor:
         quantity = int(contract['lot_size'])  # One exchange lot.
         symbol = 'NFO:' + contract['tradingsymbol']
         premium = fresh_price(self.kite, symbol, self.now_fn())
+        if self.live:
+            self._before_entry(contract,premium,quantity)
         self.journal.begin_entry(signal, contract, quantity, engine.entry_count+1, spot,
                                  paper=not self.live)
         paper, order_id, reason = not self.live, None, None
@@ -174,6 +182,8 @@ class ReferenceExecutor:
         # Record a confirmed broker fill before any later market-data request can fail.
         self.journal.entry_filled(order_id, premium, spot, paper=paper, fallback_reason=reason)
         self.position = OwnedPosition(contract, quantity, paper)
+        if not paper:
+            self._after_live_fill(contract,premium,quantity)
         index_at_fill = fresh_price(self.kite, 'NSE:NIFTY 50', self.now_fn())
         self.journal.set_entry_index(index_at_fill)
         engine.confirm_fill(index_price=index_at_fill)

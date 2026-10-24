@@ -134,3 +134,42 @@ def test_default_three_entries_and_fourth_blocked():
             s.confirm_fill(index_price=140)
         else:assert signal is None
     assert s.entry_count==3
+
+
+def test_period_breakdowns_reconcile_and_include_zero_trade_months():
+    from backtest.nifty_30m_reference import period_breakdowns, TradeResult
+    from datetime import date
+    def trade(stamp, points, side='CE'):
+        time = datetime.fromisoformat(stamp)
+        return TradeResult(side, time-timedelta(minutes=5), time, D(100), D(100)+D(points),
+                           D(75), 'session_end', D(points), D(25))
+    trades = [trade('2025-12-31T15:15:00+05:30', '10'),
+              trade('2026-01-02T15:15:00+05:30', '-5'),
+              trade('2026-01-05T15:15:00+05:30', '-7', 'PE'),
+              trade('2026-03-02T15:15:00+05:30', '0')]
+    data = period_breakdowns(trades, [], excluded_days=[date(2026, 1, 15)])
+    years, months = data['yearly'], data['monthly']
+    assert [r['period'] for r in years] == ['2025', '2026']
+    assert [r['net_points'] for r in years] == [D(10), D(-12)]
+    assert sum(r['net_points'] for r in months) == sum(t.points for t in trades)
+    assert sum(r['total'] for r in months) == 4
+    assert months[1]['max_drawdown'] == 12  # Resets, not inherited from December.
+    assert months[1]['excluded_days'] == 1
+    assert months[1]['ce_net'] == -5 and months[1]['pe_net'] == -7
+    assert months[2]['period'] == '2026-02' and months[2]['total'] == 0
+    assert months[2]['profit_factor'] is None
+    assert months[3]['breakeven'] == 1
+
+
+def test_period_uses_ist_exit_date_and_prints_both_tables(capsys):
+    from backtest.nifty_30m_reference import period_breakdowns, print_period_breakdowns, TradeResult
+    stamp = datetime.fromisoformat('2025-12-31T20:00:00+00:00')  # Jan 1 in IST.
+    trade = TradeResult('PE', stamp-timedelta(hours=2), stamp, D(100), D(90), D(125),
+                        'reference_cross', D(10), D(25))
+    data = period_breakdowns([trade], [])
+    assert data['yearly'][0]['period'] == '2026'
+    assert data['monthly'][0]['period'] == '2026-01'
+    print_period_breakdowns([trade], [])
+    output = capsys.readouterr().out
+    assert 'YEARLY BREAKDOWN' in output and 'MONTHLY BREAKDOWN' in output
+    assert '2026-01,1,1,0,0,100.00,+10.00,+10.00,N/A,0.00,+0.00,+10.00,0' in output

@@ -16,7 +16,10 @@ def verify_schema(db):
 
 
 class ReferenceRecorder:
-    def __init__(self, user_id, today, *, live):
+    def __init__(self, user_id, today, *, live, version=VERSION, max_entries=3):
+        if (version,max_entries) not in {('v3',3),('pe1-v1',1)}:
+            raise ValueError('Unknown or inconsistent 30m journal configuration')
+        self.version, self.max_entries = version, max_entries
         self.user_id, self.today, self.live = user_id, today, live
         self.trade_id = None
         now = datetime.now(timezone.utc)
@@ -28,10 +31,11 @@ class ReferenceRecorder:
                  StrategyTrade.status.in_(['open', 'entry_pending', 'exit_pending', 'reconcile']))))
             if prior:
                 raise RuntimeError('Prior or unresolved V3 trades found; do not restart without reconciliation')
-            row = StrategyRun(user_id=user_id, strategy_key=KEY, strategy_version=VERSION,
+            row = StrategyRun(user_id=user_id, strategy_key=KEY, strategy_version=version,
                               mode='live' if live else 'paper', status='running', started_at=now,
                               heartbeat_at=now, configuration={
-                                  'stop_points': '25', 'max_entries': 3, 'opening_body_min': '20',
+                                  'stop_points': '25', 'max_entries': max_entries, 'opening_body_min': '20',
+                                  'first_signal_pe_only': version == 'pe1-v1',
                                   'buffer_percent': '5', 'entry_timeframe_minutes': 1,
                                   'reference_minutes': 30, 'reference_exit_buffer': '0',
                                   'lot_count': 1, 'strike_offset': 2, 'expiry': 'nearest_unexpired',
@@ -59,11 +63,11 @@ class ReferenceRecorder:
                 StrategyTrade.user_id == self.user_id, StrategyTrade.strategy_key == KEY,
                 StrategyTrade.trading_date == self.today,
                 StrategyTrade.status != 'rejected'))
-            if count >= 3 or number > 3:
-                raise RuntimeError('Three V3 entries already reserved today')
+            if count >= self.max_entries or number > self.max_entries:
+                raise RuntimeError('Daily 30m entry limit already reserved')
             stop = index_price + (25 if signal.action.endswith('PE') else -25)
             row = StrategyTrade(strategy_run_id=self.run_id, user_id=self.user_id,
-                                strategy_key=KEY, strategy_version=VERSION,
+                                strategy_key=KEY, strategy_version=self.version,
                                 mode='paper' if paper else 'live', trading_date=self.today,
                                 trade_number=number, status='entry_pending', side=signal.action[-2:],
                                 option_symbol=contract['tradingsymbol'], option_expiry=contract['expiry'],
@@ -108,6 +112,31 @@ class ReferenceRecorder:
             row.initial_stop=row.current_stop=price+(25 if row.side=='PE' else -25)
             row.updated_at=datetime.now(timezone.utc)
 
+    def trade_snapshot(self):
+        if self.trade_id is None:
+            raise RuntimeError('No recorded reference trade')
+        with get_db() as db:
+            row=db.get(StrategyTrade,self.trade_id)
+            if row is None or row.user_id!=self.user_id or row.strategy_key!=KEY:
+                raise RuntimeError('Reference trade ownership mismatch')
+            db.expunge(row)
+            return row
+
+    def protection_submitted(self, order_id, trigger, limit):
+        with get_db() as db:
+            row=db.get(StrategyTrade,self.trade_id,with_for_update=True)
+            if row.status!='open':
+                raise RuntimeError('Trade ownership changed before protection was recorded')
+            row.protection_order_id=str(order_id)
+            row.protection_trigger=trigger
+            row.protection_limit=limit
+            row.updated_at=datetime.now(timezone.utc)
+
+    def release_closed_trade(self):
+        if self.trade_snapshot().status!='closed':
+            raise RuntimeError('Cannot release a reference trade before confirmed closure')
+        self.trade_id=None
+
     def reference_update(self, update):
         self.event('REFERENCE_UPDATE','completed_30m_body',details={k:str(v) for k,v in update.items()})
 
@@ -139,6 +168,10 @@ class ReferenceRecorder:
         with get_db() as db:
             row=db.get(StrategyTrade,self.trade_id)
             if row.status!='closed':
+                if row.status=='exit_pending' and row.exit_reason not in {'fixed_stop','reference_cross','session_end'}:
+                    # Do not seize reconciliation from an active guardian exit.
+                    # Its submitted-order recovery owns the broker outcome.
+                    return
                 row.status='reconcile';row.error_message=message[:2000]
                 row.updated_at=datetime.now(timezone.utc)
 

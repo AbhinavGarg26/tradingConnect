@@ -1,0 +1,17 @@
+# TEMPLATE ONLY: not installed, enabled, or started by this change.
+[Unit]
+Description=User-operated Fixed Profit filtered candidate
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/fixed_profit_filtered_live.py --live --state-dir /home/deployer/apps/tradingConnect/outputs/fixed-profit-runtime
+Restart=no
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal
