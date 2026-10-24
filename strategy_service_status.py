@@ -12,6 +12,7 @@ UNITS={
     'fixed_profit_filtered':('fixed-profit-filtered','fixed_profit_filtered_live.py',''),
     'nifty_daily_ema_monthly':('nifty-daily-ema-calls','ema_strategy_runner.py','--strategy daily_calls'),
     'nifty_bearish_15m_9_21':('nifty-bearish-15m-ema','ema_strategy_runner.py','--strategy bearish_puts'),
+    'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py','--strategy bullish_calls'),
 }
 
 
@@ -80,5 +81,13 @@ def main():
                 ON CONFLICT (user_id,strategy_key) DO UPDATE SET
                 observed_at=EXCLUDED.observed_at,details=EXCLUDED.details,updated_at=EXCLUDED.updated_at'''),
                 dict(user_id=args.user_id,key=key,now=datetime.now(timezone.utc),details=json.dumps(details)))
+
+    # Alerts use committed events and cannot affect execution or observer status.
+    try:
+        from trading.strategy_signal_alerts import dispatch
+        dispatch(get_db,args.user_id,datetime.now(timezone.utc))
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning('Strategy alert dispatch failed (%s)',type(exc).__name__)
 
 if __name__=='__main__':main()

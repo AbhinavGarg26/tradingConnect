@@ -159,6 +159,11 @@ def _completed_candles_only(
 
 def sync_timeframe_snapshots(kite, db, symbol, token, interval: str, db_timeframe_label: str):
     """Fetches candles, calculates technical indicators, filters, and inserts missing snapshots."""
+    if symbol == 'NIFTY 50' and db_timeframe_label == '1m':
+        from market.shared_nifty_candles import sync_current_session
+        result=sync_current_session(kite,datetime.now(MARKET_TIMEZONE))
+        if not result['complete']:logger.warning('Shared NIFTY minute sync incomplete; cooldown applies')
+        return result
     # 1. Fetch deep historical candles (60 days back) for indicator warmup (EMA 50, RSI 14)
     # Intraday replay only needs several sessions, while larger timeframes need
     # deeper history to warm EMA/RSI calculations.

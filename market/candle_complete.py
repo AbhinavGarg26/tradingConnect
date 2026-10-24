@@ -37,7 +37,12 @@ class CandleCompletionScheduler:
         # Replay candles are persisted only after their closing boundary.
         # -------------------------------------------------------------
         if minute % 5 == 0 and now.second >= SYNC_GRACE_SECONDS and self.last_triggered_1m != current_minute_str:
-            sync_timeframe_snapshots(kite, db, symbol, token, interval="minute", db_timeframe_label="1m")
+            if symbol == 'NIFTY 50':
+                from market.shared_nifty_candles import sync_current_session
+                result=sync_current_session(kite,now)
+                if not result['complete']:logger.warning('Shared NIFTY minute sync incomplete; cooldown applies')
+            else:
+                sync_timeframe_snapshots(kite, db, symbol, token, interval="minute", db_timeframe_label="1m")
             self.last_triggered_1m = current_minute_str
 
         if minute % 5 == 0 and now.second >= SYNC_GRACE_SECONDS and self.last_triggered_5m != current_minute_str:

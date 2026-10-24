@@ -49,14 +49,26 @@ def completed_today(records,now):
     return selected
 
 
+def load_warmup_history(factory,kind,end,*,skip_incomplete_days=False,excluded_days=None,start=date(2020,1,1)):
+    """Keep at most 30 calendar days of raw minutes, preserving the same seed."""
+    history=[]
+    while start<=end:
+        last=min(start+timedelta(days=29),end)
+        minutes=load_snapshot_candles(start,last,database_only=True,session_factory=factory,
+            skip_incomplete_days=skip_incomplete_days,excluded_days=excluded_days)
+        history.extend(daily_from_minutes(minutes) if kind=='daily_calls' else aggregate_session(minutes,15))
+        del minutes
+        start=last+timedelta(days=1)
+    return history
+
+
 class Feed:
     def __init__(self,kite,factory,kind,calendar,now,*,skip_incomplete_days=False):
         self.kite,self.kind,self.calendar=kite,kind,calendar
         self.day=now.date()
         self.excluded=[]
-        minutes=load_snapshot_candles(date(2020,1,1),now.date()-timedelta(days=1),database_only=True,
-            session_factory=factory,skip_incomplete_days=skip_incomplete_days,excluded_days=self.excluded)
-        self.history=daily_from_minutes(minutes) if kind=='daily_calls' else aggregate_session(minutes,15)
+        self.history=load_warmup_history(factory,kind,now.date()-timedelta(days=1),
+            skip_incomplete_days=skip_incomplete_days,excluded_days=self.excluded)
         if not self.history:raise ValueError('No historical warmup available')
         expected=now.date()-timedelta(days=1)
         while not calendar(expected):expected-=timedelta(days=1)
@@ -64,12 +76,18 @@ class Feed:
         latest=exchange_time(latest).date() if isinstance(latest,datetime) else date.fromisoformat(str(latest))
         if latest!=expected:
             raise ValueError(f'Latest completed session is missing: expected {expected}, got {latest}')
-        self.token=next((i['instrument_token'] for i in kite.instruments('NSE') if i.get('tradingsymbol')=='NIFTY 50'),None)
-        if self.token is None:raise ValueError('Nifty index token unavailable')
+        from market.database_candles import MinuteFeed
+        self.minute_feed=MinuteFeed(kite,factory=factory)
+        self.current_minutes=[]
 
     def snapshots(self,now,after=None):
         if now.date()!=self.day:raise ValueError('Restart feed for the next session')
-        results=[]
+        results=[];latest=None
+        after=exchange_time(after) if after else None
+        def remember(snapshot):
+            nonlocal latest
+            latest=snapshot
+            if after and snapshot['time']>after:results.append(snapshot)
         if self.kind=='daily_calls':
             f=s=None
             for i,b in enumerate(self.history):
@@ -79,12 +97,14 @@ class Feed:
                 if i<50:continue
                 stamp=datetime.combine(date.fromisoformat(str(b['date'])),time(15,30),IST)
                 eligible,deadline=schedule(stamp,self.kind,self.calendar)
-                results.append(dict(time=stamp,fast=f,slow=s,bullish=f>s,trend_valid=f>s,
+                remember(dict(time=stamp,fast=f,slow=s,bullish=f>s,trend_valid=f>s,
                     enter=pf<=ps and f>s,exit=pf>=ps and f<s,eligible_after=eligible,deadline=deadline))
         else:
             if self.calendar(now.date()) and now.time()>=time(9,15):
-                records=self.kite.historical_data(self.token,now.replace(hour=9,minute=15,second=0,microsecond=0),now,'minute')
-                minutes=completed_today(records,now)
+                records=self.minute_feed.read(now,after=self.current_minutes[-1]['date'] if self.current_minutes else None)
+                if self.minute_feed.blocked:return []
+                self.current_minutes.extend(records)
+                minutes=self.current_minutes
             else:
                 minutes=[]
             current=[]
@@ -97,12 +117,10 @@ class Feed:
                 state=engine.on_bar(b,observed_at=now)
                 if not state['warmed_up']:continue
                 eligible,deadline=schedule(state['signal_time'],self.kind,self.calendar)
-                results.append(dict(time=state['signal_time'],fast=state['fast_ema'],slow=state['slow_ema'],
-                    bullish=state['fast_ema']>state['slow_ema'],trend_valid=state['fast_ema']<state['slow_ema'],
-                    enter=state['cross_down'],exit=state['cross_up'],eligible_after=eligible,deadline=deadline))
-        if not results:raise ValueError('No warmed-up completed signal candles')
-        if after:
-            after=exchange_time(after)
-            later=[r for r in results if r['time']>after]
-            return later or [results[-1]]
-        return [results[-1]]
+                remember(dict(kind=self.kind,time=state['signal_time'],fast=state['fast_ema'],slow=state['slow_ema'],
+                    bullish=state['fast_ema']>state['slow_ema'],
+                    trend_valid=(state['fast_ema']>state['slow_ema'] if self.kind=='bullish_calls' else state['fast_ema']<state['slow_ema']),
+                    enter=state['cross_up'] if self.kind=='bullish_calls' else state['cross_down'],
+                    exit=state['cross_down'] if self.kind=='bullish_calls' else state['cross_up'],eligible_after=eligible,deadline=deadline))
+        if latest is None:raise ValueError('No warmed-up completed signal candles')
+        return results or [latest]

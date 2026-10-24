@@ -20,6 +20,8 @@ from trading.fixed_profit_execution import FixedProfitExecutor, TAG
 from trading.fixed_profit_journal import SessionJournal
 from trading.reference_live_execution import fresh_price, FINAL
 
+from market.database_candles import MinuteFeed
+
 log=logging.getLogger(__name__)
 
 
@@ -48,11 +50,10 @@ def run_session(kite,user_id,*,live=False,state_dir='outputs/fixed-profit-runtim
         if any(o.get('tag')==TAG for o in kite.orders()):
             raise RuntimeError('Fixed-profit broker order already exists today; reconcile before restart')
         instruments=kite.instruments('NFO')
-        nifty=next((i for i in kite.instruments('NSE') if i.get('tradingsymbol')=='NIFTY 50'),None)
-        if not nifty:raise RuntimeError('Missing NIFTY index instrument')
         session=FilteredSession()
         executor=FixedProfitExecutor(kite,instruments,journal,live=live,now_fn=now_fn)
         last=None
+        candle_feed=MinuteFeed(kite)
         while True:
             now=now_fn()
             if now.date()!=today:raise RuntimeError('Session changed; reconcile before restart')
@@ -64,8 +65,7 @@ def run_session(kite,user_id,*,live=False,state_dir='outputs/fixed-profit-runtim
                 if signal:executor.exit(signal,session.engine)
             if executor.position is None and (session.skipped or session.engine.entries>=1 or now.time()>=clock_time(14,30)):
                 journal.finish('completed');return
-            records=kite.historical_data(nifty['instrument_token'],f'{today} 09:15:00',
-                                         now.strftime('%Y-%m-%d %H:%M:%S'),'minute')
+            records=candle_feed.read(now,after=last)
             for bar in completed_minutes(records,now):
                 if last and bar.time<=last:continue
                 session.on_minute(bar,observed_at=now);last=bar.time

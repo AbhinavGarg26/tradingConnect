@@ -84,7 +84,7 @@ SR_INTRADAY_LOOKBACK_DAYS = 30
 # cumulative volume at the same time across the previous trading sessions.
 DAILY_RVOL_LOOKBACK_SESSIONS = 20
 DAILY_RVOL_ALERT_RATIO = 1.5
-MOVEMENT_ALERT_PCT = 1.0
+MOVEMENT_ALERT_PCT = 2.0
 
 # Anchors live for the lifetime of the continuously running fetcher. An anchor
 # changes only after its symbol crosses the movement threshold.
@@ -1378,6 +1378,21 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
         alerter.price_movements(movement_alerts, now)
         log.info("Sent price-movement alert for %d instrument(s)", len(movement_alerts))
 
+def refresh_shared_nifty_minutes():
+    """One minute writer shared with strategy cache misses and market_breath."""
+    now=datetime.now(IST)
+    if not (now.weekday()<5 and (9,16)<=(now.hour,now.minute)<=(15,31)):return
+    try:
+        from trading.ema_feed import Calendar
+        if not Calendar(get_db)(now.date()):return
+        from market.shared_nifty_candles import sync_current_session
+        kite,_user_id=fetch_user_token(log)
+        result=sync_current_session(kite,now,factory=get_db)
+        if not result['complete']:log.warning('Shared NIFTY candle update incomplete; persistent cooldown applies')
+    except Exception as exc:
+        log.warning('Shared NIFTY candle update failed (%s)',type(exc).__name__)
+
+
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
@@ -1466,6 +1481,11 @@ if __name__ == "__main__":
         max_instances=1,
         coalesce=True,
         misfire_grace_time=20,
+    )
+    scheduler.add_job(
+        refresh_shared_nifty_minutes, 'cron', day_of_week='mon-fri', hour='9-15',
+        minute='*', second=8, id='shared_nifty_minute_candles',
+        max_instances=1, coalesce=True, misfire_grace_time=20,
     )
     try:
         scheduler.start()

@@ -224,6 +224,7 @@ def test_late_start_primes_latest_completed_candle_without_replaying(monkeypatch
             for hour, minute in [(9, 15), (9, 30), (9, 45), (10, 0), (10, 15)]
         ],
     )
+    monkeypatch.setattr("nifty_15m_live.read_completed_15m", lambda *_args, **_kwargs: kite.historical_data())
     with pytest.raises(EndTest):
         _run_session(kite, recorder=SimpleNamespace(), runtime_monitor=SimpleNamespace(
             success=activities.append))

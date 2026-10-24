@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 log=logging.getLogger(__name__)
-KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21'}
+KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'}
 IST=ZoneInfo('Asia/Kolkata')
 
 
@@ -25,7 +25,7 @@ def validate_request(row,db,now):
     unresolved=db.execute(text('''SELECT id FROM strategy_trades WHERE user_id=:user_id
         AND strategy_key=:key AND status != 'closed' LIMIT 1'''),dict(user_id=row['user_id'],key=row['strategy_key'])).first()
     if unresolved:raise ValueError('Open or unresolved strategy position; reconcile before activation/mode changes')
-    if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21'}:
+    if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'}:
         if db.execute(text('''SELECT id FROM strategy_order_intents WHERE user_id=:user_id
             AND strategy_key=:key AND (status IN ('reserved','submitting','submitted','uncertain')
                 OR (status='filled' AND applied_at IS NULL)) LIMIT 1'''),
@@ -49,7 +49,7 @@ def validate_request(row,db,now):
                 raise ValueError('Independent guardian must be healthy before starting a protected live strategy')
     if row['operation']=='start':
         local=now.astimezone(IST)
-        opening=time(9,15);cutoff=time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21'} else time(9,45)
+        opening=time(9,15);cutoff=time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'} else time(9,45)
         if row['strategy_key']=='nifty_15m_breakout':cutoff=time(15,0)
         holiday=db.execute(text('SELECT 1 FROM trading_holidays WHERE holiday_date=:day'),dict(day=local.date())).first()
         if local.weekday()>=5 or holiday or not opening<=local.time()<cutoff:

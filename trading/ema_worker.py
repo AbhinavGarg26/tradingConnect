@@ -45,7 +45,8 @@ class Worker:
                      'decision':pending.get('action','hold' if position else 'wait'), 'signal':pending.get('action','hold' if position else 'wait'),
                      'completed_date':str(snapshot['time'].date()),'fast_ema':snapshot['fast'],'slow_ema':snapshot['slow'],
                      'mode':self.store.mode,'real_orders_enabled':self.store.mode=='live'}
-            action='DAILY_EMA_SIGNAL' if self.side=='CE' else 'BEARISH_EMA_SIGNAL'
+            action=('BULLISH_EMA_SIGNAL' if snapshot.get('kind')=='bullish_calls' else
+                    'DAILY_EMA_SIGNAL' if self.side=='CE' else 'BEARISH_EMA_SIGNAL')
             self.store.event(action,'completed_candle',details,now)
             self._drain(now)
         # Roll only an owned lot, and only after processing the latest trend/exit.

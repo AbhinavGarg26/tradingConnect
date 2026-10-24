@@ -1,4 +1,4 @@
-"""Kite polling runner for NIFTY 15-minute signals (paper by default).
+"""Database candle runner for NIFTY 15-minute signals (paper by default).
 
 Kite session comes from the active user's encrypted exchange link in the DB.
 Live orders require --live.
@@ -19,6 +19,8 @@ from zoneinfo import ZoneInfo
 from kiteconnect.exceptions import NetworkException, TokenException
 
 from market.kite_orders import place_protected_market_order
+from market.candle_polling import ClosedCandlePoller
+from market.database_candles import read_completed_15m, CandleNotReady
 from strategies.nifty_15m_breakout import Bar, Decision, Nifty15mBreakout
 
 
@@ -214,14 +216,12 @@ def run(kite, *, user_id, live=False, poll_seconds=5, max_risk_points=30,
 def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=30,
                  runtime_monitor=None):
     instruments = kite.instruments("NFO")
-    index_instruments = kite.instruments("NSE")
-    nifty = next((item for item in index_instruments if item["tradingsymbol"] == "NIFTY 50"), None)
-    if nifty is None:
-        raise RuntimeError("NIFTY 50 index token not found in Kite instruments")
-    token = nifty["instrument_token"]
     strategy = Nifty15mBreakout(max_risk_points=max_risk_points)
     last_time = None
     initialized = False
+    candle_poller = ClosedCandlePoller()
+    if live:
+        user_id = recorder.user_id
     contract = None
     position_date = None
     today = datetime.now(IST).date()
@@ -232,7 +232,7 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                    and o.get("status") not in {"COMPLETE", "REJECTED", "CANCELLED"}]
         if pending:
             raise RuntimeError("Unresolved strategy order found; reconcile in Kite before restarting")
-    log.info("NIFTY token=%s; next-week expiry=%s; mode=%s", token, expiry, "LIVE" if live else "PAPER")
+    log.info("NIFTY database candles; next-week expiry=%s; mode=%s", expiry, "LIVE" if live else "PAPER")
 
     while True:
         now = datetime.now(IST)
@@ -259,17 +259,26 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
             time.sleep(poll_seconds)
             continue
 
-        records = kite.historical_data(token, f"{now.date()} 09:15:00",
-                                       f"{now.date()} 15:30:00", "15minute")
-        completed = []
-        for record in records:
-            bar_time = record["date"]
-            if bar_time.tzinfo is None:
-                bar_time = bar_time.replace(tzinfo=IST)
-            if bar_time + timedelta(minutes=15, seconds=5) > now:
-                continue
-            bar = Bar(bar_time, *(Decimal(str(record[key])) for key in ("open", "high", "low", "close")))
-            completed.append(bar)
+        if not candle_poller.due(now):
+            recorder.heartbeat()
+            time.sleep(poll_seconds)
+            continue
+        try:
+            records = read_completed_15m(now, after=last_time, kite=kite)
+        except CandleNotReady:
+            delay = candle_poller.rate_limited(datetime.now(IST))
+            recorder.heartbeat()
+            log.warning("Database candle incomplete; next read in %s seconds", delay)
+            if runtime_monitor:
+                runtime_monitor.degraded("Waiting for completed NIFTY candles in the database")
+            time.sleep(poll_seconds)
+            continue
+        completed = [Bar(row['date'], *(Decimal(str(row[k])) for k in ('open','high','low','close'))) for row in records]
+        opening = now.replace(hour=9, minute=15, second=0, microsecond=0)
+        expected_close = opening + timedelta(minutes=candle_poller.slot(now)[1] * 15)
+        if not completed or completed[-1].time + timedelta(minutes=15) != expected_close:
+            raise RuntimeError("Database has no fresh completed NIFTY candle")
+        candle_poller.success(now)
         if not initialized:
             if completed:
                 strategy.previous = completed[-1]

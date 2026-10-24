@@ -13,7 +13,7 @@ def main():
     load_nifty_environment()
     from trading.database import get_db
     from trading.strategy_order_intents import StrategyExecutionState,StrategyOrderIntent
-    keys=('nifty_daily_ema_monthly','nifty_bearish_15m_9_21')
+    keys=('nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21')
     with get_db() as db:
         schema=inspect(db.bind)
         missing=[t for t in ('strategy_execution_states','strategy_order_intents') if not schema.has_table(t)]

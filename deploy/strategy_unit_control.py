@@ -14,6 +14,7 @@ PROFILES={
  'fixed_profit_filtered':('fixed-profit-filtered','fixed_profit_filtered_live.py',[]),
  'nifty_daily_ema_monthly':('nifty-daily-ema-calls','ema_strategy_runner.py',['--strategy','daily_calls']),
  'nifty_bearish_15m_9_21':('nifty-bearish-15m-ema','ema_strategy_runner.py',['--strategy','bearish_puts']),
+ 'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py',['--strategy','bullish_calls']),
 }
 CONFIG=Path('/etc/trading-strategy-control.json')
 

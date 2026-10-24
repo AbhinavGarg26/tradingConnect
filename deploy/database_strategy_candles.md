@@ -1,0 +1,17 @@
+# Shared database-first strategy candles
+
+All configured NIFTY strategy runners read completed candles from the database first: Breakout v3, Body Reference PE1-V1 (and its older V3 preset), Fixed Profit Filtered, and the daily/15m EMA feeds. If current-session minute rows are missing, they call the shared market/shared_nifty_candles.py helper. The helper fetches missing NIFTY minutes from Kite, saves them in market_snapshots, then the reader validates and aggregates completed 15-minute candles. Broker authentication, execution quotes and order handling retain their existing interfaces.
+
+All strategy and collector callers share a PostgreSQL transaction advisory lock for NIFTY 50 / 1m. They recheck missing rows after obtaining the lock. Waiting callers reuse the first successful caller's committed rows. The unique market_snapshots(symbol,timeframe,captured_at) index provides the final duplicate protection. Valid existing minute rows are not rewritten, preserving historical calculation watermarks. Invalid rows can be repaired through the same upsert.
+
+market_candle_fetch_states stores the shared attempt timestamp, error class and next allowed attempt. Failed requests impose a 30-second cooldown; incomplete responses impose a 10-second cooldown. This state survives process restarts and prevents each strategy independently retrying an unavailable source. Failed/incomplete fills never authorize a stale trade signal. A retry after a partial response requests only remaining gaps.
+
+The reader requires all 15 minute rows for a session-aligned bar, after a five-second finalization grace. strategy_indicator_candles stores completed bars once under a shared raw-bar profile. strategy_indicator_caches stores its configuration and latest boundary. Existing frozen EMA profiles remain separate and process only newer bars. A daily startup can repair the newly missing previous session before updating its EMA; it does not automatically rewrite older frozen historical exclusions.
+
+The Kite market fetcher runs refresh_shared_nifty_minutes every market minute at second 8 (with calendar/session checks). market_breath's NIFTY minute synchronizer and startup sync use the same helper. This prevents duplicate fetches/writes between collectors and strategy cache misses. Other collector timeframes keep their existing behavior. PE1 and Fixed Profit use the shared MinuteFeed, which queries only a new completed-minute boundary and returns only bars newer than their last processed candle. Their existing quote-driven exits remain ahead of candle reads. The older EMA feed also delegates to this shared reader.
+
+Readiness checks remain read-only: no backfill or cache writes. Apply targeted Rails migration 20261024080000 before enabling the shared helper. The deployment restarted only kite-market-fetcher.service to load the new minute job. No trading schedules or trading service activations were changed.
+
+Validation used real Kite history and concurrent callers in temporary isolated PostgreSQL tables, which were dropped afterward. No synthetic data or trading events were inserted into production tables.
+
+The strategy runners contain no direct historical_data calls. Market-data reads are centralized in the shared fetcher. Minute readers and 15-minute readers share the same canonical 1m source rows, fetch lock, unique identity and cooldown. Their trading rules and timeframe aggregation remain separate.

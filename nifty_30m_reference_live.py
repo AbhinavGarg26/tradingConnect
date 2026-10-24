@@ -19,6 +19,8 @@ load_nifty_environment()
 
 from trading.reference_live_execution import ReferenceExecutor, TAG, FINAL, fresh_price
 
+from market.database_candles import MinuteFeed
+
 log=logging.getLogger(__name__)
 
 
@@ -58,8 +60,6 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
     now_fn=now_fn or (lambda:datetime.now(IST));sleep_fn=sleep_fn or time.sleep
     today=now_fn().date()
     instruments=kite.instruments('NFO')
-    nifty=next((i for i in kite.instruments('NSE') if i['tradingsymbol']=='NIFTY 50'),None)
-    if not nifty:raise RuntimeError('Nifty index instrument unavailable')
     if live and any(o.get('tag')==TAG and o.get('status') not in FINAL for o in kite.orders()):
         raise RuntimeError('Unresolved V3 broker order; reconcile before startup')
     engine=configured_engine(preset)
@@ -70,6 +70,7 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
         executor_class=ProtectedReferenceExecutor
     executor=executor_class(kite,instruments,journal,live=live,now_fn=now_fn)
     last=None
+    candle_feed=MinuteFeed(kite)
     try:
         while True:
             now=now_fn()
@@ -90,8 +91,7 @@ def run_session(kite,user_id,*,live,poll_seconds=3,monitor=None,now_fn=None,slee
                 executor.handle(signal,engine)
             if now.time()>=clock_time(15,16) and executor.position is None:
                 journal.finish('completed');return
-            records=kite.historical_data(nifty['instrument_token'],f'{today} 09:15:00',
-                                         now.strftime('%Y-%m-%d %H:%M:%S'),'minute')
+            records=candle_feed.read(now,after=last)
             for bar in completed_bars(records,now):
                 if last and bar.time<=last:continue
                 signal=engine.on_bar(bar);last=bar.time
