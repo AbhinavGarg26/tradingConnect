@@ -1,6 +1,7 @@
-# Control strategy services from the performance page
+# Control strategy services from the Strategies page
 
-The page now provides Schedule future sessions, Start this session, and Pause
+Open /strategies, then choose Manage strategy. The Manage page provides
+Schedule future sessions, Start this session, and Pause
 future starts, with explicit Paper/Live selection. It supports the two EMA
 strategies, PE1-V1, Fixed Profit · Filtered and Nifty 15m Breakout v3. Defaults are paper. A live request
 requires a risk acknowledgement and a confirmation. Requests are scoped to the
@@ -84,7 +85,7 @@ No commands in this guide have been executed automatically as part of the change
 3. The page first says Queued, then Processing, then Succeeded/Failed/Uncertain.
    Succeeded means the server control command was accepted, not that a strategy
    has authenticated with the broker or filled an order. Verify the next status
-   observation and actual run heartbeat. The page refreshes every 30 seconds.
+   observation and actual run heartbeat. The overview refreshes every 30 seconds; use Refresh on Manage to check a request without losing form selections.
 4. Schedule configures mode and enables the strategy timer. Start configures mode
    and dispatches this session only, leaving the recurring timer paused. Immediate
    starts are rejected outside the runner's startup window; schedule instead.
@@ -138,3 +139,7 @@ safe inactive time, update the effective command to include --user-id 975447485,
 or use a reviewed page request after setup. Do not restart a live runner just
 to refresh its label. Reinstall the updated root-owned helper and deploy/restart
 the control worker/observer when adding this fifth allowlisted strategy.
+
+UI navigation: /strategies is the compact overview; /strategies/STRATEGY_KEY
+contains actions and expandable diagnostics; /strategy_performance contains
+results and history with strategy/mode filters. No activation semantics changed.
