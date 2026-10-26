@@ -7,6 +7,7 @@ from analytics.trade_reconciliation import (
     build_fifo_trade_rows,
     compare_open_quantities,
     is_before_session_reset,
+    reconcile_broker_day_pnl,
     signatures_match,
 )
 
@@ -26,6 +27,53 @@ def execution(order_id, trade_id, side, quantity, price, timestamp, symbol="NIFT
 
 
 class TradeReconciliationTests(unittest.TestCase):
+    def test_broker_pnl_audit_removes_legacy_adjustment_without_creating_trade(self):
+        class Result:
+            def __init__(self, value=None):
+                self.value = value
+
+            def scalar(self):
+                return self.value
+
+        class FakeSession:
+            def __init__(self):
+                self.statements = []
+
+            def execute(self, statement, params=None):
+                sql = str(statement)
+                self.statements.append((sql, params or {}))
+                if "SELECT id FROM market_trades" in sql:
+                    return Result(42)
+                if "DELETE FROM market_trades" in sql:
+                    return Result()
+                raise AssertionError(f"Unexpected statement: {sql}")
+
+        db = FakeSession()
+        repaired = reconcile_broker_day_pnl(
+            db,
+            user_id=7,
+            exchange_link_id="00000000-0000-0000-0000-000000000001",
+            day_start=datetime(2026, 10, 26),
+            day_positions=[{
+                "tradingsymbol": "NIFTY26OCT22500CE",
+                "quantity": 0,
+                # An overnight close has an explicit zero day buy.  This used
+                # to fall back to carry-over totals and create a fake trade.
+                "day_buy_quantity": 0,
+                "day_sell_quantity": 65,
+                "buy_quantity": 65,
+                "sell_quantity": 65,
+                "day_buy_value": 0,
+                "day_sell_value": 9_269,
+                "buy_value": 10_332,
+                "sell_value": 9_269,
+            }],
+        )
+
+        self.assertEqual(repaired, {"NIFTY"})
+        self.assertTrue(any("DELETE FROM market_trades" in sql for sql, _ in db.statements))
+        self.assertFalse(any("INSERT INTO market_trades" in sql for sql, _ in db.statements))
+
     def test_reconciliation_waits_for_the_six_am_session_reset(self):
         self.assertTrue(is_before_session_reset(datetime(2026, 9, 30, 5, 59)))
         self.assertFalse(is_before_session_reset(datetime(2026, 9, 30, 6, 0)))
