@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 from analytics.trade_reconciliation import (
     TradeReconciliationScheduler,
@@ -30,8 +31,25 @@ def execution(order_id, trade_id, side, quantity, price, timestamp, symbol="NIFT
 
 
 class TradeReconciliationTests(unittest.TestCase):
-    def test_periodic_reconciliation_defaults_to_ten_minutes(self):
-        self.assertEqual(TradeReconciliationScheduler().interval_seconds, 600.0)
+    def test_new_trade_sync_is_minutely_and_reconciliation_is_ten_minutely(self):
+        scheduler = TradeReconciliationScheduler()
+        self.assertEqual(scheduler.interval_seconds, 60.0)
+        self.assertEqual(scheduler.reconciliation_interval_seconds, 600.0)
+
+    def test_scheduler_defers_existing_corrections_between_full_reconciliations(self):
+        scheduler = TradeReconciliationScheduler()
+        with patch(
+            "analytics.trade_reconciliation.reconcile_trades_from_start_of_day",
+            return_value=set(),
+        ) as reconcile, patch(
+            "analytics.trade_reconciliation.monotonic_time.monotonic",
+            side_effect=[1_000.0, 1_061.0],
+        ):
+            scheduler.run_if_due(object(), object(), 7)
+            scheduler.run_if_due(object(), object(), 7)
+
+        self.assertTrue(reconcile.call_args_list[0].kwargs["correct_existing"])
+        self.assertFalse(reconcile.call_args_list[1].kwargs["correct_existing"])
 
     def test_execution_identity_ignores_correctable_entry_price(self):
         row = {

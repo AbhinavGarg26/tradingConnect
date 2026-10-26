@@ -66,7 +66,10 @@ timeframe_mappings = [
         ]
 
 scheduler = CandleCompletionScheduler()
-trade_reconciler = TradeReconciliationScheduler(interval_seconds=600)
+trade_reconciler = TradeReconciliationScheduler(
+    interval_seconds=60,
+    reconciliation_interval_seconds=600,
+)
 
 NIFTY_SYMBOL = "NIFTY 50"
 NIFTY_TOKEN = 256265

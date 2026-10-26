@@ -609,6 +609,8 @@ def reconcile_trades_from_start_of_day(
     db: Session,
     user_id: int,
     provider: str = "zerodha",
+    *,
+    correct_existing: bool = True,
 ) -> set[str]:
     """Audit and repair today's non-carryover trade rows from Kite's trade book.
 
@@ -693,9 +695,11 @@ def reconcile_trades_from_start_of_day(
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return repaired_broker_symbols
 
-    repaired_misattributed_symbols = repair_misattributed_carryover_closures(
-        db, trade_user_id, exchange_link_id, day_start, expected_rows
-    )
+    repaired_misattributed_symbols = set()
+    if correct_existing:
+        repaired_misattributed_symbols = repair_misattributed_carryover_closures(
+            db, trade_user_id, exchange_link_id, day_start, expected_rows
+        )
 
     # Only executions left OPEN by today's FIFO replay can close overnight
     # inventory.  A sell already paired with today's buy must never consume an
@@ -801,6 +805,13 @@ def reconcile_trades_from_start_of_day(
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return repaired_execution_symbols
 
+    # The one-minute pass is append-focused: it may add a wholly new symbol,
+    # but leaves any existing journal correction to the ten-minute audit.
+    if actual_rows and not correct_existing:
+        logger.info("Existing journal differences deferred to ten-minute reconciliation")
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
+        return repaired_execution_symbols
+
     # When the execution identities still match, correct mutable values in
     # place.  This preserves market_trade IDs used by journal replays and lets
     # periodic reconciliation repair an initially stale/partial average price.
@@ -847,7 +858,7 @@ def reconcile_trades_from_start_of_day(
           AND ccu.table_name = 'market_trades'
           AND tc.table_name <> 'market_trades'
     """)).scalar_one()
-    if dependent_fk_count:
+    if dependent_fk_count and actual_rows:
         logger.critical(
             "Trade reconciliation found a mismatch but auto-repair was skipped: "
             "market_trades has %s dependent foreign keys",
@@ -902,14 +913,30 @@ def reconcile_trades_from_start_of_day(
 
 
 class TradeReconciliationScheduler:
-    def __init__(self, interval_seconds: float = 600.0):
+    def __init__(
+        self,
+        interval_seconds: float = 60.0,
+        reconciliation_interval_seconds: float = 600.0,
+    ):
         self.interval_seconds = interval_seconds
+        self.reconciliation_interval_seconds = reconciliation_interval_seconds
         self._last_run = 0.0
+        self._last_reconciliation = 0.0
 
     def run_if_due(self, kite, db: Session, user_id: int) -> set[str]:
         now = monotonic_time.monotonic()
         if now - self._last_run < self.interval_seconds:
             return set()
+        full_reconciliation = (
+            now - self._last_reconciliation >= self.reconciliation_interval_seconds
+        )
         # Set before the network call to avoid a rapid failure loop.
         self._last_run = now
-        return reconcile_trades_from_start_of_day(kite, db, user_id)
+        if full_reconciliation:
+            self._last_reconciliation = now
+        return reconcile_trades_from_start_of_day(
+            kite,
+            db,
+            user_id,
+            correct_existing=full_reconciliation,
+        )
