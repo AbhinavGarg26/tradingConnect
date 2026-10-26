@@ -244,6 +244,18 @@ def _signature(row: dict) -> tuple:
     )
 
 
+def _row_identity(row: dict) -> tuple:
+    """Stable execution identity used for FK-safe in-place corrections."""
+    return (
+        str(row["entry_order_id"]),
+        str(row["exit_order_id"]) if row.get("exit_order_id") else None,
+        str(row["tradingsymbol"]),
+        str(row["trade_type"]),
+        int(row["quantity"]),
+        str(row["status"]),
+    )
+
+
 def signatures_match(actual_rows: Iterable[dict], expected_rows: Iterable[dict]) -> bool:
     """Compare duplicate-aware row signatures without ordering None and numbers."""
     return Counter(map(_signature, actual_rows)) == Counter(map(_signature, expected_rows))
@@ -445,6 +457,56 @@ def reconcile_carryover_closures(
     return repaired
 
 
+def repair_misattributed_carryover_closures(
+    db: Session,
+    user_id: int,
+    exchange_link_id: str,
+    day_start: datetime,
+    expected_rows: Iterable[dict],
+) -> set[str]:
+    """Replace a stale carry-over match with the broker's same-day round trip.
+
+    An exit must first be paired with today's executions.  Older code closed a
+    stale historical OPEN row before doing that pairing, which is how a real
+    ₹158.95 entry was displayed as the old row's ₹430 entry.  Matching the
+    unique exit order lets us correct the existing row in place and preserve
+    any replay foreign keys.
+    """
+    repaired: set[str] = set()
+    update_query = text("""
+        UPDATE market_trades
+        SET symbol = :symbol, tradingsymbol = :tradingsymbol,
+            option_type = :option_type, entry_order_id = :entry_order_id,
+            trade_type = :trade_type, quantity = :quantity,
+            entry_price = :entry_price, exit_price = :exit_price,
+            realized_pnl = :realized_pnl, total_charges = :total_charges,
+            status = :status, entry_time = :entry_time, exit_time = :exit_time,
+            updated_at = NOW()
+        WHERE user_id = :user_id
+          AND exchange_link_id = CAST(:exchange_link_id AS UUID)
+          AND status = 'CLOSED'
+          AND entry_time < :day_start
+          AND exit_time >= :day_start
+          AND exit_order_id = :exit_order_id
+    """)
+    for row in expected_rows:
+        if row["status"] != "CLOSED" or not row.get("exit_order_id"):
+            continue
+        result = db.execute(update_query, {
+            **row,
+            "user_id": user_id,
+            "exchange_link_id": exchange_link_id,
+            "day_start": day_start,
+        })
+        if result.rowcount:
+            repaired.add(row["symbol"])
+            logger.warning(
+                "[%s] Corrected stale carry-over match from broker executions",
+                row["tradingsymbol"],
+            )
+    return repaired
+
+
 def reconcile_broker_day_pnl(
     db: Session,
     user_id: int,
@@ -578,12 +640,9 @@ def reconcile_trades_from_start_of_day(
         )
         return set()
 
-    # Kite's positions endpoint is the authoritative aggregate for the broker
-    # day.  Reconcile it *before* relying on the execution feed: Kite can
-    # occasionally return an incomplete trade book after a restart or late in
-    # the session, which must not leave a material closed loss out of the
-    # journal.  This path only creates a deterministic per-symbol adjustment
-    # for fully closed positions; it never treats an open position as realised.
+    # Kite's positions endpoint is an aggregate audit signal.  Check it before
+    # the execution feed and remove any legacy synthetic adjustment rows, but
+    # never turn a position-level difference into a journal trade.
     day_positions = None
     repaired_broker_symbols: set[str] = set()
     try:
@@ -634,13 +693,32 @@ def reconcile_trades_from_start_of_day(
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
         return repaired_broker_symbols
 
-    repaired_carryover_symbols = reconcile_carryover_closures(
-        db, trade_user_id, exchange_link_id, day_start, order_executions
+    repaired_misattributed_symbols = repair_misattributed_carryover_closures(
+        db, trade_user_id, exchange_link_id, day_start, expected_rows
     )
-    if repaired_carryover_symbols:
+
+    # Only executions left OPEN by today's FIFO replay can close overnight
+    # inventory.  A sell already paired with today's buy must never consume an
+    # older journal row.
+    unmatched_order_ids = {
+        row["entry_order_id"] for row in expected_rows if row["status"] == "OPEN"
+    }
+    unmatched_executions = [
+        execution for execution in order_executions
+        if execution["order_id"] in unmatched_order_ids
+    ]
+    repaired_carryover_symbols = reconcile_carryover_closures(
+        db, trade_user_id, exchange_link_id, day_start, unmatched_executions
+    )
+    if repaired_misattributed_symbols or repaired_carryover_symbols:
         # Persist before any safe early return below; reconciliation can be
         # carry-over-only with no repairable same-day symbols.
         db.commit()
+    repaired_execution_symbols = (
+        repaired_misattributed_symbols
+        | repaired_carryover_symbols
+        | repaired_broker_symbols
+    )
 
     all_symbols = {row["tradingsymbol"] for row in expected_rows}
     carryover_query = text("""
@@ -671,14 +749,14 @@ def reconcile_trades_from_start_of_day(
     repairable = all_symbols - carryover_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols | repaired_broker_symbols
+        return repaired_execution_symbols
 
     if day_positions is None:
         try:
             day_positions = kite.positions().get("day", [])
         except Exception as exc:
             logger.error("Kite day-position validation failed; auto-repair skipped: %s", exc)
-            return repaired_carryover_symbols | repaired_broker_symbols
+            return repaired_execution_symbols
     expected_day_quantities = _row_open_quantities(expected_rows)
     broker_day_quantities = _broker_position_quantities(day_positions)
     unsafe_symbols = {
@@ -695,10 +773,10 @@ def reconcile_trades_from_start_of_day(
     repairable -= unsafe_symbols
     if not repairable:
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols | repaired_broker_symbols
+        return repaired_execution_symbols
 
     actual_query = text("""
-        SELECT tradingsymbol, trade_type, quantity, entry_price, exit_price,
+        SELECT id, tradingsymbol, trade_type, quantity, entry_price, exit_price,
                realized_pnl, total_charges, status, entry_order_id, exit_order_id,
                entry_time, exit_time
         FROM market_trades
@@ -721,7 +799,44 @@ def reconcile_trades_from_start_of_day(
     if signatures_match(actual_rows, expected_repairable):
         logger.info("Trade reconciliation passed for %d symbols", len(repairable))
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols | repaired_broker_symbols
+        return repaired_execution_symbols
+
+    # When the execution identities still match, correct mutable values in
+    # place.  This preserves market_trade IDs used by journal replays and lets
+    # periodic reconciliation repair an initially stale/partial average price.
+    actual_by_identity = {_row_identity(row): row for row in actual_rows}
+    expected_by_identity = {_row_identity(row): row for row in expected_repairable}
+    identities_are_unique = (
+        len(actual_by_identity) == len(actual_rows)
+        and len(expected_by_identity) == len(expected_repairable)
+    )
+    if identities_are_unique and actual_by_identity.keys() == expected_by_identity.keys():
+        update_query = text("""
+            UPDATE market_trades
+            SET entry_price = :entry_price, exit_price = :exit_price,
+                realized_pnl = :realized_pnl, total_charges = :total_charges,
+                entry_time = :entry_time, exit_time = :exit_time,
+                updated_at = NOW()
+            WHERE id = :id
+        """)
+        for identity, expected in expected_by_identity.items():
+            db.execute(update_query, {
+                "id": actual_by_identity[identity]["id"],
+                "entry_price": expected["entry_price"],
+                "exit_price": expected.get("exit_price"),
+                "realized_pnl": expected.get("realized_pnl"),
+                "total_charges": expected.get("total_charges", 0),
+                "entry_time": expected["entry_time"],
+                "exit_time": expected.get("exit_time"),
+            })
+        db.commit()
+        corrected_symbols = {row["symbol"] for row in expected_repairable}
+        logger.warning(
+            "Trade reconciliation corrected %d journal rows in place",
+            len(expected_repairable),
+        )
+        audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
+        return repaired_execution_symbols | corrected_symbols
 
     dependent_fk_count = db.execute(text("""
         SELECT COUNT(*)
@@ -739,7 +854,7 @@ def reconcile_trades_from_start_of_day(
             dependent_fk_count,
         )
         audit_open_quantities(kite, db, trade_user_id, exchange_link_id)
-        return repaired_carryover_symbols | repaired_broker_symbols
+        return repaired_execution_symbols
 
     delete_query = text("""
         DELETE FROM market_trades
@@ -777,7 +892,7 @@ def reconcile_trades_from_start_of_day(
         })
     db.commit()
 
-    root_symbols = repaired_carryover_symbols | repaired_broker_symbols | {row["symbol"] for row in expected_repairable}
+    root_symbols = repaired_misattributed_symbols | repaired_carryover_symbols | repaired_broker_symbols | {row["symbol"] for row in expected_repairable}
     logger.warning(
         "Trade reconciliation repaired %d rows across %d symbols",
         len(expected_repairable), len(repairable),
@@ -787,7 +902,7 @@ def reconcile_trades_from_start_of_day(
 
 
 class TradeReconciliationScheduler:
-    def __init__(self, interval_seconds: float = 30.0):
+    def __init__(self, interval_seconds: float = 600.0):
         self.interval_seconds = interval_seconds
         self._last_run = 0.0
 

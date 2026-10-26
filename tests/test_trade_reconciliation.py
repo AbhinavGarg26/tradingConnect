@@ -2,12 +2,15 @@ import unittest
 from datetime import datetime
 
 from analytics.trade_reconciliation import (
+    TradeReconciliationScheduler,
+    _row_identity,
     aggregate_order_executions,
     attach_order_charges,
     build_fifo_trade_rows,
     compare_open_quantities,
     is_before_session_reset,
     reconcile_broker_day_pnl,
+    repair_misattributed_carryover_closures,
     signatures_match,
 )
 
@@ -27,6 +30,63 @@ def execution(order_id, trade_id, side, quantity, price, timestamp, symbol="NIFT
 
 
 class TradeReconciliationTests(unittest.TestCase):
+    def test_periodic_reconciliation_defaults_to_ten_minutes(self):
+        self.assertEqual(TradeReconciliationScheduler().interval_seconds, 600.0)
+
+    def test_execution_identity_ignores_correctable_entry_price(self):
+        row = {
+            "entry_order_id": "ENTRY-1",
+            "exit_order_id": "EXIT-1",
+            "tradingsymbol": "NIFTY26OCT22600CE",
+            "trade_type": "BUY",
+            "quantity": 65,
+            "status": "CLOSED",
+            "entry_price": 200.5,
+        }
+        corrected = {**row, "entry_price": 201.25}
+
+        self.assertEqual(_row_identity(row), _row_identity(corrected))
+
+    def test_same_day_execution_corrects_stale_carryover_price_in_place(self):
+        class Result:
+            rowcount = 1
+
+        class FakeSession:
+            def __init__(self):
+                self.params = None
+
+            def execute(self, _statement, params):
+                self.params = params
+                return Result()
+
+        db = FakeSession()
+        repaired = repair_misattributed_carryover_closures(
+            db,
+            user_id=7,
+            exchange_link_id="00000000-0000-0000-0000-000000000001",
+            day_start=datetime(2026, 10, 26),
+            expected_rows=[{
+                "symbol": "NIFTY",
+                "tradingsymbol": "NIFTY26OCT22500CE",
+                "option_type": "CE",
+                "entry_order_id": "BUY-TODAY",
+                "exit_order_id": "SELL-TODAY",
+                "trade_type": "BUY",
+                "quantity": 65,
+                "entry_price": 158.95,
+                "exit_price": 142.6,
+                "realized_pnl": -1062.75,
+                "total_charges": 77.75,
+                "status": "CLOSED",
+                "entry_time": datetime(2026, 10, 26, 9, 10),
+                "exit_time": datetime(2026, 10, 26, 9, 17),
+            }],
+        )
+
+        self.assertEqual(repaired, {"NIFTY"})
+        self.assertEqual(db.params["entry_price"], 158.95)
+        self.assertEqual(db.params["entry_order_id"], "BUY-TODAY")
+
     def test_broker_pnl_audit_removes_legacy_adjustment_without_creating_trade(self):
         class Result:
             def __init__(self, value=None):
