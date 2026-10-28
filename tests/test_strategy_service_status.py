@@ -1,5 +1,5 @@
 import unittest
-from strategy_service_status import observe
+from strategy_service_status import observe,runtime_record
 
 class StatusTests(unittest.TestCase):
     def test_systemd_environment_user_id_is_resolved_without_storing_secrets(self):
@@ -42,3 +42,18 @@ class StatusTests(unittest.TestCase):
             ExecStart='/app/fixed_profit_filtered_live.py --user-id 2 --live'),expected_user_id=1)
         self.assertFalse(report['command_matches'])
         self.assertEqual('unknown',report['configured_mode'])
+
+    def test_inactive_service_with_enabled_waiting_timer_is_scheduled(self):
+        def probe(unit):
+            if unit.endswith('.timer'):
+                return dict(ActiveState='active',UnitFileState='enabled',NextElapseUSecRealtime='tomorrow')
+            return dict(ActiveState='inactive',SubState='dead',MainPID='0',Result='success')
+        record=runtime_record('example',dict(unit='example',timer=True,category='strategy',display_name='Example'),probe)
+        self.assertEqual('scheduled',record['status'])
+        self.assertEqual('tomorrow',record['metadata']['next_run'])
+
+    def test_active_service_reports_pid(self):
+        record=runtime_record('worker',dict(unit='worker',timer=False,category='support',display_name='Worker'),
+            lambda _unit:dict(ActiveState='active',SubState='running',MainPID='42',Result='success'))
+        self.assertEqual('active',record['status'])
+        self.assertEqual(42,record['pid'])
