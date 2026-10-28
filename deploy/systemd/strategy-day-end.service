@@ -1,0 +1,12 @@
+[Unit]
+Description=Backfill missing 10-session paper strategy trades
+After=network-online.target strategy-status-observer.service
+
+[Service]
+Type=oneshot
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/strategy_day_end.py --user-id ${EMA_USER_ID}
+

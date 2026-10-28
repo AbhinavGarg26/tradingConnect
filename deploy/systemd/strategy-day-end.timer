@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the strategy paper-trade backfill after market close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 16:00:00 Asia/Kolkata
+Persistent=true
+Unit=strategy-day-end.service
+
+[Install]
+WantedBy=timers.target
+
