@@ -3,18 +3,16 @@ set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Production uses this one checkout for both managed services. Do not restart
-# the live strategy while it may hold an option position; its in-memory state
-# cannot be reconstructed safely by a fresh process.
-if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
+# Production uses one checkout for the managed services. Active strategies are
+# never restarted: their in-memory position state cannot be reconstructed
+# safely. A deploy shortly after the opening bell may, however, recover a timer
+# that was missed while the host was down.
+if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
+      || "$project_dir" == "/home/ubuntu/tradingConnect" ]] \
     && systemctl cat nifty-15m-v3.timer >/dev/null 2>&1; then
   if [[ $# -ne 0 ]]; then
     echo "Usage: $0" >&2
     exit 2
-  fi
-  if sudo -n systemctl is-active --quiet nifty-15m-v3.service; then
-    echo "NIFTY live strategy is active; refusing to deploy or restart it mid-session." >&2
-    exit 1
   fi
   python_bin="$project_dir/.venv/bin/python"
   if [[ ! -x "$python_bin" ]]; then
@@ -22,30 +20,74 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" ]] \
     exit 1
   fi
   "$python_bin" -m compileall -q "$project_dir/nifty_15m_live.py" \
+    "$project_dir/nifty_30m_reference_live.py" \
+    "$project_dir/fixed_profit_filtered_live.py" \
+    "$project_dir/ema_strategy_runner.py" \
     "$project_dir/strategy_guardian.py" "$project_dir/trading/strategy_risk.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
-    "$project_dir/market_breath.py"
-  if ! systemctl cat market-breath.timer >/dev/null 2>&1; then
-    echo "market-breath.timer is not installed; ask an administrator to install deploy/systemd units." >&2
-    exit 1
-  fi
-  if ! systemctl cat strategy-guardian.timer >/dev/null 2>&1; then
-    echo "strategy-guardian.timer is not installed; ask an administrator to install deploy/systemd units." >&2
-    exit 1
-  fi
+    "$project_dir/market_breath.py" "$project_dir/strategy_day_end.py"
+
+  strategy_units=(
+    nifty-15m-v3
+    nifty-30m-pe1
+    fixed-profit-filtered
+    nifty-bearish-15m-ema
+    nifty-bullish-15m-ema
+    nifty-daily-ema-calls
+  )
+  required_timers=(market-breath strategy-guardian strategy-status-observer strategy-day-end "${strategy_units[@]}")
+  for unit in "${required_timers[@]}"; do
+    if ! systemctl cat "$unit.timer" >/dev/null 2>&1; then
+      echo "$unit.timer is not installed; ask an administrator to install deploy/systemd units." >&2
+      exit 1
+    fi
+  done
+  ist_weekday="$(TZ=Asia/Kolkata date +%u)"
+  ist_clock="$(TZ=Asia/Kolkata date +%H%M)"
+  ist_day="$(TZ=Asia/Kolkata date +%Y-%m-%d)"
+
   # Keep boot disabled, but retain the 09:15 timer for normal daily starts.
   # A deployment is also the manual recovery path if that timer was missed.
   sudo -n systemctl disable market-breath.service
   sudo -n systemctl enable --now market-breath.timer
-  # Use the service alias permitted to the deployment account by sudoers.
-  sudo -n systemctl restart market-breath
-  sudo -n systemctl status market-breath >/dev/null
+  # Market Breath exits normally after its session window. Restart it only
+  # while it can remain active; its timer owns the next scheduled start.
+  if (( ist_weekday <= 5 )) && [[ "$ist_clock" > "0859" && "$ist_clock" < "1541" ]]; then
+    # Use the service alias permitted to the deployment account by sudoers.
+    sudo -n systemctl restart market-breath
+    sudo -n systemctl is-active --quiet market-breath.service
+  fi
   sudo -n systemctl restart kite-market-fetcher.service
   sudo -n systemctl is-active --quiet kite-market-fetcher.service
-  sudo -n systemctl enable --now strategy-guardian.timer
-  sudo -n systemctl enable --now nifty-15m-v3.timer
+  sudo -n systemctl enable --now strategy-guardian.timer strategy-status-observer.timer \
+    strategy-day-end.timer "${strategy_units[@]/%/.timer}"
+
+  # Recover only a genuinely missed opening timer. Never restart a service that
+  # is active or rerun one whose timer already fired today. The 09:45 cutoff is
+  # shared with the strictest runner (Fixed Profit), preventing stale catch-up
+  # entries later in the session.
+  recovered=()
+  if (( ist_weekday <= 5 )) && [[ "$ist_clock" > "0913" && "$ist_clock" < "0946" ]]; then
+    for unit in "${strategy_units[@]}"; do
+      if systemctl is-active --quiet "$unit.service"; then
+        continue
+      fi
+      last_trigger="$(systemctl show "$unit.timer" --property=LastTriggerUSec --value)"
+      if [[ "$last_trigger" == *"$ist_day"* ]]; then
+        continue
+      fi
+      sudo -n systemctl start "$unit.service"
+      recovered+=("$unit")
+    done
+  fi
+
   echo "Market Breath and Kite fetcher restarted from $project_dir ($(git -C "$project_dir" rev-parse --short HEAD))."
-  echo "Market Breath, strategy guardian (09:14), and NIFTY v3 (09:15) timers remain enabled."
+  echo "All strategy, guardian, observer, and day-end timers are enabled."
+  if ((${#recovered[@]})); then
+    echo "Recovered missed opening services: ${recovered[*]}."
+  else
+    echo "No missed opening strategy services required recovery."
+  fi
   exit 0
 fi
 
