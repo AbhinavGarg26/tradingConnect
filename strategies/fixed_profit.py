@@ -20,7 +20,9 @@ class FixedProfit(NiftyOpeningRange):
     """
 
     def __init__(self, *, min_range_points=40, confirmation_minutes=5,
-                 tolerance_points=2, setup_mode='retest', follow_through=False, stop_points=15, entry_stop_points=10):
+                 tolerance_points=2, setup_mode='retest', follow_through=False,
+                 stop_points=15, target_points=30, entry_stop_points=10,
+                 max_entries=1):
         if confirmation_minutes not in {1, 3, 5}:
             raise ValueError('Confirmation candles must be 1, 3, or 5 minutes')
         if setup_mode not in {'retest', 'rejection'}:
@@ -29,8 +31,8 @@ class FixedProfit(NiftyOpeningRange):
         self.tolerance = Decimal(str(tolerance_points))
         if not all(v.is_finite() and v >= 0 for v in (self.min_range_points, self.tolerance)):
             raise ValueError('Range threshold and tolerance must be finite and nonnegative')
-        super().__init__(risk_mode='index', reference_minutes=30, max_entries=1,
-                         stop_points=stop_points, target_points=30)
+        super().__init__(risk_mode='index', reference_minutes=30, max_entries=max_entries,
+                         stop_points=stop_points, target_points=target_points)
         self.entry_stop_points = Decimal(str(entry_stop_points))
         if not self.entry_stop_points.is_finite() or self.entry_stop_points <= 0:
             raise ValueError('Entry stop distance must be positive and finite')
