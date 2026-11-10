@@ -60,6 +60,10 @@ class HelperTests(unittest.TestCase):
         apply(CONFIG,1,'nifty_30m_reference','schedule','live',self.ctl,self.write)
         self.assertIn('--preset pe1-v1 --live',self.writes[0][1])
         self.assertIn(('enable','--now','strategy-guardian.timer'),self.calls)
+    def test_noise_area_live_is_explicit_and_guardian_protected(self):
+        apply(CONFIG,1,'nifty_noise_area','schedule','live',self.ctl,self.write)
+        self.assertIn('nifty_noise_area_live.py --user-id 1 --live',self.writes[0][1])
+        self.assertIn(('enable','--now','strategy-guardian.timer'),self.calls)
     def test_pending_job_blocks_override(self):
         def pending(*args):
             if '--property=Job' in args:return '42 /job/42'
@@ -106,6 +110,11 @@ class RequestValidationTests(unittest.TestCase):
         validate_request(self.row,self.db,self.now)
     def test_live_pe1_requires_saved_risk_approval(self):
         self.row['strategy_key']='nifty_30m_reference'
+        self.db.execute.return_value.mappings.return_value.first.return_value=None
+        with self.assertRaisesRegex(ValueError,'risk settings'):validate_request(self.row,self.db,self.now)
+
+    def test_live_noise_area_requires_saved_risk_approval(self):
+        self.row['strategy_key']='nifty_noise_area'
         self.db.execute.return_value.mappings.return_value.first.return_value=None
         with self.assertRaisesRegex(ValueError,'risk settings'):validate_request(self.row,self.db,self.now)
 

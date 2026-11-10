@@ -15,6 +15,7 @@ PROFILES={
  'nifty_daily_ema_monthly':('nifty-daily-ema-calls','ema_strategy_runner.py',['--strategy','daily_calls']),
  'nifty_bearish_15m_9_21':('nifty-bearish-15m-ema','ema_strategy_runner.py',['--strategy','bearish_puts']),
  'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py',['--strategy','bullish_calls']),
+ 'nifty_noise_area':('nifty-noise-area','nifty_noise_area_live.py',[]),
 }
 CONFIG=Path('/etc/trading-strategy-control.json')
 
@@ -89,7 +90,7 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
             legacy=ctl('show','nifty-30m-reference-v3.'+suffix,'--property=ActiveState','--value')
             if legacy not in {'inactive','failed',''}:
                 raise RuntimeError('Pause the legacy V3 timer/runner before controlling PE1')
-    if key in {'nifty_30m_reference','nifty_15m_breakout'}:
+    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area'}:
         if mode=='live' and ctl('show','strategy-guardian.timer','--property=LoadState','--value')!='loaded':
             raise RuntimeError('Install the strategy guardian timer before scheduling protected live strategies')
     # Disable scheduling before changing the effective command. A partial failure
@@ -101,7 +102,7 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
     arguments=re.findall(r'argv\[\]=(.*?)\s+;',effective)
     if len(arguments)!=1 or arguments[0].split()!=command.split():
         raise RuntimeError('Another service override changed the command; timer remains paused. Review systemctl cat')
-    if key in {'nifty_30m_reference','nifty_15m_breakout'} and mode=='live':ctl('enable','--now','strategy-guardian.timer')
+    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area'} and mode=='live':ctl('enable','--now','strategy-guardian.timer')
     if operation=='schedule':
         ctl('enable','--now',unit+'.timer')
         return f'{mode.upper()} mode configured; future sessions scheduled. Check observed status.'

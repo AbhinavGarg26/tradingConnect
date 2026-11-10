@@ -1,0 +1,11 @@
+[Unit]
+Description=Start NIFTY noise-area momentum at 09:15 IST
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:15:05 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=nifty-noise-area.service
+
+[Install]
+WantedBy=timers.target

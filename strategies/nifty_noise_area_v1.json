@@ -1,0 +1,14 @@
+{
+  "name": "nifty_noise_area_v1",
+  "status": "Frozen live-capable candidate; defaults paper and requires protected risk approval",
+  "config": {
+    "lookback": 14,
+    "volatility_multiplier": 1.0,
+    "cost_points": 2.0,
+    "slippage_each_fill": 0.5,
+    "first_check": "09:45",
+    "last_entry": "14:45",
+    "forced_exit": "15:15",
+    "max_entries": null
+  }
+}

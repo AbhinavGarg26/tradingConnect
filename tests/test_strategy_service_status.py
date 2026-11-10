@@ -37,6 +37,12 @@ class StatusTests(unittest.TestCase):
         report=observe('fixed_profit_filtered',lambda unit:dict(ExecStart='/app/fixed_profit_filtered_live.py --user-id 1'))
         self.assertEqual('paper',report['configured_mode'])
 
+    def test_noise_area_live_command_is_observed(self):
+        report=observe('nifty_noise_area',lambda unit:dict(
+            ExecStart='/app/nifty_noise_area_live.py --user-id 1 --live'))
+        self.assertEqual('live',report['configured_mode'])
+        self.assertTrue(report['command_matches'])
+
     def test_another_accounts_service_cannot_claim_this_accounts_mode(self):
         report=observe('fixed_profit_filtered',lambda unit:dict(
             ExecStart='/app/fixed_profit_filtered_live.py --user-id 2 --live'),expected_user_id=1)

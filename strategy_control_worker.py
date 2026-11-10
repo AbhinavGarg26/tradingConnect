@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 log=logging.getLogger(__name__)
-KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'}
+KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area'}
 IST=ZoneInfo('Asia/Kolkata')
 
 
@@ -35,7 +35,7 @@ def validate_request(row,db,now):
             AND strategy_key=:key AND (status IN ('halted','reconcile') OR pending_signal != '{}'::jsonb) LIMIT 1'''),
             dict(user_id=row['user_id'],key=row['strategy_key'])).first():
             raise ValueError('EMA checkpoint requires reconciliation before activation')
-    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout'}:
+    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area'}:
         risk=db.execute(text('''SELECT * FROM strategy_risk_settings WHERE user_id=:user_id
             AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
         if not risk or not risk['live_enabled'] or risk['stop_mode']!='broker_stop_limit' or risk['adverse_action']!='emergency_exit':
@@ -51,6 +51,7 @@ def validate_request(row,db,now):
         local=now.astimezone(IST)
         opening=time(9,15);cutoff=time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'} else time(9,45)
         if row['strategy_key']=='nifty_15m_breakout':cutoff=time(15,0)
+        if row['strategy_key']=='nifty_noise_area':cutoff=time(9,40)
         holiday=db.execute(text('SELECT 1 FROM trading_holidays WHERE holiday_date=:day'),dict(day=local.date())).first()
         if local.weekday()>=5 or holiday or not opening<=local.time()<cutoff:
             raise ValueError('Outside this strategy startup window; use Schedule future sessions')
