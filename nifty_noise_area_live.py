@@ -12,6 +12,9 @@ from decimal import Decimal
 
 from sqlalchemy import select, text
 
+from nifty_15m_env import load_nifty_environment
+load_nifty_environment()
+
 from market.database_candles import MinuteFeed, _local
 from market.kite_orders import place_protected_market_order
 from strategies.nifty_noise_area import KEY, VERSION, LOOKBACK, NoiseAreaMomentum, NoiseSignal
@@ -300,8 +303,6 @@ def main():
     parser.add_argument("--poll-seconds", type=int, default=3)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    from nifty_15m_env import load_nifty_environment
-    load_nifty_environment()
     from trading.database import get_db
     from trading.user_token import fetch_user_token
     from market.trading_calendar import is_nse_trading_day

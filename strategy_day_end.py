@@ -83,6 +83,24 @@ def _as_trade(item, key):
                 reason=item.get("exit_reason", "ema_reversal"))
 
 
+def _complete_minute_sessions(rows):
+    """Return regular 09:15-15:29 sessions and ignore partial broker data."""
+    grouped = {}
+    for row in rows:
+        stamp = _stamp(row["date"])
+        grouped.setdefault(stamp.date(), []).append(row)
+    complete = []
+    for _day, session in sorted(grouped.items()):
+        session.sort(key=lambda row: _stamp(row["date"]))
+        stamps = [_stamp(row["date"]) for row in session]
+        if (len(session) == 375 and stamps[0].time() == time(9, 15)
+                and stamps[-1].time() == time(15, 29)
+                and all(right - left == timedelta(minutes=1)
+                        for left, right in zip(stamps, stamps[1:]))):
+            complete.append(session)
+    return complete
+
+
 def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
     """Replay the production decision engines and return closed index trades."""
     raw = []
@@ -91,17 +109,19 @@ def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
         raw, _ = completed_trades(run(fifteen_rows))
     elif key == "nifty_30m_reference":
         from backtest.nifty_30m_reference import run
-        raw, *_ = run(minute_rows, stop_points=25, max_entries=1, buffer_percent=5, first_signal_pe=True)
+        for session in _complete_minute_sessions(minute_rows):
+            trades, *_ = run(session, stop_points=25, max_entries=1,
+                              buffer_percent=5, first_signal_pe=True)
+            raw.extend(trades)
     elif key == "fixed_profit_filtered":
         from backtest.fixed_profit_filtered import replay as replay_session
         # Reuse the loader's strict complete-session checks without a temporary file.
-        grouped = {}
         from strategies.nifty_15m_breakout import Bar
-        for row in minute_rows:
-            stamp = _stamp(row["date"])
-            grouped.setdefault(stamp.date(), []).append(Bar(stamp, *(Decimal(str(row[k])) for k in ("open","high","low","close"))))
-        raw = [trade for day, bars in sorted(grouped.items())
-               if len(bars) == 375 and (trade := replay_session(bars))]
+        raw = [trade for session in _complete_minute_sessions(minute_rows)
+               if (trade := replay_session([
+                   Bar(_stamp(row["date"]), *(Decimal(str(row[k]))
+                       for k in ("open", "high", "low", "close")))
+                   for row in session]))]
     elif key == "nifty_bullish_15m_9_21":
         from backtest.nifty_bullish_ema_timeframes import run
         _report, raw, _signals, _curve = run(
