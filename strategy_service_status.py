@@ -15,6 +15,7 @@ UNITS={
     'nifty_bearish_15m_9_21':('nifty-bearish-15m-ema','ema_strategy_runner.py','--strategy bearish_puts'),
     'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py','--strategy bullish_calls'),
     'nifty_noise_area':('nifty-noise-area','nifty_noise_area_live.py',''),
+    'one_direction_profit_lock':('one-direction-profit-lock','one_direction_profit_lock_service.py',''),
 }
 
 RUNTIME_SERVICES={
@@ -25,6 +26,7 @@ RUNTIME_SERVICES={
     'nifty_bearish_15m_9_21':dict(unit='nifty-bearish-15m-ema',timer=True,category='strategy',display_name='Nifty bearish 15m EMA'),
     'nifty_bullish_15m_9_21':dict(unit='nifty-bullish-15m-ema',timer=True,category='strategy',display_name='Nifty bullish 15m EMA'),
     'nifty_noise_area':dict(unit='nifty-noise-area',timer=True,category='strategy',display_name='Nifty noise-area momentum'),
+    'one_direction_profit_lock':dict(unit='one-direction-profit-lock',timer=True,category='strategy',display_name='One Direction Profit Lock V2.1'),
     'strategy_guardian':dict(unit='strategy-guardian',timer=True,category='support',display_name='Strategy guardian'),
     'strategy_control_worker':dict(unit='strategy-control-worker',timer=False,category='support',display_name='Strategy control worker'),
     'strategy_status_observer':dict(unit='strategy-status-observer',timer=True,category='support',display_name='Strategy status observer',prefer_timer_state=True,schedule_label='Every 60 seconds'),

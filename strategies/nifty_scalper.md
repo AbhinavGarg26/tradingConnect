@@ -15,8 +15,11 @@ validation, and holdout, satisfies minimum sample sizes, and keeps total
 cost-adjusted drawdown below 500 index points.
 
 This is a completed-candle signal engine, not permission to place live orders.
-It uses NIFTY index bars and delegates option selection, fills, rupee sizing,
-broker protection, journaling, and reconciliation to a future reviewed runner.
+It uses NIFTY index bars. At entry, `nearest_weekly_atm_for_signal` selects the
+nearest listed unexpired NIFTY expiry and nearest ATM strike: `BUY_CE` selects
+CE and `BUY_PE` selects PE. It fails closed if that side is unavailable. Fills,
+rupee sizing, broker protection, journaling, and reconciliation remain
+delegated to a future reviewed runner.
 
 Rules:
 

@@ -5,7 +5,7 @@ import pytest
 
 from strategies.nifty_15m_breakout import Bar
 from strategies.nifty_opening_range import IST
-from strategies.nifty_scalper import NiftyScalper
+from strategies.nifty_scalper import NiftyScalper, ScalpSignal, nearest_weekly_atm_for_signal
 from backtest.nifty_scalper_research import promotion_check
 
 START = datetime(2026, 11, 9, 9, 15, tzinfo=IST)
@@ -103,3 +103,32 @@ def test_research_promotion_accepts_only_complete_healthy_periods():
         "all_cost_2": {"max_drawdown_points": 400},
     }
     assert promotion_check(score)["accepted"]
+
+
+@pytest.mark.parametrize("action,side", [("BUY_CE", "CE"), ("BUY_PE", "PE")])
+def test_entry_signal_selects_nearest_expiry_atm_matching_side(action, side):
+    expiries = (START.date() + timedelta(days=1), START.date() + timedelta(days=8))
+    instruments = [
+        {"name": "NIFTY", "instrument_type": option_side, "expiry": expiry,
+         "strike": strike, "tradingsymbol": f"NIFTY-{expiry}-{strike}-{option_side}"}
+        for expiry in expiries
+        for strike in (25200, 25250, 25300)
+        for option_side in ("CE", "PE")
+    ]
+    signal = ScalpSignal(action, START, D("25260"), "test")
+
+    contract = nearest_weekly_atm_for_signal(instruments, START.date(), signal)
+
+    assert contract["expiry"] == expiries[0]
+    assert contract["strike"] == 25250
+    assert contract["instrument_type"] == side
+
+
+def test_contract_selection_fails_closed_for_exit_or_missing_side():
+    exit_signal = ScalpSignal("EXIT_CE", START, D("25260"), "test")
+    with pytest.raises(ValueError, match="BUY_CE or BUY_PE"):
+        nearest_weekly_atm_for_signal([], START.date(), exit_signal)
+
+    buy_signal = ScalpSignal("BUY_PE", START, D("25260"), "test")
+    with pytest.raises(ValueError, match="No current"):
+        nearest_weekly_atm_for_signal([], START.date(), buy_signal)

@@ -34,6 +34,7 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     nifty-bearish-15m-ema
     nifty-bullish-15m-ema
     nifty-daily-ema-calls
+    one-direction-profit-lock
   )
   required_timers=(market-breath strategy-guardian strategy-status-observer strategy-day-end "${strategy_units[@]}")
   for unit in "${required_timers[@]}"; do

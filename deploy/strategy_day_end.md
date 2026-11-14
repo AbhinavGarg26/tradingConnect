@@ -1,8 +1,13 @@
 # Strategy day-end paper backfill
 
 `strategy_day_end.py` runs after market close and examines the latest ten NIFTY
-trading sessions. It only replays strategies whose service is running or whose
-timer is enabled in `strategy_service_observations`.
+trading sessions. It replays strategies whose service is running or whose timer
+is enabled in `strategy_service_observations`. It also always includes the
+paper/index replay for `one_direction_profit_lock`, which cannot place orders.
+
+The Profit Lock replay can reconstruct direction, reversal and session-end
+signals from NIFTY candles. It cannot reconstruct option-premium trailing-stop
+fills, so those rows remain explicitly labelled day-end index proxies.
 
 An existing trade with the same strategy, side and entry signal time is never
 changed, regardless of whether it is live or paper. A missing closed signal is

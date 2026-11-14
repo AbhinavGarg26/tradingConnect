@@ -1,0 +1,11 @@
+[Unit]
+Description=Start One Direction Profit Lock V2.1 at 09:14 IST
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:14:00 Asia/Kolkata
+AccuracySec=1s
+Persistent=false
+Unit=one-direction-profit-lock.service
+
+[Install]
+WantedBy=timers.target

@@ -1,14 +1,15 @@
 """Paper-first NIFTY intraday scalper signal engine.
 
-Signals use completed five-minute NIFTY index bars.  The engine never selects
-an option contract or places an order; a runner must buy the current ATM CE/PE,
-confirm the actual fill, enforce rupee risk, and journal every decision.
+Signals use completed five-minute NIFTY index bars. The engine never places an
+order. ``nearest_weekly_atm_for_signal`` maps an entry signal to the nearest
+listed unexpired NIFTY expiry and ATM CE/PE; a runner must still confirm the
+actual fill, enforce rupee risk, and journal every decision.
 """
 from dataclasses import dataclass
 from datetime import time, timedelta
 from decimal import Decimal
 
-from strategies.nifty_opening_range import IST
+from strategies.nifty_opening_range import IST, current_atm_option
 
 KEY = "nifty_scalper_5m"
 VERSION = "v1-research-disabled"
@@ -21,6 +22,14 @@ class ScalpSignal:
     index_price: Decimal
     reason: str
     stop_distance: Decimal | None = None
+
+
+def nearest_weekly_atm_for_signal(instruments, today, signal):
+    """Return the nearest-expiry ATM contract matching the entry direction."""
+    if signal is None or signal.action not in {"BUY_CE", "BUY_PE"}:
+        raise ValueError("A BUY_CE or BUY_PE scalper signal is required")
+    side = signal.action.removeprefix("BUY_")
+    return current_atm_option(instruments, today, side, signal.index_price)
 
 
 class NiftyScalper:

@@ -22,7 +22,9 @@ VERSIONS = {
     "nifty_daily_ema_monthly": "ema20_50_calls_monthly_v2",
     "nifty_bearish_15m_9_21": "bearish_15m_9_21_v1",
     "nifty_bullish_15m_9_21": "bullish_15m_9_21_v1",
+    "one_direction_profit_lock": "v2.1-paper",
 }
+RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock"}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
 
 
@@ -101,6 +103,60 @@ def _complete_minute_sessions(rows):
     return complete
 
 
+def _one_direction_trades(fifteen_rows):
+    """Replay direction/reversal exits only; premium stops are unavailable."""
+    import pandas as pd
+    from indicators.adx import compute_adx
+    from strategies.one_direction_profit_lock import OneDirectionProfitLock, TrendSnapshot
+
+    if not fifteen_rows:
+        return []
+    frame = pd.DataFrame([{
+        "time": _stamp(row["date"]),
+        **{name: float(row[name]) for name in ("open", "high", "low", "close")},
+    } for row in fifteen_rows]).sort_values("time").reset_index(drop=True)
+    frame["ema_fast"] = frame.close.ewm(span=9, adjust=False).mean()
+    frame["ema_slow"] = frame.close.ewm(span=21, adjust=False).mean()
+    frame = compute_adx(frame, period=14)
+    frame["session"] = frame.time.map(lambda value: value.date())
+    frame["typical"] = (frame.high + frame.low + frame.close) / 3
+    frame["reference"] = frame.groupby("session").typical.expanding().mean().reset_index(level=0, drop=True)
+
+    trades = []
+    for _day, session in frame.groupby("session", sort=True):
+        gate, active = OneDirectionProfitLock(), None
+        rows = list(session.itertuples(index=False))
+        for index, row in enumerate(rows):
+            if pd.isna(row.adx) or pd.isna(row.plus_di) or pd.isna(row.minus_di):
+                continue
+            observed = row.time + timedelta(minutes=15)
+            snapshot = TrendSnapshot(observed, *(Decimal(str(value)) for value in (
+                row.close, row.ema_fast, row.ema_slow, row.reference,
+                row.adx, row.plus_di, row.minus_di,
+            )))
+            reversal = gate.observe_reversal(snapshot) if active else None
+            session_end = index == len(rows) - 1 or observed.astimezone(IST).time() >= time(15, 15)
+            if active and (reversal or session_end):
+                direction = Decimal("1") if active["side"] == "CE" else Decimal("-1")
+                exit_price = Decimal(str(row.close))
+                trades.append({**active, "exit_time": observed.isoformat(),
+                               "exit": float(exit_price),
+                               "exit_reason": "reversal" if reversal else "session_end",
+                               "points": float(direction * (exit_price - Decimal(str(active["entry"]))))})
+                if reversal:
+                    gate.accept_reversal(reversal, observed)
+                gate.record_exit(observed)
+                active = None
+            if active is None and not session_end:
+                side = gate.market_direction(snapshot)
+                if side and gate.allow_entry(side, snapshot) == (True, "allowed"):
+                    gate.record_entry(side, snapshot)
+                    active = {"date": str(observed.date()), "side": side,
+                              "entry_time": observed.isoformat(), "entry": float(row.close),
+                              "stop": None, "target": None}
+    return trades
+
+
 def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
     """Replay the production decision engines and return closed index trades."""
     raw = []
@@ -138,6 +194,8 @@ def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
             daily_rows, Config(fast=20, slow=50), evaluation_start=str(min(keep_dates)))
         raw = [dict(item, side="CE", entry_time=item["entry_date"],
                     exit_time=item["exit_date"], exit_reason="ema_reversal") for item in raw]
+    elif key == "one_direction_profit_lock":
+        raw = _one_direction_trades(fifteen_rows)
     trades = [_as_trade(item, key) for item in raw]
     return [trade for trade in trades if trade["entry_time"].date() in keep_dates]
 
@@ -198,7 +256,8 @@ def main():
     from sqlalchemy import text
     with get_db() as db:
         observations = db.execute(text("SELECT strategy_key, details FROM strategy_service_observations WHERE user_id=:uid"), {"uid": args.user_id}).all()
-    active = [key for key, details in observations if key in VERSIONS and is_active(details)]
+    active = sorted({key for key, details in observations if key in VERSIONS and is_active(details)} |
+                    RESEARCH_REPLAY_KEYS)
     if not active:
         log.info("No active strategies; nothing to backfill")
         return

@@ -1,0 +1,19 @@
+[Unit]
+Description=One Direction Profit Lock V2.1 (PAPER only)
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=deployer
+Group=deployer
+WorkingDirectory=/home/deployer/apps/tradingConnect
+EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/one_direction_profit_lock_service.py --user-id ${EMA_USER_ID}
+Restart=no
+RuntimeMaxSec=7h
+TimeoutStopSec=30
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal
+

@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 
-from strategy_day_end import IST, _as_trade, is_active, recent_session_dates
+from strategy_day_end import IST, RESEARCH_REPLAY_KEYS, _as_trade, is_active, recent_session_dates
 
 
 class StrategyDayEndTest(unittest.TestCase):
@@ -25,6 +25,9 @@ class StrategyDayEndTest(unittest.TestCase):
         put = _as_trade({"side": "PE", "date": "2026-10-15", "entry": 25000,
                          "points": 30, "exit_reason": "target"}, "fixed_profit_filtered")
         self.assertEqual(24970, put["exit"])
+
+    def test_paper_research_replays_are_always_included(self):
+        self.assertEqual({"one_direction_profit_lock"}, RESEARCH_REPLAY_KEYS)
 
 
 if __name__ == "__main__":
