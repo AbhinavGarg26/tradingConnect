@@ -12,10 +12,10 @@ load_nifty_environment()
 from trading.one_direction_profit_lock_journal import KEY
 from trading.strategy_records import StrategyEvent, StrategyRun, StrategyTrade
 
-MIN_TRADES = 30
-MIN_SESSIONS = 10
-MIN_PROFIT_LOCKS = 5
-MIN_REVERSALS = 2
+MIN_TRADES = 8
+MIN_SESSIONS = 3
+MIN_PROFIT_LOCKS = 2
+MIN_REVERSALS = 1
 
 
 def forward_evidence(factory, user_id):

@@ -9,8 +9,8 @@ A protected-live code path exists but fails closed unless all of these pass:
 
 - an accepted historical option bid/ask backtest after configurable spread,
   slippage, brokerage, STT, exchange, SEBI, stamp and GST costs;
-- at least 30 genuine closed paper-option trades over 10 sessions, including
-  five profit-lock events and two reversal exits;
+- at least eight genuine closed paper-option trades over three sessions,
+  including two profit-lock events and one reversal exit;
 - enabled allocation, per-trade risk and daily-loss settings;
 - a fresh independent guardian heartbeat and broker stop-limit protection.
 

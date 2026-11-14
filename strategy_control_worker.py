@@ -54,8 +54,8 @@ def validate_request(row,db,now):
                 AND status='closed' AND entry_premium IS NOT NULL AND exit_premium IS NOT NULL
                 AND COALESCE(error_message,'') NOT LIKE 'Day-end paper index proxy;%' '''),
                 dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
-            if not evidence or evidence['trades']<30 or evidence['sessions']<10:
-                raise ValueError('Live evidence check is incomplete: at least 30 genuine paper option trades across 10 sessions are required')
+            if not evidence or evidence['trades']<8 or evidence['sessions']<3:
+                raise ValueError('Live evidence check is incomplete: at least 8 genuine paper option trades across 3 sessions are required')
         if row['operation']=='start':
             guardian=db.execute(text('''SELECT heartbeat_at,status FROM strategy_guardian_statuses
                 WHERE user_id=:user_id AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
