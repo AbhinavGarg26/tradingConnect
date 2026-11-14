@@ -31,6 +31,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now one-direction-profit-lock.timer
 ```
 
+The checked-in unit matches the production host layout at
+`/home/ubuntu/tradingConnect` and runs under the unprivileged `ubuntu` user.
+
 `Persistent=false` prevents late catch-up. The service must accumulate paper
 stop-fill evidence before protected live mode can pass its evidence gate.
 

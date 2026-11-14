@@ -5,11 +5,11 @@ After=network-online.target postgresql.service
 
 [Service]
 Type=simple
-User=deployer
-Group=deployer
-WorkingDirectory=/home/deployer/apps/tradingConnect
-EnvironmentFile=/home/deployer/apps/tradingConnect/deploy/ema-strategies.env
-ExecStart=/home/deployer/apps/tradingConnect/.venv/bin/python /home/deployer/apps/tradingConnect/one_direction_profit_lock_service.py --user-id ${EMA_USER_ID}
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/tradingConnect
+EnvironmentFile=/home/ubuntu/tradingConnect/deploy/ema-strategies.env
+ExecStart=/home/ubuntu/tradingConnect/.venv/bin/python /home/ubuntu/tradingConnect/one_direction_profit_lock_service.py --user-id ${EMA_USER_ID}
 Restart=no
 RuntimeMaxSec=7h
 TimeoutStopSec=30
