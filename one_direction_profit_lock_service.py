@@ -1,9 +1,8 @@
-"""Paper-forward service for One Direction Profit Lock V2.1.
+"""Durable paper-forward and evidence-gated protected-live Profit Lock V2.1.
 
-The service deliberately has no live-order flag.  It uses completed NIFTY
-15-minute candles, selects the nearest unexpired weekly ATM option, observes
-real option quotes, and records simulated fills in the service log.  Live
-promotion requires a separate review of paper stop-fill evidence.
+Paper mode uses real option quotes and durable database journaling. Protected
+live mode is explicit and remains blocked until historical bid/ask testing,
+forward-paper evidence, risk settings and guardian health all pass.
 """
 
 from __future__ import annotations
@@ -71,64 +70,78 @@ def completed_trend_snapshot(now: datetime) -> TrendSnapshot | None:
 
 
 def option_quote(kite, contract) -> Decimal:
-    key = f"NFO:{contract['tradingsymbol']}"
-    price = Decimal(str(kite.ltp([key])[key]["last_price"]))
-    if not price.is_finite() or price <= 0:
-        raise RuntimeError("Invalid option quote")
-    return price
+    from trading.one_direction_profit_lock_execution import option_book
+    return option_book(kite, contract, datetime.now(IST))["bid"]
 
 
-def run(kite, user_id: int, *, poll_seconds=5, check=False):
+def run(kite, user_id: int, *, poll_seconds=5, check=False, live=False,
+        now_fn=None, sleep_fn=None, option_report="outputs/one-direction-option-backtest.json"):
+    from trading.database import get_db
+    from trading.one_direction_profit_lock_execution import ProfitLockExecutor
+    from trading.one_direction_profit_lock_journal import ProfitLockJournal
+    now_fn = now_fn or (lambda: datetime.now(IST)); sleep_fn = sleep_fn or time.sleep
     instruments = kite.instruments("NFO")
     if check:
         spot = Decimal(str(kite.ltp(["NSE:NIFTY 50"])["NSE:NIFTY 50"]["last_price"]))
-        contracts = {side: nearest_weekly_atm(instruments, datetime.now(IST).date(), side, spot)
+        contracts = {side: nearest_weekly_atm(instruments, now_fn().date(), side, spot)
                      for side in ("CE", "PE")}
         for side, contract in contracts.items():
             print(f"{side}: {contract['tradingsymbol']} expiry={contract['expiry']} strike={contract['strike']}")
-        print("orders: DISABLED (paper service)")
+        if live:
+            from one_direction_profit_lock_readiness import readiness
+            print(readiness(get_db, user_id, option_report))
+        print("orders: DISABLED (read-only check)")
         return
 
     gate = OneDirectionProfitLock()
-    position = None
+    if live:
+        from one_direction_profit_lock_readiness import assert_live_ready
+        assert_live_ready(get_db, user_id, option_report)
+    session_date = now_fn().date()
+    journal = ProfitLockJournal(get_db, user_id, session_date, live=live)
+    if journal.restored_state: gate.restore(journal.restored_state)
+    executor = ProfitLockExecutor(kite, instruments, journal, user_id, live=live, now_fn=now_fn)
+    executor.restore(journal.restored_runtime)
     last_candle = None
-    session_date = datetime.now(IST).date()
-    while True:
-        now = datetime.now(IST)
+    try:
+      while True:
+        now = now_fn()
         if now.date() != session_date:
-            if position:
+            if executor.position:
                 raise RuntimeError("Paper position crossed session boundary; reconcile the prior run")
-            session_date = now.date()
-            gate.reset()
-            last_candle = None
-            instruments = kite.instruments("NFO")
+            journal.finish("completed"); return
         if now.weekday() >= 5 or not clock_time(9, 15) <= now.time() <= clock_time(15, 20):
-            time.sleep(poll_seconds); continue
+            sleep_fn(poll_seconds); continue
         snapshot = completed_trend_snapshot(now)
         if snapshot is None:
-            time.sleep(poll_seconds); continue
+            sleep_fn(poll_seconds); continue
+        position = executor.position
         if position:
-            ltp = option_quote(kite, position["contract"])
-            position["peak"] = max(position["peak"], ltp)
-            trailing = gate.protected_stop(position["entry"], position["peak"], position["stop"])
+            if executor.synchronize(): sleep_fn(poll_seconds); continue
+            ltp = option_quote(kite, position.contract)
+            position.peak = max(position.peak, ltp)
+            trailing = gate.protected_stop(position.entry, position.peak, position.stop)
             if trailing is not None:
-                position["stop"] = trailing
+                executor.trail_stop(trailing, position.peak)
             reversal = gate.observe_reversal(snapshot)
             reason = ("session_end" if now.time() >= clock_time(15, 15)
-                      else "stop" if ltp <= position["stop"]
+                      else "stop" if ltp <= position.stop
                       else "reversal" if reversal else None)
             if reason:
-                pnl = (ltp - position["entry"]) * position["quantity"]
-                log.info("PAPER EXIT %s price=%s pnl=%s reason=%s",
-                         position["contract"]["tradingsymbol"], ltp, pnl, reason)
+                pnl = executor.exit(reason, snapshot)
+                if pnl is None: sleep_fn(poll_seconds); continue
+                log.info("%s EXIT %s price=%s pnl=%s reason=%s", "LIVE" if live else "PAPER",
+                         position.contract["tradingsymbol"], ltp, pnl, reason)
                 gate.record_closed_trade(pnl)
                 if reversal and not gate.lock_reason:
                     gate.accept_reversal(reversal, snapshot.observed_at)
                 gate.record_exit(now)
-                position = None
-            time.sleep(poll_seconds); continue
+                journal.save_state(gate.state(), {})
+            else:
+                journal.save_state(gate.state(), {"peak": str(position.peak)})
+            sleep_fn(poll_seconds); continue
         if last_candle == snapshot.observed_at:
-            time.sleep(poll_seconds); continue
+            sleep_fn(poll_seconds); continue
         last_candle = snapshot.observed_at
         side = gate.market_direction(snapshot)
         if side is None:
@@ -136,23 +149,28 @@ def run(kite, user_id: int, *, poll_seconds=5, check=False):
         allowed, reason = gate.allow_entry(side, snapshot)
         if not allowed:
             log.info("PAPER ENTRY BLOCKED side=%s reason=%s", side, reason); continue
-        contract = nearest_weekly_atm(instruments, now.date(), side, snapshot.close)
-        premium = option_quote(kite, contract)
-        stop = gate.initial_stop(premium, 10)
-        quantity = gate.risk_sized_quantity(premium, stop, int(contract["lot_size"]))
-        gate.record_entry(side, snapshot)
-        position = {"contract": contract, "entry": premium, "peak": premium,
-                    "stop": stop, "quantity": quantity}
-        log.info("PAPER BUY %s qty=%s premium=%s stop=%s expiry=%s",
-                 contract["tradingsymbol"], quantity, premium, stop, contract["expiry"])
+        position = executor.enter(side, snapshot, gate)
+        journal.save_state(gate.state(), {"peak": str(position.peak)})
+        log.info("%s BUY %s qty=%s premium=%s stop=%s expiry=%s", "LIVE" if live else "PAPER",
+                 position.contract["tradingsymbol"], position.quantity, position.entry,
+                 position.stop, position.contract["expiry"])
+    except BaseException as exc:
+        if not isinstance(exc, KeyboardInterrupt):
+            journal.uncertain(exc)
+        journal.finish("stopped" if isinstance(exc, KeyboardInterrupt) else "failed", exc)
+        raise
 
 
 def main():
+    from nifty_15m_env import load_nifty_environment
+    load_nifty_environment()
     from trading.service_runtime import ServiceRuntimeMonitor
     from trading.user_token import fetch_user_token
     parser = argparse.ArgumentParser()
     parser.add_argument("--user-id", type=int, required=True)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--live", action="store_true")
+    parser.add_argument("--option-report", default="outputs/one-direction-option-backtest.json")
     parser.add_argument("--poll-seconds", type=int, default=5)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -160,7 +178,8 @@ def main():
     monitor.start("Starting paper-forward strategy")
     try:
         kite, user_id = fetch_user_token(log, args.user_id)
-        run(kite, user_id, poll_seconds=args.poll_seconds, check=args.check)
+        run(kite, user_id, poll_seconds=args.poll_seconds, check=args.check, live=args.live,
+            option_report=args.option_report)
         monitor.success("Paper-forward session completed")
     except Exception as exc:
         monitor.exception(exc, "Paper-forward strategy failed")

@@ -1,5 +1,5 @@
 [Unit]
-Description=One Direction Profit Lock V2.1 (PAPER only)
+Description=One Direction Profit Lock V2.1 (durable PAPER evidence collector)
 Wants=network-online.target
 After=network-online.target postgresql.service
 

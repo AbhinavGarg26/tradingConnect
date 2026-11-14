@@ -60,14 +60,14 @@ def select_offset_contract(instruments, today, side, spot, positions, orders):
 
 
 def confirm_market_order(kite, contract, transaction, quantity, journal, *, exit_order=False,
-                         sleep_fn=time.sleep, attempts=20):
+                         sleep_fn=time.sleep, attempts=20, tag=TAG):
     """Submit once. Never retry an ambiguous submission or partially filled order."""
     try:
         order_id = place_protected_market_order(
             kite, variety=kite.VARIETY_REGULAR, exchange='NFO',
             tradingsymbol=contract['tradingsymbol'], transaction_type=transaction,
             quantity=quantity, product=kite.PRODUCT_MIS, order_type=kite.ORDER_TYPE_MARKET,
-            validity=kite.VALIDITY_DAY, tag=TAG,
+            validity=kite.VALIDITY_DAY, tag=tag,
         )
     except Exception as exc:
         # Kite documents MarginException as a definitive order-placement rejection.

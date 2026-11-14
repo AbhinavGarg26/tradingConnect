@@ -120,7 +120,7 @@ def cancel_protection(kite, trade):
 
 
 def emergency_exit(kite, trade, reason, quote=None, *, recover_pending=False):
-    if getattr(trade, 'strategy_key', None) == 'nifty_30m_reference':
+    if getattr(trade, 'strategy_key', None) in {'nifty_30m_reference', 'one_direction_profit_lock'}:
         from trading.trade_execution_lock import trade_execution_lock
         with trade_execution_lock(trade.id) as acquired:
             if not acquired:

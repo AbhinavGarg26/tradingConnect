@@ -25,7 +25,11 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     "$project_dir/ema_strategy_runner.py" \
     "$project_dir/strategy_guardian.py" "$project_dir/trading/strategy_risk.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
-    "$project_dir/market_breath.py" "$project_dir/strategy_day_end.py"
+    "$project_dir/market_breath.py" "$project_dir/strategy_day_end.py" \
+    "$project_dir/one_direction_profit_lock_service.py" \
+    "$project_dir/one_direction_profit_lock_readiness.py" \
+    "$project_dir/trading/one_direction_profit_lock_journal.py" \
+    "$project_dir/trading/one_direction_profit_lock_execution.py"
 
   strategy_units=(
     nifty-15m-v3
