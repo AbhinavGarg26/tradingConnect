@@ -33,6 +33,13 @@ fees, slippage, order persistence and breadth calculation must be supplied by a
 caller before any forward paper evaluation. Historical validation is required
 before considering live integration.
 
+The broad-universe backtest uses the current, deduplicated union of NIFTY 500,
+NIFTY Midcap 150 and NIFTY Smallcap 500 constituents. The constituent files are
+cached under `resources/index_constituents`; this is a current-membership test
+and therefore has survivorship bias.
+
+Before loading prices, the runner resolves the universe against Kite's NSE
+instrument catalog and idempotently upserts the equities into `instruments`.
 The backtester uses `market_snapshots` / `1d` as a read-through candle cache.
 It fetches missing completed sessions from Kite and saves them idempotently, so
 subsequent runs reuse the stored database rows.

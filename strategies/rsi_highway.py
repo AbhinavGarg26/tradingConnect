@@ -145,6 +145,25 @@ def evaluate(
     previous_rsi, daily_rsi = daily_values[-2], daily_values[-1]
     current, previous = daily[-1], daily[-2]
 
+    return evaluate_values(
+        current=current, previous=previous,
+        recent_daily=daily[-config.swing_lookback:],
+        monthly_rsi=monthly_rsi, weekly_rsi=weekly_rsi,
+        previous_weekly_rsi=previous_weekly_rsi,
+        previous_daily_rsi=previous_rsi, daily_rsi=daily_rsi,
+        breadth_healthy=breadth_healthy, state=state, config=config,
+    )
+
+
+def evaluate_values(*, current: Candle, previous: Candle,
+                    recent_daily: Sequence[Candle], monthly_rsi: float | None,
+                    weekly_rsi: float | None, previous_weekly_rsi: float | None,
+                    previous_daily_rsi: float | None, daily_rsi: float | None,
+                    breadth_healthy: bool, state: State = State(),
+                    config: Config = Config()) -> tuple[Decision, State]:
+    """Evaluate precomputed indicator values; used by large-universe backtests."""
+    previous_rsi = previous_daily_rsi
+
     if daily_rsi is None or previous_rsi is None:
         return Decision(Action.NONE, "insufficient_daily_rsi", monthly_rsi, weekly_rsi, daily_rsi), state
 
@@ -167,7 +186,7 @@ def evaluate(
 
     if eligible and state.last_entry_day != current.day and state.entries < config.max_entries:
         pattern_stop = min(previous.low, current.low) if pattern == "bullish_engulfing" else current.low
-        swing_stop = min(candle.low for candle in daily[-config.swing_lookback:])
+        swing_stop = min(candle.low for candle in recent_daily)
         proposed_stop = min(pattern_stop, swing_stop)
         next_stop = max(state.stop, proposed_stop) if state.stop is not None else proposed_stop
         action = Action.ADD if state.position_open else Action.ENTER
@@ -176,7 +195,7 @@ def evaluate(
         return Decision(action, reason, monthly_rsi, weekly_rsi, daily_rsi, pattern, next_stop), next_state
 
     if state.position_open:
-        trailing_candidate = min(candle.low for candle in daily[-config.swing_lookback:])
+        trailing_candidate = min(candle.low for candle in recent_daily)
         next_stop = max(state.stop, trailing_candidate) if state.stop is not None else trailing_candidate
         return Decision(Action.HOLD, "daily_rsi_above_50", monthly_rsi, weekly_rsi, daily_rsi, stop=next_stop), replace(state, stop=next_stop)
 
