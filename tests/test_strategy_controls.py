@@ -64,6 +64,10 @@ class HelperTests(unittest.TestCase):
         apply(CONFIG,1,'nifty_noise_area','schedule','live',self.ctl,self.write)
         self.assertIn('nifty_noise_area_live.py --user-id 1 --live',self.writes[0][1])
         self.assertIn(('enable','--now','strategy-guardian.timer'),self.calls)
+    def test_profit_lock_live_is_explicit_and_guardian_protected(self):
+        apply(CONFIG,1,'one_direction_profit_lock','schedule','live',self.ctl,self.write)
+        self.assertIn('one_direction_profit_lock_service.py --user-id 1 --live',self.writes[0][1])
+        self.assertIn(('enable','--now','strategy-guardian.timer'),self.calls)
     def test_pending_job_blocks_override(self):
         def pending(*args):
             if '--property=Job' in args:return '42 /job/42'

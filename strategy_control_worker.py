@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 log=logging.getLogger(__name__)
-KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area'}
+KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area','one_direction_profit_lock'}
 IST=ZoneInfo('Asia/Kolkata')
 
 
@@ -35,13 +35,27 @@ def validate_request(row,db,now):
             AND strategy_key=:key AND (status IN ('halted','reconcile') OR pending_signal != '{}'::jsonb) LIMIT 1'''),
             dict(user_id=row['user_id'],key=row['strategy_key'])).first():
             raise ValueError('EMA checkpoint requires reconciliation before activation')
-    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area'}:
+    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock'}:
         risk=db.execute(text('''SELECT * FROM strategy_risk_settings WHERE user_id=:user_id
             AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
         if not risk or not risk['live_enabled'] or risk['stop_mode']!='broker_stop_limit' or risk['adverse_action']!='emergency_exit':
             raise ValueError('Save live-approved protected risk settings first')
         if not 0<risk['risk_per_trade']<=risk['amount_allocated'] or not 0<risk['max_daily_loss']<=risk['amount_allocated']:
             raise ValueError('Protected strategy allocation/loss limits are invalid')
+        if row['strategy_key']=='one_direction_profit_lock':
+            from pathlib import Path
+            import json
+            report_path=Path(__file__).resolve().parent/'outputs/one-direction-option-backtest.json'
+            option=json.loads(report_path.read_text()) if report_path.exists() else {}
+            if not option.get('accepted'):
+                raise ValueError('Live evidence check is incomplete: an accepted historical option bid/ask backtest is required')
+            evidence=db.execute(text('''SELECT COUNT(*) AS trades, COUNT(DISTINCT trading_date) AS sessions
+                FROM strategy_trades WHERE user_id=:user_id AND strategy_key=:key AND mode='paper'
+                AND status='closed' AND entry_premium IS NOT NULL AND exit_premium IS NOT NULL
+                AND COALESCE(error_message,'') NOT LIKE 'Day-end paper index proxy;%' '''),
+                dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
+            if not evidence or evidence['trades']<30 or evidence['sessions']<10:
+                raise ValueError('Live evidence check is incomplete: at least 30 genuine paper option trades across 10 sessions are required')
         if row['operation']=='start':
             guardian=db.execute(text('''SELECT heartbeat_at,status FROM strategy_guardian_statuses
                 WHERE user_id=:user_id AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
