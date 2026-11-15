@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from strategies.rsi_highway import Action, Candle, State, bullish_pattern, evaluate, rsi
+from strategies.rsi_highway import Action, Candle, Config, State, bullish_pattern, evaluate, rsi
 
 
 def candles(closes, *, start=date(2025, 1, 1)):
@@ -81,3 +81,16 @@ def test_entry_blocks_when_completed_weekly_rsi_is_falling(monkeypatch):
     assert decision.action == Action.NONE
     assert decision.reason == "weekly_rsi_not_rising"
     assert state == State()
+
+
+def test_tight_initial_stop_selects_the_higher_long_stop(monkeypatch):
+    trend = candles(range(100, 116))
+    daily = candles([100 + i for i in range(14)] + [113, 112, 114])
+    def values(closes, period=14):
+        ending = [49, 53] if len(closes) == len(daily) else [70, 72]
+        return [None] * (len(closes) - 2) + ending
+    monkeypatch.setattr("strategies.rsi_highway.rsi", values)
+    wide, _ = evaluate(trend, trend, daily, breadth_healthy=True)
+    tight, _ = evaluate(trend, trend, daily, breadth_healthy=True,
+                        config=Config(tight_initial_stop=True))
+    assert tight.stop >= wide.stop

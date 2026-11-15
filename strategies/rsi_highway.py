@@ -43,6 +43,8 @@ class Config:
     require_weekly_rsi_rising: bool = True
     max_entries: int = 3
     swing_lookback: int = 5
+    exit_rsi: float = 50.0
+    tight_initial_stop: bool = False
 
 
 @dataclass(frozen=True)
@@ -168,8 +170,9 @@ def evaluate_values(*, current: Candle, previous: Candle,
         return Decision(Action.NONE, "insufficient_daily_rsi", monthly_rsi, weekly_rsi, daily_rsi), state
 
     if state.position_open:
-        if daily_rsi < config.entry_rsi:
-            decision = Decision(Action.EXIT, "daily_rsi_below_50", monthly_rsi, weekly_rsi, daily_rsi, stop=state.stop)
+        if daily_rsi < config.exit_rsi:
+            reason = f"daily_rsi_below_{config.exit_rsi:g}"
+            decision = Decision(Action.EXIT, reason, monthly_rsi, weekly_rsi, daily_rsi, stop=state.stop)
             return decision, State()
         if state.stop is not None and current.close < state.stop:
             decision = Decision(Action.EXIT, "close_below_swing_stop", monthly_rsi, weekly_rsi, daily_rsi, stop=state.stop)
@@ -187,7 +190,8 @@ def evaluate_values(*, current: Candle, previous: Candle,
     if eligible and state.last_entry_day != current.day and state.entries < config.max_entries:
         pattern_stop = min(previous.low, current.low) if pattern == "bullish_engulfing" else current.low
         swing_stop = min(candle.low for candle in recent_daily)
-        proposed_stop = min(pattern_stop, swing_stop)
+        proposed_stop = (max(pattern_stop, swing_stop) if config.tight_initial_stop
+                         else min(pattern_stop, swing_stop))
         next_stop = max(state.stop, proposed_stop) if state.stop is not None else proposed_stop
         action = Action.ADD if state.position_open else Action.ENTER
         next_state = State(True, state.entries + 1, next_stop, current.day)

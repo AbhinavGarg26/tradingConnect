@@ -207,7 +207,8 @@ def fetch_kite(symbols: tuple[str, ...], start: date, end: date):
 
 
 def load_daily_candles(symbols: tuple[str, ...], start: date, end: date, *,
-                       session_factory=None, kite_factory=None, now=None):
+                       session_factory=None, kite_factory=None, now=None,
+                       skip_missing_instruments=False, database_only=False):
     """Read completed daily candles from the DB and persist any Kite gaps."""
     from sqlalchemy import text
     from backtest.session_calendar import regular_session_closed
@@ -277,7 +278,7 @@ def load_daily_candles(symbols: tuple[str, ...], start: date, end: date, *,
 
             saved = read_saved()
             missing = expected - saved.keys()
-            if missing:
+            if missing and not database_only:
                 if kite is None:
                     if kite_factory is None:
                         from trading.user_token import fetch_user_token
@@ -289,6 +290,9 @@ def load_daily_candles(symbols: tuple[str, ...], start: date, end: date, *,
                               for item in kite.instruments("NSE")}
                 token = tokens.get(symbol)
                 if token is None:
+                    if skip_missing_instruments:
+                        output[symbol] = []
+                        continue
                     raise ValueError(f"NSE instrument missing: {symbol}")
                 cursor = min(missing)
                 fetched = {}
@@ -304,18 +308,31 @@ def load_daily_candles(symbols: tuple[str, ...], start: date, end: date, *,
                     cursor = finish + timedelta(days=1)
                     time.sleep(.35)
                 stamp_now = now.astimezone(timezone.utc).replace(tzinfo=None)
-                for candle_day, item in fetched.items():
-                    captured = datetime.combine(candle_day, close_time, IST).astimezone(timezone.utc).replace(tzinfo=None)
-                    db.execute(text("""
+                insert_rows = [{
+                    "symbol": symbol,
+                    "captured": datetime.combine(candle_day, close_time, IST).astimezone(timezone.utc).replace(tzinfo=None),
+                    "open": item["open"], "high": item["high"], "low": item["low"],
+                    "close": item["close"], "now": stamp_now,
+                } for candle_day, item in fetched.items()]
+                for offset in range(0, len(insert_rows), 200):
+                    chunk = insert_rows[offset:offset + 200]
+                    params = {}
+                    placeholders = []
+                    for row_index, row in enumerate(chunk):
+                        keys = {key: f"{key}_{row_index}" for key in row}
+                        placeholders.append(
+                            f"(:{keys['symbol']}, '1d', :{keys['captured']}, :{keys['close']}, "
+                            f":{keys['open']}, :{keys['high']}, :{keys['low']}, :{keys['close']}, "
+                            f":{keys['now']}, :{keys['now']})"
+                        )
+                        params.update({keys[key]: value for key, value in row.items()})
+                    db.execute(text(f"""
                         INSERT INTO market_snapshots
                           (symbol, timeframe, captured_at, ltp, open_price, high_price,
                            low_price, close_price, created_at, updated_at)
-                        VALUES (:symbol, '1d', :captured, :close, :open, :high,
-                                :low, :close, :now, :now)
+                        VALUES {', '.join(placeholders)}
                         ON CONFLICT (symbol, timeframe, captured_at) DO NOTHING
-                    """), {"symbol": symbol, "captured": captured, "open": item["open"],
-                           "high": item["high"], "low": item["low"], "close": item["close"],
-                           "now": stamp_now})
+                    """), params)
                 db.commit()
                 saved = read_saved()
             output[symbol] = [saved[day] for day in sorted(saved)]
@@ -360,13 +377,10 @@ def main():
         with get_db() as db:
             result = sync_equity_instruments(db, kite, symbols)
         print(json.dumps({"instrument_sync": result}))
-    if args.database_only:
-        def no_kite():
-            raise RuntimeError("Missing market_snapshots candle in --database-only mode")
-        kite_factory = no_kite
-    else:
-        kite_factory = lambda: kite
-    data = load_daily_candles(symbols, args.start, args.end, kite_factory=kite_factory)
+    kite_factory = None if args.database_only else lambda: kite
+    data = load_daily_candles(symbols, args.start, args.end, kite_factory=kite_factory,
+                              skip_missing_instruments=args.universe == "broad",
+                              database_only=args.database_only)
     report = summarize(data, breadth_minimum=args.breadth_minimum,
                        cost_bps=args.cost_bps, universe_description=description)
     report["requested_symbols"] = len(symbols)

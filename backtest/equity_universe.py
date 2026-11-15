@@ -13,7 +13,7 @@ from sqlalchemy import text
 INDEX_URLS = {
     "nifty500": "https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv",
     "midcap150": "https://www.niftyindices.com/IndexConstituent/ind_niftymidcap150list.csv",
-    "smallcap500": "https://www.niftyindices.com/IndexConstituent/ind_niftysmallcap500list.csv",
+    "smallcap500": "https://www.niftyindices.com/IndexConstituent/ind_NiftySmallcap500_list.csv",
 }
 DEFAULT_INDEXES = ("nifty500", "midcap150", "smallcap500")
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / "resources" / "index_constituents"

@@ -63,3 +63,51 @@ def test_daily_loader_saves_missing_candles_and_reuses_database():
     assert kite.calls == 1
     with factory() as db:
         assert db.execute(text("SELECT COUNT(*) FROM market_snapshots")).scalar() == 1
+
+
+def test_daily_loader_can_skip_symbol_absent_from_kite_catalog():
+    engine = create_engine("sqlite://")
+    factory = sessionmaker(bind=engine)
+    with factory() as db:
+        db.execute(text("""CREATE TABLE market_snapshots (
+            symbol TEXT, timeframe TEXT, captured_at TIMESTAMP, ltp NUMERIC,
+            open_price NUMERIC, high_price NUMERIC, low_price NUMERIC, close_price NUMERIC,
+            created_at TIMESTAMP, updated_at TIMESTAMP,
+            UNIQUE(symbol, timeframe, captured_at))"""))
+        db.execute(text("CREATE TABLE trading_holidays (holiday_date DATE)"))
+        db.commit()
+
+    class Kite:
+        def instruments(self, exchange):
+            return []
+
+    result = load_daily_candles(
+        ("MISSING",), date(2026, 11, 2), date(2026, 11, 2),
+        session_factory=factory, kite_factory=Kite,
+        now=datetime(2026, 11, 3, 10, tzinfo=IST),
+        skip_missing_instruments=True,
+    )
+    assert result == {"MISSING": []}
+
+
+def test_database_only_returns_available_rows_without_calling_kite():
+    engine = create_engine("sqlite://")
+    factory = sessionmaker(bind=engine)
+    with factory() as db:
+        db.execute(text("""CREATE TABLE market_snapshots (
+            symbol TEXT, timeframe TEXT, captured_at TIMESTAMP, ltp NUMERIC,
+            open_price NUMERIC, high_price NUMERIC, low_price NUMERIC, close_price NUMERIC,
+            created_at TIMESTAMP, updated_at TIMESTAMP,
+            UNIQUE(symbol, timeframe, captured_at))"""))
+        db.execute(text("CREATE TABLE trading_holidays (holiday_date DATE)"))
+        db.execute(text("""INSERT INTO market_snapshots
+            (symbol, timeframe, captured_at, open_price, high_price, low_price, close_price)
+            VALUES ('TEST', '1d', '2026-11-02 10:00:00', 100, 105, 99, 104)"""))
+        db.commit()
+
+    result = load_daily_candles(
+        ("TEST",), date(2026, 11, 2), date(2026, 11, 3),
+        session_factory=factory, now=datetime(2026, 11, 4, 10, tzinfo=IST),
+        database_only=True,
+    )
+    assert [row.close for row in result["TEST"]] == [104]
