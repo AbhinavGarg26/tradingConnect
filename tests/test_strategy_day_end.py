@@ -1,7 +1,8 @@
 import unittest
 from datetime import datetime
 
-from strategy_day_end import IST, RESEARCH_REPLAY_KEYS, _as_trade, is_active, recent_session_dates
+from strategy_day_end import (IST, RESEARCH_REPLAY_KEYS, VERSIONS, _as_trade,
+                              is_active, recent_session_dates)
 
 
 class StrategyDayEndTest(unittest.TestCase):
@@ -27,7 +28,12 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual(24970, put["exit"])
 
     def test_paper_research_replays_are_always_included(self):
-        self.assertEqual({"one_direction_profit_lock"}, RESEARCH_REPLAY_KEYS)
+        self.assertEqual({"one_direction_profit_lock", "smallcap_momentum_swing", "rsi_highway"},
+                         RESEARCH_REPLAY_KEYS)
+
+    def test_equity_paper_versions_are_pinned(self):
+        self.assertEqual("v2-first-15m-strength-confirmation", VERSIONS["smallcap_momentum_swing"])
+        self.assertEqual("v2-rising-weekly-confirmation", VERSIONS["rsi_highway"])
 
 
 if __name__ == "__main__":

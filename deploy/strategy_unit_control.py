@@ -17,6 +17,8 @@ PROFILES={
  'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py',['--strategy','bullish_calls']),
  'nifty_noise_area':('nifty-noise-area','nifty_noise_area_live.py',[]),
  'one_direction_profit_lock':('one-direction-profit-lock','one_direction_profit_lock_service.py',[]),
+ 'smallcap_momentum_swing':('smallcap-momentum-v2-paper','strategy_day_end.py',['--only','smallcap_momentum_swing']),
+ 'rsi_highway':('rsi-highway-paper','strategy_day_end.py',['--only','rsi_highway']),
 }
 CONFIG=Path('/etc/trading-strategy-control.json')
 
@@ -41,6 +43,8 @@ def load_config():
 
 
 def command_for(key,mode,user_id,project):
+    if key in {'smallcap_momentum_swing','rsi_highway'} and mode!='paper':
+        raise ValueError('This equity strategy is paper-only')
     _,script,flags=PROFILES[key]
     command=[project+'/.venv/bin/python',project+'/'+script,'--user-id',str(user_id),*flags]
     if script=='ema_strategy_runner.py':
@@ -68,6 +72,8 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
     if int(config['user_id'])!=user_id:raise ValueError('Account is not authorized on this trading server')
     if key not in PROFILES or operation not in {'schedule','start','pause'} or mode not in {'paper','live'}:
         raise ValueError('Unsupported control request')
+    if key in {'smallcap_momentum_swing','rsi_highway'} and mode!='paper':
+        raise ValueError('This equity strategy is paper-only')
     unit=PROFILES[key][0]
     if ctl('show',unit+'.timer','--property=LoadState','--value')!='loaded':
         raise RuntimeError('Install the reviewed strategy timer first')

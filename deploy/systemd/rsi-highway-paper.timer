@@ -1,0 +1,10 @@
+[Unit]
+Description=Run RSI Highway V2 paper strategy after the daily close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 15:40:00 Asia/Kolkata
+Persistent=true
+Unit=rsi-highway-paper.service
+
+[Install]
+WantedBy=timers.target

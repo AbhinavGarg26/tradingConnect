@@ -1,6 +1,6 @@
-# Smallcap Momentum Swing v1
+# Smallcap Momentum Swing v2
 
-Identity: `smallcap_momentum_swing`, version `v1-volume-pullback-strong-start`.
+Identity: `smallcap_momentum_swing`, version `v2-first-15m-strength-confirmation`.
 This is a broker-agnostic research strategy based on the three linked Manas
 Arora swing-trading videos. It does not place live orders.
 
@@ -16,8 +16,9 @@ Arora swing-trading videos. It does not place live orders.
    preceding ten-session median), three higher lows, and a close in the upper
    half of the day's range.
 3. **Enter only on a strong start:** On the next session, require a gap above
-   the setup day's high, a hold above the previous day's low, a break above the
-   prior high, and opening volume at least 1.5× the same-time historical
+   the setup day's high, a hold above the previous day's low, a break and
+   15-minute close above the prior high, a close in the upper 30% of the
+   first 15-minute range, and opening volume at least 1.5× the same-time historical
    baseline. The initial stop is the low of the opening move. The exact
    entry/stop check is implemented by `confirm_strong_start`; the caller must
    supply completed opening bars and same-time relative volume.
@@ -30,6 +31,14 @@ Arora swing-trading videos. It does not place live orders.
 The videos describe the setup visually and leave judgment to the trader. The
 numeric values above are explicit starting heuristics for repeatable research,
 not claimed as exact thresholds quoted from the videos.
+
+The v2 opening-close rule is supported by a deterministic 560-trade cross-year
+sample from the strategy's baseline signals. It reduced entry-session stops
+from 34.96% in rejected signals to 12.26% in confirmed signals. Requiring the
+first 15-minute close in the upper 30% with relative volume at least 1.5×
+produced a 1.818% average baseline-trade return and a 2.20 profit factor across
+development, validation, and recent test splits. This is a sampled filter study,
+not yet a full intraday execution simulation.
 
 ## Backtest
 

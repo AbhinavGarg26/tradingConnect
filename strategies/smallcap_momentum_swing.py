@@ -14,7 +14,7 @@ from typing import Sequence
 
 
 KEY = "smallcap_momentum_swing"
-VERSION = "v1-volume-pullback-strong-start"
+VERSION = "v2-first-15m-strength-confirmation"
 
 
 @dataclass(frozen=True)
@@ -56,6 +56,7 @@ class Config:
     narrow_range_pct: float = 4.5
     narrow_vs_median: float = 0.65
     strong_start_volume_ratio: float = 1.5
+    minimum_opening_close_location: float = 0.70
     break_even_profit_pct: float = 8.0
     scale_out_move_pct: float = 50.0
     full_exit_move_pct: float = 70.0
@@ -122,12 +123,20 @@ def confirm_strong_start(previous_day: Candle, opening_bars: Sequence[Candle], *
     first = opening_bars[0]
     opening_low = min(row.low for row in opening_bars)
     opening_high = max(row.high for row in opening_bars)
+    confirmation = opening_bars[-1]
+    close_location = ((confirmation.close - confirmation.low) /
+                      (confirmation.high - confirmation.low)
+                      if confirmation.high > confirmation.low else 0.0)
     if first.open <= previous_day.high:
         return Decision(Action.NONE, "no_gap_above_previous_high")
     if opening_low < previous_day.low:
         return Decision(Action.NONE, "opening_move_failed_previous_low")
     if opening_high <= previous_day.high:
         return Decision(Action.NONE, "previous_high_not_broken")
+    if confirmation.close <= previous_day.high:
+        return Decision(Action.NONE, "opening_close_failed_previous_high")
+    if close_location < config.minimum_opening_close_location:
+        return Decision(Action.NONE, "opening_close_not_in_upper_30pct")
     if same_time_volume_ratio < config.strong_start_volume_ratio:
         return Decision(Action.NONE, "opening_volume_not_confirmed")
     return Decision(Action.ENTER, "strong_start_gap_hold_break_with_volume",

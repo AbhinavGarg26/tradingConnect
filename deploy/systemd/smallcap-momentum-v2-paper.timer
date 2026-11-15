@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Smallcap Momentum V2 paper strategy after completed candles
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 15:40:00 Asia/Kolkata
+Persistent=true
+Unit=smallcap-momentum-v2-paper.service
+
+[Install]
+WantedBy=timers.target

@@ -37,6 +37,12 @@ class StatusTests(unittest.TestCase):
         report=observe('fixed_profit_filtered',lambda unit:dict(ExecStart='/app/fixed_profit_filtered_live.py --user-id 1'))
         self.assertEqual('paper',report['configured_mode'])
 
+    def test_equity_paper_service_is_observed(self):
+        report=observe('smallcap_momentum_swing',lambda unit:dict(
+            ExecStart='/app/strategy_day_end.py --user-id 1 --only smallcap_momentum_swing'))
+        self.assertEqual('paper',report['configured_mode'])
+        self.assertTrue(report['command_matches'])
+
     def test_noise_area_live_command_is_observed(self):
         report=observe('nifty_noise_area',lambda unit:dict(
             ExecStart='/app/nifty_noise_area_live.py --user-id 1 --live'))

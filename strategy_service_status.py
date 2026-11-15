@@ -16,6 +16,8 @@ UNITS={
     'nifty_bullish_15m_9_21':('nifty-bullish-15m-ema','ema_strategy_runner.py','--strategy bullish_calls'),
     'nifty_noise_area':('nifty-noise-area','nifty_noise_area_live.py',''),
     'one_direction_profit_lock':('one-direction-profit-lock','one_direction_profit_lock_service.py',''),
+    'smallcap_momentum_swing':('smallcap-momentum-v2-paper','strategy_day_end.py','--only smallcap_momentum_swing'),
+    'rsi_highway':('rsi-highway-paper','strategy_day_end.py','--only rsi_highway'),
 }
 
 RUNTIME_SERVICES={
@@ -27,6 +29,8 @@ RUNTIME_SERVICES={
     'nifty_bullish_15m_9_21':dict(unit='nifty-bullish-15m-ema',timer=True,category='strategy',display_name='Nifty bullish 15m EMA'),
     'nifty_noise_area':dict(unit='nifty-noise-area',timer=True,category='strategy',display_name='Nifty noise-area momentum'),
     'one_direction_profit_lock':dict(unit='one-direction-profit-lock',timer=True,category='strategy',display_name='One Direction Profit Lock V2.1'),
+    'smallcap_momentum_swing':dict(unit='smallcap-momentum-v2-paper',timer=True,category='strategy',display_name='Smallcap Momentum V2 · 15m confirmed · paper'),
+    'rsi_highway':dict(unit='rsi-highway-paper',timer=True,category='strategy',display_name='RSI Highway V2 · paper'),
     'strategy_guardian':dict(unit='strategy-guardian',timer=True,category='support',display_name='Strategy guardian'),
     'strategy_control_worker':dict(unit='strategy-control-worker',timer=False,category='support',display_name='Strategy control worker'),
     'strategy_status_observer':dict(unit='strategy-status-observer',timer=True,category='support',display_name='Strategy status observer',prefer_timer_state=True,schedule_label='Every 60 seconds'),
@@ -165,6 +169,8 @@ def main():
             'nifty_bearish_15m_9_21':records['nifty_bearish_15m_9_21'],
             'nifty_bullish_15m_9_21':records['nifty_bullish_15m_9_21'],
             'nifty_noise_area':records['nifty_noise_area'],
+            'smallcap_momentum_swing':records['smallcap_momentum_swing'],
+            'rsi_highway':records['rsi_highway'],
         }
         publish_runtime_statuses(db,args.user_id,[runtime_record(name,definition,
             strategy_details=strategy_by_service.get(name)) for name,definition in RUNTIME_SERVICES.items()])

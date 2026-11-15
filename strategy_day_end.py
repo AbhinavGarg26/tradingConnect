@@ -23,8 +23,10 @@ VERSIONS = {
     "nifty_bearish_15m_9_21": "bearish_15m_9_21_v1",
     "nifty_bullish_15m_9_21": "bullish_15m_9_21_v1",
     "one_direction_profit_lock": "v2.1-paper",
+    "smallcap_momentum_swing": "v2-first-15m-strength-confirmation",
+    "rsi_highway": "v2-rising-weekly-confirmation",
 }
-RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock"}
+RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", "smallcap_momentum_swing", "rsi_highway"}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
 
 
@@ -242,11 +244,124 @@ def persist(factory, user_id, key, trades, now):
     return inserted
 
 
+def _equity_trade(symbol, entry_day, exit_day, entry, exit_price, reason, *, stop=None, entry_reason):
+    entry_time = datetime.combine(entry_day, time(9, 30), tzinfo=IST)
+    exit_time = datetime.combine(exit_day, time(15, 30), tzinfo=IST)
+    return dict(symbol=symbol, side="EQ", entry_time=entry_time, exit_time=exit_time,
+                entry=Decimal(str(entry)), exit=Decimal(str(exit_price)),
+                points=Decimal(str(exit_price)) - Decimal(str(entry)),
+                stop=Decimal(str(stop)) if stop is not None else None, target=None,
+                reason=reason, entry_reason=entry_reason)
+
+
+def replay_equity(key, keep_dates, *, now=None):
+    """Replay broad-equity strategies entirely from cached database candles."""
+    from backtest.equity_universe import load_equity_universe
+    end = max(keep_dates)
+    symbols = load_equity_universe(("nifty500", "midcap150", "smallcap500"))
+    if key == "rsi_highway":
+        from backtest.rsi_highway import breadth_by_day, load_daily_candles, run_symbol
+        data = load_daily_candles(symbols, end - timedelta(days=900), end,
+                                  database_only=True, skip_missing_instruments=True, now=now)
+        breadth = breadth_by_day(data)
+        output = []
+        for symbol, rows in data.items():
+            cycles, _ = run_symbol(symbol, rows, breadth, breadth_minimum=.20, cost_bps=10.0)
+            for row in cycles:
+                entry_day, exit_day = date.fromisoformat(row["entry"]), date.fromisoformat(row["exit"])
+                if entry_day not in keep_dates:
+                    continue
+                entry = next(c.open for c in rows if c.day == entry_day)
+                exit_price = next(c.open for c in rows if c.day == exit_day)
+                output.append(_equity_trade(symbol, entry_day, exit_day, entry, exit_price,
+                                             "rsi_exit", entry_reason="rsi_highway_close_confirmed"))
+        return output
+
+    from backtest.smallcap_momentum_swing import load_database_data, summarize
+    from backtest.smallcap_momentum_intraday_confirmation_research import read_bars
+    from strategies.smallcap_momentum_swing import confirm_strong_start
+    from statistics import median
+    from trading.database import get_db
+    data = load_database_data(symbols, end - timedelta(days=550), end,
+                              database_only=True, skip_missing_instruments=True, now=now)
+    baseline = summarize(data, requested_symbols=len(symbols),
+                         universe_names=("nifty500", "midcap150", "smallcap500"))
+    output = []
+    with get_db() as db:
+        for row in baseline["trade_log"]:
+            entry_day = date.fromisoformat(row["entry"])
+            if entry_day not in keep_dates:
+                continue
+            symbol = row["symbol"]
+            dated = data.get(symbol, [])
+            index = next((i for i, (day, _) in enumerate(dated) if day == entry_day), None)
+            if not index:
+                continue
+            setup = dated[index - 1][1]
+            start = datetime.combine(entry_day - timedelta(days=45), time.min, IST).astimezone(timezone.utc).replace(tzinfo=None)
+            finish = datetime.combine(entry_day + timedelta(days=1), time.min, IST).astimezone(timezone.utc).replace(tzinfo=None)
+            bars = read_bars(db, symbol, start, finish)
+            sessions = {}
+            for bar in bars:
+                sessions.setdefault(bar[0].date(), []).append(bar)
+            opening = sorted(sessions.get(entry_day, []), key=lambda item: item[0])
+            prior = sorted(day for day in sessions if day < entry_day and sessions[day])[-20:]
+            if not opening or len(prior) < 10:
+                continue
+            first = opening[0]
+            prior_volumes = [sorted(sessions[day], key=lambda item: item[0])[0][5] for day in prior]
+            typical = median(prior_volumes)
+            if typical <= 0:
+                continue
+            from strategies.smallcap_momentum_swing import Candle
+            bar = Candle(first[1], first[2], first[3], first[4], first[5])
+            decision = confirm_strong_start(setup, [bar], same_time_volume_ratio=first[5] / typical)
+            if decision.action.value != "ENTER":
+                continue
+            output.append(_equity_trade(symbol, entry_day, date.fromisoformat(row["exit"]),
+                                         first[4], row["exit_price"], row["exit_reason"],
+                                         stop=decision.initial_stop,
+                                         entry_reason="v2_first_15m_upper30_rvol_confirmed"))
+    return output
+
+
+def persist_equity(factory, user_id, key, trades, now):
+    """Persist idempotent paper equity trades in the shared strategy journal."""
+    from sqlalchemy import select
+    from trading.strategy_records import StrategyRun, StrategyTrade
+    with factory() as db:
+        missing = [trade for trade in trades if not db.scalar(select(StrategyTrade.id).where(
+            StrategyTrade.user_id == user_id, StrategyTrade.strategy_key == key,
+            StrategyTrade.option_symbol == trade["symbol"],
+            StrategyTrade.entry_signal_time == trade["entry_time"]).limit(1))]
+        if not missing:
+            return 0
+        run = StrategyRun(user_id=user_id, strategy_key=key, strategy_version=VERSIONS[key],
+                          mode="paper", status="completed", started_at=now, ended_at=now,
+                          heartbeat_at=now, configuration={"day_end_backfill": True,
+                          "universe": ["nifty500", "midcap150", "smallcap500"],
+                          "database_only": True})
+        db.add(run); db.flush()
+        for number, trade in enumerate(missing, 1):
+            db.add(StrategyTrade(strategy_run_id=run.id, user_id=user_id, strategy_key=key,
+                strategy_version=VERSIONS[key], mode="paper", trading_date=trade["entry_time"].date(),
+                trade_number=number, status="closed", side="EQ", option_symbol=trade["symbol"],
+                option_expiry=trade["exit_time"].date(), option_strike=trade["entry"], lot_count=1,
+                quantity=1, entry_signal_time=trade["entry_time"], exit_signal_time=trade["exit_time"],
+                entry_confirmed_at=trade["entry_time"], exit_confirmed_at=trade["exit_time"],
+                entry_reason=trade["entry_reason"], exit_reason=trade["reason"],
+                entry_index=trade["entry"], exit_index=trade["exit"], initial_stop=trade["stop"],
+                current_stop=trade["stop"], index_points=trade["points"],
+                error_message="Paper equity replay from database market snapshots; no broker order."))
+        return len(missing)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--user-id", type=int, required=True)
     parser.add_argument("--sessions", type=int, default=10, choices=(10,), help="Fixed safety window")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--only", choices=tuple(VERSIONS))
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     from nifty_15m_env import load_nifty_environment
@@ -256,24 +371,43 @@ def main():
     from sqlalchemy import text
     with get_db() as db:
         observations = db.execute(text("SELECT strategy_key, details FROM strategy_service_observations WHERE user_id=:uid"), {"uid": args.user_id}).all()
-    active = sorted({key for key, details in observations if key in VERSIONS and is_active(details)} |
-                    RESEARCH_REPLAY_KEYS)
+    active = ([args.only] if args.only else sorted(
+        {key for key, details in observations if key in VERSIONS and is_active(details)} |
+        RESEARCH_REPLAY_KEYS))
     if not active:
         log.info("No active strategies; nothing to backfill")
         return
-    kite, user_id = fetch_user_token(log, user_id=args.user_id)
-    nifty = next(item for item in kite.instruments("NSE") if item["tradingsymbol"] == "NIFTY 50")
     today = datetime.now(IST).date()
-    start = today - timedelta(days=120)
-    daily = _fetch(kite, nifty["instrument_token"], start, today, "day")
-    sessions = set(recent_session_dates(daily, args.sessions))
-    intraday_start = min(sessions) - timedelta(days=35)  # EMA warm-up.
-    fifteen = _fetch(kite, nifty["instrument_token"], intraday_start, today, "15minute")
-    minute = _fetch(kite, nifty["instrument_token"], min(sessions), today, "minute")
+    equity_only = args.only in {"smallcap_momentum_swing", "rsi_highway"}
+    if equity_only:
+        user_id = args.user_id
+        with get_db() as db:
+            rows = db.execute(text("""SELECT DISTINCT captured_at::date AS session
+                FROM market_snapshots WHERE timeframe='1d' AND captured_at::date <= :today
+                ORDER BY session DESC LIMIT :count"""),
+                {"today": today, "count": args.sessions}).all()
+        sessions = {row[0] for row in rows}
+        minute = fifteen = daily = []
+    else:
+        kite, user_id = fetch_user_token(log, user_id=args.user_id)
+        nifty = next(item for item in kite.instruments("NSE") if item["tradingsymbol"] == "NIFTY 50")
+        start = today - timedelta(days=120)
+        daily = _fetch(kite, nifty["instrument_token"], start, today, "day")
+        sessions = set(recent_session_dates(daily, args.sessions))
+        intraday_start = min(sessions) - timedelta(days=35)  # EMA warm-up.
+        fifteen = _fetch(kite, nifty["instrument_token"], intraday_start, today, "15minute")
+        minute = _fetch(kite, nifty["instrument_token"], min(sessions), today, "minute")
+    if not sessions:
+        log.info("No completed database sessions; nothing to backfill")
+        return
     total = 0
     for key in active:
-        trades = replay(key, minute, fifteen, daily, sessions)
-        count = 0 if args.dry_run else persist(get_db, user_id, key, trades, datetime.now(timezone.utc))
+        if key in {"smallcap_momentum_swing", "rsi_highway"}:
+            trades = replay_equity(key, sessions, now=datetime.now(IST))
+            count = 0 if args.dry_run else persist_equity(get_db, user_id, key, trades, datetime.now(timezone.utc))
+        else:
+            trades = replay(key, minute, fifteen, daily, sessions)
+            count = 0 if args.dry_run else persist(get_db, user_id, key, trades, datetime.now(timezone.utc))
         total += count
         log.info("%s: replayed=%d inserted=%d", key, len(trades), count)
     log.info("Day-end backfill complete: inserted=%d active_strategies=%d", total, len(active))

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 
 log=logging.getLogger(__name__)
-KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area','one_direction_profit_lock'}
+KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area','one_direction_profit_lock','smallcap_momentum_swing','rsi_highway'}
 IST=ZoneInfo('Asia/Kolkata')
 
 
@@ -20,6 +20,8 @@ def validate_request(row,db,now):
     if row['strategy_key'] not in KEYS or row['operation'] not in {'start','schedule','pause'} or row['mode'] not in {'paper','live'}:
         raise ValueError('Unsupported request')
     if row['operation']=='pause':return
+    if row['strategy_key'] in {'smallcap_momentum_swing','rsi_highway'} and row['mode']!='paper':
+        raise ValueError('This equity strategy is paper-only')
     if now-utcstamp(row['created_at'])>timedelta(minutes=5):raise ValueError('Request expired; review current state and submit again')
     if row['mode']=='live' and not row['risk_acknowledged']:raise ValueError('Live risk acknowledgement missing')
     unresolved=db.execute(text('''SELECT id FROM strategy_trades WHERE user_id=:user_id
@@ -63,7 +65,7 @@ def validate_request(row,db,now):
                 raise ValueError('Independent guardian must be healthy before starting a protected live strategy')
     if row['operation']=='start':
         local=now.astimezone(IST)
-        opening=time(9,15);cutoff=time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'} else time(9,45)
+        opening=time(9,15);cutoff=time(16,15) if row['strategy_key'] in {'smallcap_momentum_swing','rsi_highway'} else (time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'} else time(9,45))
         if row['strategy_key']=='nifty_15m_breakout':cutoff=time(15,0)
         if row['strategy_key']=='nifty_noise_area':cutoff=time(9,40)
         holiday=db.execute(text('SELECT 1 FROM trading_holidays WHERE holiday_date=:day'),dict(day=local.date())).first()
