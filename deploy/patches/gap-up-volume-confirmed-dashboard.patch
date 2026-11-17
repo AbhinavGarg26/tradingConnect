@@ -1,0 +1,92 @@
+--- a/app/controllers/strategy_performances_controller.rb
++++ b/app/controllers/strategy_performances_controller.rb
+@@ -9,7 +9,8 @@
+     ["nifty_bearish_15m_9_21", nil, "NIFTY 15m EMA 9/21 · Puts"],
+     ["nifty_bullish_15m_9_21", nil, "NIFTY 15m EMA 9/21 · Calls"],
+     ["nifty_noise_area", "noise_area_v1", "NIFTY noise-area momentum"],
+-    ["one_direction_profit_lock", "v2.1-paper", "One Direction Profit Lock V2.1"]
++    ["one_direction_profit_lock", "v2.1-paper", "One Direction Profit Lock V2.1"],
++    ["gap_up_volume_confirmed", "v1-prior-volume-15m-confirmed", "Gap-up Volume Confirmed · paper"]
+   ].freeze
+ 
+   def index
+--- a/app/models/strategy_risk_setting.rb
++++ b/app/models/strategy_risk_setting.rb
+@@ -33,9 +33,10 @@
+     "nifty_bearish_15m_9_21" => "NIFTY 15m EMA 9/21 · bearish puts",
+     "nifty_bullish_15m_9_21" => "NIFTY 15m EMA 9/21 · Calls",
+     "nifty_noise_area" => "NIFTY noise-area momentum",
+-    "one_direction_profit_lock" => "One Direction Profit Lock V2.1"
++    "one_direction_profit_lock" => "One Direction Profit Lock V2.1",
++    "gap_up_volume_confirmed" => "Gap-up Volume Confirmed · paper"
+   }.freeze
+-  PAPER_ONLY_STRATEGY_KEYS = [].freeze
++  PAPER_ONLY_STRATEGY_KEYS = %w[gap_up_volume_confirmed].freeze
+   SERVER_RUNNER_STRATEGY_KEYS = %w[nifty_daily_ema_monthly nifty_bearish_15m_9_21 nifty_bullish_15m_9_21].freeze
+   STOP_MODES = %w[broker_stop_limit monitored_exit].freeze
+   ADVERSE_ACTIONS = %w[emergency_exit halt_and_alert].freeze
+@@ -75,6 +76,10 @@
+   def live_requires_protection
+     return unless live_enabled?
+ 
++    if PAPER_ONLY_STRATEGY_KEYS.include?(strategy_key)
++      errors.add(:live_enabled, "is unavailable for paper-only strategies")
++    end
++
+     if strategy_key == "fixed_profit_filtered"
+       errors.add(:live_enabled, "is managed by the standalone runner; dashboard activation is not connected")
+     end
+--- a/app/models/strategy_control_request.rb
++++ b/app/models/strategy_control_request.rb
+@@ -24,7 +24,7 @@
+ #  fk_rails_...  (user_id => users.id)
+ #
+ class StrategyControlRequest < ApplicationRecord
+-  KEYS = %w[nifty_15m_breakout nifty_30m_reference fixed_profit_filtered nifty_daily_ema_monthly nifty_bearish_15m_9_21 nifty_bullish_15m_9_21 nifty_noise_area one_direction_profit_lock].freeze
++  KEYS = %w[nifty_15m_breakout nifty_30m_reference fixed_profit_filtered nifty_daily_ema_monthly nifty_bearish_15m_9_21 nifty_bullish_15m_9_21 nifty_noise_area one_direction_profit_lock gap_up_volume_confirmed].freeze
+   belongs_to :user
+   validates :strategy_key, inclusion: { in: KEYS }
+   validates :operation, inclusion: { in: %w[schedule start pause] }
+@@ -39,6 +39,9 @@
+   private
+ 
+   def live_risk_confirmed
++    if mode == "live" && StrategyRiskSetting::PAPER_ONLY_STRATEGY_KEYS.include?(strategy_key)
++      errors.add(:mode, "must be paper for this strategy")
++    end
+     if mode == "live" && operation != "pause" && !risk_acknowledged?
+       errors.add(:base, "Confirm the live trading risk before requesting activation")
+     end
+--- a/app/helpers/strategy_performances_helper.rb
++++ b/app/helpers/strategy_performances_helper.rb
+@@ -7,6 +7,7 @@
+     "nifty_bearish_15m_9_21" => ["15-minute EMA 9/21 bearish crossover", "Monthly puts · overnight holding", "One lot, up to ₹30,000 premium per entry. No fixed stop; the entire paid premium can be lost."],
+     "nifty_bullish_15m_9_21" => ["15-minute EMA 9/21 bullish crossover", "Monthly calls · overnight holding", "One lot, up to ₹30,000 premium per entry. No fixed stop; the entire paid premium can be lost."],
+     "nifty_noise_area" => ["Time-of-day noise-boundary momentum", "Intraday · calls and puts", "Completed half-hour decisions, mandatory 15:15 exit, broker protection and guardian required for live entries."],
++    "gap_up_volume_confirmed" => ["Gap-up with prior-volume and opening 15-minute confirmation", "Equities · paper only · weekdays at 15:40 IST", "After-close replay of cached daily and 15-minute candles. Records simulated equity trades; no broker orders or intraday paper execution."],
+     "one_direction_profit_lock" => ["15-minute trend alignment with profit-lock trailing stop", "Intraday · nearest-expiry ATM calls and puts · Paper or Live", "EMA 9/21, session price reference, ADX and directional movement select one market direction. Live activation requires approved risk limits, broker-held protection, a healthy guardian and completed evidence checks."]
+   }.freeze
+ 
+@@ -18,6 +19,7 @@
+     "nifty_bearish_15m_9_21" => "PE only",
+     "nifty_bullish_15m_9_21" => "CE only",
+     "nifty_noise_area" => "CE & PE",
++    "gap_up_volume_confirmed" => "Equity · long only",
+     "one_direction_profit_lock" => "CE & PE"
+   }.freeze
+ 
+--- a/app/views/strategy_performances/_controls.html.erb
++++ b/app/views/strategy_performances/_controls.html.erb
+@@ -2,7 +2,11 @@
+ <% if paper_only %>
+   <article class="strategy-card">
+     <h2 class="strategy-action-heading">Paper execution only</h2>
+-    <p>This strategy observes live market data and records simulated decisions. It cannot place broker orders, and live activation is unavailable.</p>
++    <% if @operations.all? { |row| row[:key] == "gap_up_volume_confirmed" } %>
++      <p>Replays cached daily and 15-minute equity candles after market close, at 15:40 IST on weekdays. Records paper trades only; no broker orders are placed.</p>
++    <% else %>
++      <p>This strategy observes live market data and records simulated decisions. It cannot place broker orders, and live activation is unavailable.</p>
++    <% end %>
+     <small class="strategy-control-note">Its server schedule and runner status remain visible above. Deployment changes must follow the reviewed paper-service process.</small>
+   </article>
+ <% elsif @strategy_controls_enabled %>
