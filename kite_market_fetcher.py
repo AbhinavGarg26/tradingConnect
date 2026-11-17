@@ -878,9 +878,8 @@ def send_daily_volume_alerts(market_close: bool = False) -> None:
                     **metrics,
                 })
 
-            if alerts:
-                Alerter.from_db(db, user_id).daily_volume_rvols(alerts, now, market_close=market_close)
-                log.info("Sent %s daily RVOL alert for %d instrument(s)",
+            if alerts and Alerter.from_db(db, user_id).daily_volume_rvols(alerts, now, market_close=market_close):
+                log.info("Saved %s daily RVOL alert for %d instrument(s)",
                          "close" if market_close else "time-adjusted", len(alerts))
     except SystemExit:
         log.warning("Daily RVOL alert skipped: Kite token unavailable")
@@ -1372,11 +1371,10 @@ def _run_fetch(kite, db: Session, now: datetime, user_id) -> None:
 
     if proximity_alert_items and alerter.proximity_alerts(proximity_alert_items, now):
         mark_proximity_alerts_sent(db, proximity_alert_items, now)
-        log.info("Sent proximity alert for %d condition(s)", len(proximity_alert_items))
+        log.info("Saved proximity alert for %d condition(s)", len(proximity_alert_items))
 
-    if movement_alerts:
-        alerter.price_movements(movement_alerts, now)
-        log.info("Sent price-movement alert for %d instrument(s)", len(movement_alerts))
+    if movement_alerts and alerter.price_movements(movement_alerts, now):
+        log.info("Saved price-movement alert for %d instrument(s)", len(movement_alerts))
 
 def refresh_shared_nifty_minutes():
     """One minute writer shared with strategy cache misses and market_breath."""
@@ -1491,3 +1489,4 @@ if __name__ == "__main__":
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         runtime_monitor.stop("Scheduler stopped")
+

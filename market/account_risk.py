@@ -294,12 +294,12 @@ class AccountRiskMonitor:
                 state["last_loss_streak_alert_at"] = now.isoformat()
             state["last_loss_pair_signature"] = pair_signature
 
-        sent_checkpoints = list(state.get("summary_sent_checkpoints") or [])
-        checkpoint = due_summary_checkpoint(now, sent_checkpoints)
+        # Delivery claims live in their own transaction, not in risk state.
+        # Repeated monitor ticks and restarts cannot replay a checkpoint.
+        checkpoint = due_summary_checkpoint(now, [])
         if checkpoint:
-            alerter.send_async(self._summary_message(funds, stats, checkpoint))
-            sent_checkpoints.append(checkpoint)
-        state["summary_sent_checkpoints"] = sent_checkpoints
+            from market.portfolio_summary import queue_summary
+            queue_summary(self.user_id, checkpoint, now, dict(funds), alerter)
 
         state.update({"risk_level": current_level, "funds": funds, "stats": stats, "updated_at": now.isoformat()})
         upsert_live_metric(
@@ -346,3 +346,4 @@ class AccountRiskMonitor:
             f"<b>Symbol + side</b>\n{details}\n\n"
             f"{performance_edge(stats)}"
         )
+
