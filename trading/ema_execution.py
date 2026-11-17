@@ -17,6 +17,11 @@ def aware(t):
 class ReconciliationRequired(RuntimeError): pass
 
 
+class EntryBlocked(ValueError):
+    """An expected pre-submission entry refusal; no broker effect occurred."""
+
+
+
 class Store:
     def __init__(self,factory,user_id,key,version,mode,configuration):
         self.factory,self.user_id,self.key,self.version,self.mode,self.configuration=factory,user_id,key,version,mode,configuration
@@ -232,7 +237,12 @@ class Executor:
             self.store.cancel_reserved(pending,now,'terminal_intent');return
         if not intent:
             if action in {'entry','roll_entry'}:
-                contract,quantity=self.select_contract(pending['side'],now)
+                try:
+                    contract,quantity=self.select_contract(pending['side'],now)
+                except EntryBlocked as exc:
+                    self.store.cancel_reserved(pending,now,str(exc))
+                    self.store.event('ENTRY_BLOCKED','insufficient_cash',{'message':str(exc)},now)
+                    return
             else:
                 position=self.store.position()
                 if not position:raise ReconciliationRequired('Exit signal without owned position')
@@ -245,7 +255,13 @@ class Executor:
                 mode=self.store.mode,signal_time=signal_time,action=action,contract=contract,quantity=quantity)
             intent=self.store.intent(key)
         buying=action in {'entry','roll_entry'}
-        if buying:self.broker.check_entry(intent['contract'],intent['quantity'],now,self.settings)
+        if buying:
+            try:
+                self.broker.check_entry(intent['contract'],intent['quantity'],now,self.settings)
+            except EntryBlocked as exc:
+                self.store.cancel_reserved(pending,now,str(exc))
+                self.store.event('ENTRY_BLOCKED','insufficient_cash',{'message':str(exc)},now)
+                return
         else:self.broker.check_exit(intent['contract'],intent['quantity'],now,self.settings)
         if not self.store.journal.claim_submission(key):raise ReconciliationRequired('Intent was already claimed')
         try:

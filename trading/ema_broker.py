@@ -7,7 +7,7 @@ from sqlalchemy import select
 from trading.strategy_order_intents import StrategyOrderIntent
 from trading.strategy_records import StrategyTrade
 from strategies.nifty_daily_ema_monthly import quote_fill
-from trading.ema_execution import ReconciliationRequired
+from trading.ema_execution import ReconciliationRequired, EntryBlocked
 
 IST=ZoneInfo('Asia/Kolkata')
 
@@ -49,7 +49,13 @@ class KiteBroker(Quotes):
         available=margin.get('available',{})
         cash=min(Decimal(str(margin.get('net') or 0)),Decimal(str(available.get('cash') or 0)),
                  Decimal(str(available.get('live_balance') or 0)))
-        if cash<price*quantity+Decimal('200'):raise ValueError('Insufficient available cash including charge buffer; no paper fallback')
+        required=price*quantity+Decimal('200')
+        if cash<required:
+            from trading.order_failure_alerts import notify_insufficient_cash
+            notify_insufficient_cash(self.store.user_id, self.store.key, c, quantity,
+                                     price, cash, required, now)
+            raise EntryBlocked(f'Insufficient available cash: available={cash}, required={required} '
+                               '(option premium plus 200 charge buffer); entry skipped')
 
     def check_exit(self,c,quantity,now,settings):
         positions=self._positions(c)

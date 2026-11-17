@@ -96,8 +96,14 @@ def guardian_fresh(user_id: int, strategy_key: str, *, max_age_seconds=20) -> bo
             StrategyGuardianStatus.user_id == user_id,
             StrategyGuardianStatus.strategy_key == strategy_key,
         ))
-        return bool(status and status.status == "healthy" and status.heartbeat_at
-                    and status.heartbeat_at >= datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds))
+        if status is None or status.status != "healthy" or status.heartbeat_at is None:
+            return False
+        heartbeat = status.heartbeat_at
+        # Rails timestamp-without-time-zone values represent UTC.
+        if heartbeat.tzinfo is None:
+            heartbeat = heartbeat.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - heartbeat).total_seconds()
+        return 0 <= age <= max_age_seconds
 
 
 def check_new_entry(user_id: int, strategy_key: str, today: date,
