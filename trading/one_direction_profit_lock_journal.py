@@ -137,7 +137,8 @@ class ProfitLockJournal:
             direction = Decimal(1) if trade.side == "CE" else Decimal(-1)
             trade.index_points = direction * (snapshot.close - trade.entry_index)
             trade.updated_at = datetime.now(timezone.utc)
-        self.event(f"EXIT_{trade.side}", reason, occurred_at=snapshot.observed_at)
+            side = trade.side
+        self.event(f"EXIT_{side}", reason, occurred_at=snapshot.observed_at)
 
     def exit_filled(self, order_id, premium):
         now = datetime.now(timezone.utc)

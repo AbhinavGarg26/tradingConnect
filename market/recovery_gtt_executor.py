@@ -112,6 +112,15 @@ class GrowwRecoveryGttExecutor:
             self.logger.exception("[%s] Groww recovery GTT %s failed: %s", position["tradingsymbol"], event.key, exc)
 
     def _request(self, method: str, path: str, body: dict) -> dict:
+        try:
+            return self._request_impl(method, path, body)
+        except Exception as exc:
+            if method == "POST" and path == "/order/create" and body.get("order_type") == "MARKET":
+                from trading.order_failure_alerts import notify_order_failure
+                notify_order_failure(self.user_id, "Groww", body, exc)
+            raise
+
+    def _request_impl(self, method: str, path: str, body: dict) -> dict:
         request = Request(f"{self.BASE_URL}{path}", data=json.dumps(body).encode(), method=method)
         request.add_header("Authorization", f"Bearer {self.access_token}")
         request.add_header("Accept", "application/json")

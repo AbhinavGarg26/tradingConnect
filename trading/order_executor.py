@@ -401,6 +401,8 @@ class OrderExecutor:
 
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
+        from trading.order_failure_alerts import instrument_kite
+        instrument_kite(kite, self.user_id)
         return kite
 
     def _find_open_sl_order(self, trade: Trade) -> Optional[str]:

@@ -223,4 +223,6 @@ class ExchangeLinkRepo:
 
         kite = KiteConnect(api_key=api_key)
         kite.set_access_token(access_token)
+        from trading.order_failure_alerts import instrument_kite
+        instrument_kite(kite, user_id)
         return kite
