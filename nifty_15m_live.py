@@ -236,6 +236,12 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
 
     while True:
         now = datetime.now(IST)
+        if now.date() != today or now.time() > clock_time(15, 30):
+            if strategy.position or recorder.trade_id is not None:
+                raise RuntimeError("Session ended with an unresolved strategy trade; reconcile manually")
+            recorder.finish("completed")
+            log.info("NIFTY session complete; runner is flat and stopping normally")
+            return
         if live and strategy.position and recorder.trade_id:
             from trading.database import get_db
             from trading.strategy_records import StrategyTrade
@@ -246,15 +252,6 @@ def _run_session(kite, *, recorder, live=False, poll_seconds=5, max_risk_points=
                     f"Strategy trade became {broker_trade_status} outside the signal runner; "
                     "stop and reconcile before another entry"
                 )
-        if now.date() != today:
-            if strategy.position:
-                raise RuntimeError("Position remains open across sessions; reconcile manually")
-            today = now.date()
-            instruments = kite.instruments("NFO")
-            expiry = next_week_expiry(instruments, today)
-            strategy = Nifty15mBreakout(max_risk_points=max_risk_points)
-            last_time = None
-            initialized = False
         if now.weekday() >= 5 or now.time() < clock_time(9, 30) or now.time() > clock_time(15, 30):
             time.sleep(poll_seconds)
             continue
