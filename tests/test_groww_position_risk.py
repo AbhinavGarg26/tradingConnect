@@ -24,6 +24,9 @@ class FakeGrowwExit(GrowwMarketExitExecutor):
         self.requests = []
 
     def _get(self, path, params):
+        if path == '/positions/user':
+            return {'positions': [dict(trading_symbol=POSITION['tradingsymbol'], exchange='NSE',
+                product='NRML', quantity=getattr(self, 'live_quantity', 65))]}
         return {"order_list": self.orders}
 
     def _request(self, method, path, body):
@@ -63,6 +66,7 @@ class GrowwPositionRiskTests(unittest.TestCase):
 
     def test_short_position_uses_buy_to_exit(self):
         executor = FakeGrowwExit()
+        executor.live_quantity = -65
         short_position = {**POSITION, "quantity": -65}
         self.assertEqual(executor.exit_position(short_position, "HARD_STOP_12PCT"), "G1")
         self.assertEqual(executor.requests[0][2]["quantity"], 65)
@@ -112,3 +116,23 @@ class GrowwPositionRiskTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class GrowwReversalExitCoordinationTests(unittest.TestCase):
+    def test_flat_broker_position_prevents_stale_duplicate_exit(self):
+        executor = FakeGrowwExit()
+        executor.live_quantity = 0
+        self.assertIsNone(executor.exit_position(POSITION, 'REVERSAL_DRAWDOWN'))
+        self.assertFalse(executor.requests)
+
+    def test_partial_broker_position_caps_exit_quantity(self):
+        executor = FakeGrowwExit()
+        executor.live_quantity = 25
+        self.assertEqual(executor.exit_position(POSITION, 'REVERSAL_DRAWDOWN'), 'G1')
+        self.assertEqual(executor.requests[0][2]['quantity'], 25)
+
+    def test_existing_monitor_exit_is_reused_without_cancellation(self):
+        executor = FakeGrowwExit([dict(groww_order_id='risk1', trading_symbol=POSITION['tradingsymbol'],
+            exchange='NSE', product='NRML', transaction_type='SELL', order_status='OPEN',
+            order_type='MARKET', order_reference_id='MBX123456789')])
+        self.assertEqual(executor.exit_position(POSITION, 'REVERSAL_DRAWDOWN'), 'risk1')
+        self.assertFalse(executor.requests)

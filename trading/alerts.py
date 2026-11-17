@@ -42,7 +42,9 @@ class Alerter:
         from trading.repositories import MarketConfigRepo
         token   = MarketConfigRepo.get(db, user_id, "telegram_bot_token")
         chat_id = MarketConfigRepo.get(db, user_id, "telegram_chat_id")
-        return cls(bot_token=token, chat_id=chat_id)
+        alerter = cls(bot_token=token, chat_id=chat_id)
+        alerter.user_id = user_id
+        return alerter
 
     def send(self, message: str, parse_mode: str = "HTML") -> bool:
         """
@@ -116,81 +118,38 @@ class Alerter:
 
     def volume_surges(self, surges: list[dict], captured_at: datetime) -> None:
         """Send one consolidated alert for an hourly watchlist scan."""
-        if not surges:
-            return
+        return self._stock_notifications("volume_surge", surges, captured_at)
 
-        lines = [
-            "🔊 <b>Hourly Volume Surge Alert</b>",
-            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
-            "",
-        ]
-        for surge in sorted(surges, key=lambda item: item["volume_ratio"], reverse=True):
-            direction = "🟢" if surge["day_pct"] >= 0 else "🔴"
-            lines.append(
-                f"{direction} <b>{surge['symbol']}</b> | "
-                f"LTP: {surge['ltp']:.2f} | "
-                f"Day: {surge['day_pct']:+.2f}% | "
-                f"Volume: {surge['volume_ratio']:.2f}x"
-            )
-
-        self.send("\n".join(lines))
 
     def daily_volume_rvols(
         self, alerts: list[dict], captured_at: datetime, market_close: bool = False
     ) -> None:
         """Send one session-aware daily relative-volume alert."""
-        if not alerts:
-            return
+        return self._stock_notifications("daily_volume", alerts, captured_at)
 
-        title = "🔔 <b>Closing Daily Volume Alert</b>" if market_close else "🔔 <b>Time-Adjusted Daily Volume Alert</b>"
-        lines = [title, captured_at.strftime("%d %b %Y, %I:%M %p %Z"), ""]
-        for alert in sorted(alerts, key=lambda item: item["volume_ratio"], reverse=True):
-            direction = "🟢" if alert["day_pct"] >= 0 else "🔴"
-            lines.extend([
-                f"{direction} <b>{alert['symbol']}</b> | LTP: {alert['ltp']:.2f} | Day: {alert['day_pct']:+.2f}%",
-                f"Volume: {alert['volume']:,} | Expected: {alert['expected_volume']:,} | RVOL: {alert['volume_ratio']:.2f}x",
-                f"Baseline: {alert['sessions']} completed sessions ({alert['mode']})",
-                "",
-            ])
-
-        self.send("\n".join(lines).rstrip())
 
     def price_movements(self, movements: list[dict], captured_at: datetime) -> None:
         """Send one consolidated alert for tracking-point price moves."""
-        if not movements:
-            return
+        return self._stock_notifications("price_movement", movements, captured_at)
 
-        lines = [
-            "📊 <b>Price Movement Alert</b>",
-            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
-            "",
-        ]
-        for movement in sorted(
-            movements, key=lambda item: abs(item["movement_pct"]), reverse=True
-        ):
-            direction = "🟢 ⬆️" if movement["movement_pct"] > 0 else "🔴 ⬇️"
-            lines.append(
-                f"{direction} <b>{movement['symbol']}</b> | "
-                f"{movement['tracking_ltp']:.2f} → {movement['ltp']:.2f} | "
-                f"Move: {movement['movement_pct']:+.2f}%"
-            )
-
-        self.send("\n".join(lines))
 
     def proximity_alerts(self, alerts: list[dict], captured_at: datetime) -> bool:
         """Send support/resistance and daily-EMA proximity conditions together."""
-        if not alerts:
+        return self._stock_notifications("proximity", alerts, captured_at)
+
+
+    def _stock_notifications(self, kind, items, captured_at) -> bool:
+        """Stock alerts always go to the inbox, independently of Telegram config."""
+        if not items:
             return False
-        lines = [
-            "🎯 <b>Price Proximity Alert</b>",
-            captured_at.strftime("%d %b %Y, %I:%M %p %Z"),
-            "",
-        ]
-        for alert in alerts:
-            lines.append(
-                f"<b>{alert['symbol']}</b> · {alert['label']}\n"
-                f"LTP: {alert['ltp']:.2f} | Level: {alert['reference']:.2f} | "
-                f"Distance: {alert['distance_pct']:+.2f}% | "
-                f"Alert {alert['alert_count'] + 1}/2"
-            )
-        return self.send("\n\n".join(lines))
+        user_id = getattr(self, "user_id", None)
+        if user_id is None:
+            logger.error("Stock notification requires an account; alert was not sent")
+            return False
+        try:
+            from trading.notifications import persist_stock_notifications
+            persist_stock_notifications(user_id, kind, items, captured_at)
+            return True
+        except Exception:
+            logger.exception("Stock notification persistence failed")
+            return False

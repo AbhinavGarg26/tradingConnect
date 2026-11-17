@@ -76,6 +76,12 @@ class HelperTests(unittest.TestCase):
             apply(CONFIG,1,'fixed_profit_filtered','schedule','paper',pending,self.write)
         self.assertEqual([],self.writes)
 
+    def test_gap_up_strategy_is_strictly_paper_only(self):
+        command=command_for('gap_up_volume_confirmed','paper',1,'/app')
+        self.assertIn('strategy_day_end.py --user-id 1 --only gap_up_volume_confirmed',command)
+        with self.assertRaisesRegex(ValueError,'paper-only'):
+            command_for('gap_up_volume_confirmed','live',1,'/app')
+
     def test_later_override_cannot_silently_change_selected_mode(self):
         def wrong(*args):
             if '--property=ExecStart' in args:return 'argv[]='+self.writes[-1][1]+' --live ;'

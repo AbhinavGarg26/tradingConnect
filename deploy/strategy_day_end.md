@@ -4,6 +4,8 @@
 trading sessions. It replays strategies whose service is running or whose timer
 is enabled in `strategy_service_observations`. It also always includes the
 paper/index replay for `one_direction_profit_lock`, which cannot place orders.
+The equity replays, including `gap_up_volume_confirmed`, read only cached daily
+and 15-minute `market_snapshots` and never submit broker orders.
 
 The Profit Lock replay can reconstruct direction, reversal and session-end
 signals from NIFTY candles. It cannot reconstruct option-premium trailing-stop
@@ -28,6 +30,15 @@ sudo install -o root -g root -m 0644 deploy/systemd/strategy-day-end.service /et
 sudo install -o root -g root -m 0644 deploy/systemd/strategy-day-end.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now strategy-day-end.timer
+```
+
+Install the dedicated gap-up paper schedule when enabling that strategy:
+
+```sh
+sudo install -o root -g root -m 0644 deploy/systemd/gap-up-volume-confirmed-paper.service /etc/systemd/system/
+sudo install -o root -g root -m 0644 deploy/systemd/gap-up-volume-confirmed-paper.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now gap-up-volume-confirmed-paper.timer
 ```
 
 The job reads historical candles and instruments through the existing Kite

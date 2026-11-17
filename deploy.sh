@@ -26,6 +26,9 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     "$project_dir/strategy_guardian.py" "$project_dir/trading/strategy_risk.py" \
     "$project_dir/trading/strategy_records.py" "$project_dir/kite_market_fetcher.py" \
     "$project_dir/market_breath.py" "$project_dir/strategy_day_end.py" \
+    "$project_dir/backtest/nifty500_gap_up.py" \
+    "$project_dir/backtest/gap_up_volume_buildup_research.py" \
+    "$project_dir/strategies/gap_up.py" \
     "$project_dir/one_direction_profit_lock_service.py" \
     "$project_dir/one_direction_profit_lock_readiness.py" \
     "$project_dir/trading/one_direction_profit_lock_journal.py" \
@@ -39,6 +42,7 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     nifty-bullish-15m-ema
     nifty-daily-ema-calls
     one-direction-profit-lock
+    gap-up-volume-confirmed-paper
   )
   required_timers=(market-breath strategy-guardian strategy-status-observer strategy-day-end "${strategy_units[@]}")
   for unit in "${required_timers[@]}"; do

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 import uuid
+import threading
+from functools import wraps
 
 from market.position_stops import (
     DEFAULT_HARD_STOP_LOSS_PCT,
@@ -38,6 +40,17 @@ def hard_exit_reason(
     )
 
 
+_GROWW_EXIT_LOCK = threading.RLock()
+
+
+def _serialized_exit(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with _GROWW_EXIT_LOCK:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
     """Cancel a matching pending exit, then submit one market exit per position."""
 
@@ -57,6 +70,7 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
     def remove_missing(self, active_keys: set[str]) -> None:
         self._submitted.intersection_update(active_keys)
 
+    @_serialized_exit
     def exit_position(self, position: dict, reason: str) -> str | None:
         key = self._position_key(position)
         symbol = str(position["tradingsymbol"])
@@ -65,10 +79,14 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
         if key in self._submitted:
             return None
 
-        order_payload = self._get(
-            "/order/list", {"segment": segment, "page": 0, "page_size": 100}
-        )
-        orders = order_payload.get("order_list", [])
+        orders = []
+        for page in range(501):
+            rows = self._get('/order/list', {'segment': segment, 'page': page, 'page_size': 100})['order_list']
+            orders.extend(rows)
+            if len(rows) < 100:
+                break
+        else:
+            raise RuntimeError('Incomplete Groww exit order history')
         conflicts = [
             order for order in orders
             if str(order.get("trading_symbol", "")).upper() == symbol.upper()
@@ -81,6 +99,10 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
                 not in TERMINAL_ORDER_STATUSES
         ]
         if conflicts:
+            owned = [o for o in conflicts if str(o.get('order_reference_id') or '').startswith('MBX')
+                     and str(o.get('order_type') or '').upper() == 'MARKET']
+            if owned:
+                return str(owned[-1]['groww_order_id'])
             for order in conflicts:
                 status = str(order.get("order_status", "")).upper()
                 if status in CANCELLING_ORDER_STATUSES:
@@ -100,10 +122,20 @@ class GrowwMarketExitExecutor(GrowwRecoveryGttExecutor):
             # Re-read broker state on the next cycle before placing the exit.
             return None
 
+        # Refresh under the same process-wide lock used by reversal exits.
+        # A completed exit must not turn a stale long snapshot into a short.
+        rows = self._get('/positions/user', {'segment': segment})['positions']
+        matching = [r for r in rows if str(r.get('trading_symbol') or r.get('symbol')) == symbol
+                    and str(r.get('exchange')) == str(position['exchange'])
+                    and str(r.get('product') or r.get('product_type')) == str(position['product'])]
+        remaining = sum(int(r.get('quantity') or r.get('net_quantity') or 0) for r in matching)
+        if remaining == 0 or (remaining > 0) != (int(position['quantity']) > 0):
+            return None
+        quantity = min(abs(remaining), abs(int(position['quantity'])))
         reference_id = f"MBX{uuid.uuid4().hex[:17]}"
         response = self._request("POST", "/order/create", {
             "trading_symbol": symbol,
-            "quantity": abs(int(position["quantity"])),
+            "quantity": quantity,
             "validity": "DAY",
             "exchange": position["exchange"],
             "segment": segment,

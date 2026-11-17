@@ -169,6 +169,12 @@ if __name__ == "__main__":
     groww_stop_event = threading.Event()
     entry_price_tracker = CurrentEntryPriceTracker()
     account_risk_monitor = AccountRiskMonitor(user_id, logger)
+    from market.reversal import ReversalWorker
+    reversal_stop_event = threading.Event()
+    threading.Thread(
+        target=ReversalWorker(kite, user_id, logger, exit_executor).run,
+        args=(reversal_stop_event,), name="option-reversal", daemon=True,
+    ).start()
     price_stream.start()
     pos_count = 0
     last_live_state_sync = 0.0
@@ -301,6 +307,7 @@ if __name__ == "__main__":
 
             time.sleep(_position_poll_interval(pos_count))
     finally:
+        reversal_stop_event.set()
         groww_stop_event.set()
         price_stream.stop()
         runtime_monitor.stop("Position manager stopped")

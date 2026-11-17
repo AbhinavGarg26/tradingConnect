@@ -297,8 +297,12 @@ class AccountRiskMonitor:
         sent_checkpoints = list(state.get("summary_sent_checkpoints") or [])
         checkpoint = due_summary_checkpoint(now, sent_checkpoints)
         if checkpoint:
-            alerter.send_async(self._summary_message(funds, stats, checkpoint))
-            sent_checkpoints.append(checkpoint)
+            from market.portfolio_summary import portfolio_summary
+            message = portfolio_summary(db, self.user_id, funds, now, checkpoint)
+            # Synchronous delivery lets a rejected request leave this checkpoint
+            # eligible for the next monitor cycle.
+            if alerter.send(message):
+                sent_checkpoints.append(checkpoint)
         state["summary_sent_checkpoints"] = sent_checkpoints
 
         state.update({"risk_level": current_level, "funds": funds, "stats": stats, "updated_at": now.isoformat()})

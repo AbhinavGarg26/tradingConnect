@@ -67,6 +67,7 @@ class StockGapConfig:
     max_extension_from_ema20_pct: float = 15.0
     min_opening_relative_volume: float = 1.5
     min_gap_retained: float = 0.60
+    min_opening_close_location: float = 0.75
     max_upper_wick_ratio: float = 0.35
     max_initial_risk_pct: float = 3.0
     minimum_price: float = 50.0
@@ -148,7 +149,7 @@ def confirm_stock_continuation(*, previous_close: float, previous_low: float,
         return Decision(Action.NONE, "opening_relative_volume_too_low", metadata=metadata)
     if opening_15m.close <= vwap:
         return Decision(Action.NONE, "opening_close_not_above_vwap", metadata=metadata)
-    if _close_location(opening_15m) < 0.75:
+    if _close_location(opening_15m) < config.min_opening_close_location:
         return Decision(Action.NONE, "opening_close_not_in_top_quarter", metadata=metadata)
     if _upper_wick_ratio(opening_15m) > config.max_upper_wick_ratio:
         return Decision(Action.NONE, "opening_upper_wick_too_large", metadata=metadata)

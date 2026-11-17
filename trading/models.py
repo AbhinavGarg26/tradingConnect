@@ -189,6 +189,15 @@ class MarketConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "hard_stop_loss_pct":      ("10",   "float",   "exit_automation"),
         "max_loss_amount":         ("0",    "float",   "exit_automation"),
         "ignore_symbols":          ("",     "string",  "exit_automation"),
+        "reversal_enabled": ('false', 'boolean', "reversal"),
+        "reversal_drawdown_pct": ('5', 'float', "reversal"),
+        "reversal_max_peak_profit_pct": ('10', 'float', "reversal"),
+        "reversal_max_per_day": ('1', 'integer', "reversal"),
+        "reversal_cooldown_seconds": ('300', 'integer', "reversal"),
+        "reversal_confirmation_window_seconds": ('180', 'integer', "reversal"),
+        "reversal_funds_buffer_pct": ('5', 'float', "reversal"),
+        "reversal_daily_loss_limit": ('2000', 'float', "reversal"),
+        "reversal_entry_cutoff": ('15:00', 'string', "reversal"),
     }
 
 

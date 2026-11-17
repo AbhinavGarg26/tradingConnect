@@ -25,8 +25,10 @@ VERSIONS = {
     "one_direction_profit_lock": "v2.1-paper",
     "smallcap_momentum_swing": "v2-first-15m-strength-confirmation",
     "rsi_highway": "v2-rising-weekly-confirmation",
+    "gap_up_volume_confirmed": "v1-prior-volume-15m-confirmed",
 }
-RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", "smallcap_momentum_swing", "rsi_highway"}
+EQUITY_REPLAY_KEYS = {"smallcap_momentum_swing", "rsi_highway", "gap_up_volume_confirmed"}
+RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", *EQUITY_REPLAY_KEYS}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
 
 
@@ -259,6 +261,54 @@ def replay_equity(key, keep_dates, *, now=None):
     from backtest.equity_universe import load_equity_universe
     end = max(keep_dates)
     symbols = load_equity_universe(("nifty500", "midcap150", "smallcap500"))
+    if key == "gap_up_volume_confirmed":
+        from collections import defaultdict
+        from dataclasses import replace
+        from backtest.gap_up_volume_buildup_research import prior_volume_signal
+        from backtest.nifty500_gap_up import daily_candidates, read_15m, replay
+        from backtest.smallcap_momentum_swing import load_database_data
+        from strategies.gap_up import StockGapConfig
+        from trading.database import get_db
+
+        data = load_database_data(symbols, end - timedelta(days=120), end,
+                                  database_only=True, skip_missing_instruments=True, now=now)
+        config = replace(StockGapConfig(), min_opening_relative_volume=.75,
+                         min_opening_close_location=.70, max_upper_wick_ratio=.35,
+                         min_gap_retained=.40)
+        candidates = [row for row in daily_candidates(data, set(), price_only=True, config=config)
+                      if row["date"] in keep_dates]
+        indexes = {symbol: {day: index for index, (day, _) in enumerate(rows)}
+                   for symbol, rows in data.items()}
+        output = []
+        with get_db() as db:
+            for candidate in candidates:
+                symbol, entry_day = candidate["symbol"], candidate["date"]
+                rows = data.get(symbol, [])
+                index = indexes.get(symbol, {}).get(entry_day)
+                if index is None or not prior_volume_signal(rows, index, 4, 1.25, "any"):
+                    continue
+                start = datetime.combine(entry_day - timedelta(days=45), time.min, IST).astimezone(timezone.utc).replace(tzinfo=None)
+                finish = datetime.combine(entry_day + timedelta(days=1), time.min, IST).astimezone(timezone.utc).replace(tzinfo=None)
+                sessions = defaultdict(list)
+                for bar in read_15m(db, symbol, start, finish):
+                    sessions[bar.time.date()].append(bar)
+                result = replay(candidate, sessions, cost_bps=20.0, config=config,
+                                entry_cutoff=time(12, 30))
+                if not result or result["status"] != "trade":
+                    continue
+                risk_pct = 100 * (result["entry"] / result["stop"] - 1)
+                if not .75 <= risk_pct < 2.0:
+                    continue
+                output.append(dict(symbol=symbol, side="EQ",
+                    entry_time=_stamp(result["entry_time"]), exit_time=_stamp(result["exit_time"]),
+                    entry=Decimal(str(result["entry"])), exit=Decimal(str(result["exit"])),
+                    points=Decimal(str(result["exit"])) - Decimal(str(result["entry"])),
+                    stop=Decimal(str(result["stop"])), target=Decimal(str(
+                        result["trigger"] + 2 * (result["trigger"] - result["stop"]))),
+                    reason=result["exit_reason"],
+                    entry_reason="gap_2pct_prior4_volume_1.25x_opening15m_confirmed"))
+        return output
+
     if key == "rsi_highway":
         from backtest.rsi_highway import breadth_by_day, load_daily_candles, run_symbol
         data = load_daily_candles(symbols, end - timedelta(days=900), end,
@@ -351,7 +401,7 @@ def persist_equity(factory, user_id, key, trades, now):
                 entry_confirmed_at=trade["entry_time"], exit_confirmed_at=trade["exit_time"],
                 entry_reason=trade["entry_reason"], exit_reason=trade["reason"],
                 entry_index=trade["entry"], exit_index=trade["exit"], initial_stop=trade["stop"],
-                current_stop=trade["stop"], index_points=trade["points"],
+                current_stop=trade["stop"], target=trade["target"], index_points=trade["points"],
                 error_message="Paper equity replay from database market snapshots; no broker order."))
         return len(missing)
 
@@ -378,7 +428,7 @@ def main():
         log.info("No active strategies; nothing to backfill")
         return
     today = datetime.now(IST).date()
-    equity_only = args.only in {"smallcap_momentum_swing", "rsi_highway"}
+    equity_only = args.only in EQUITY_REPLAY_KEYS
     if equity_only:
         user_id = args.user_id
         with get_db() as db:
@@ -402,7 +452,7 @@ def main():
         return
     total = 0
     for key in active:
-        if key in {"smallcap_momentum_swing", "rsi_highway"}:
+        if key in EQUITY_REPLAY_KEYS:
             trades = replay_equity(key, sessions, now=datetime.now(IST))
             count = 0 if args.dry_run else persist_equity(get_db, user_id, key, trades, datetime.now(timezone.utc))
         else:

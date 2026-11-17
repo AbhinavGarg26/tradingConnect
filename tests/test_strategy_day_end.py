@@ -28,12 +28,14 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual(24970, put["exit"])
 
     def test_paper_research_replays_are_always_included(self):
-        self.assertEqual({"one_direction_profit_lock", "smallcap_momentum_swing", "rsi_highway"},
+        self.assertEqual({"one_direction_profit_lock", "smallcap_momentum_swing", "rsi_highway",
+                          "gap_up_volume_confirmed"},
                          RESEARCH_REPLAY_KEYS)
 
     def test_equity_paper_versions_are_pinned(self):
         self.assertEqual("v2-first-15m-strength-confirmation", VERSIONS["smallcap_momentum_swing"])
         self.assertEqual("v2-rising-weekly-confirmation", VERSIONS["rsi_highway"])
+        self.assertEqual("v1-prior-volume-15m-confirmed", VERSIONS["gap_up_volume_confirmed"])
 
 
 if __name__ == "__main__":

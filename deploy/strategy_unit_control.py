@@ -19,7 +19,9 @@ PROFILES={
  'one_direction_profit_lock':('one-direction-profit-lock','one_direction_profit_lock_service.py',[]),
  'smallcap_momentum_swing':('smallcap-momentum-v2-paper','strategy_day_end.py',['--only','smallcap_momentum_swing']),
  'rsi_highway':('rsi-highway-paper','strategy_day_end.py',['--only','rsi_highway']),
+ 'gap_up_volume_confirmed':('gap-up-volume-confirmed-paper','strategy_day_end.py',['--only','gap_up_volume_confirmed']),
 }
+EQUITY_PAPER_KEYS={'smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed'}
 CONFIG=Path('/etc/trading-strategy-control.json')
 
 
@@ -43,7 +45,7 @@ def load_config():
 
 
 def command_for(key,mode,user_id,project):
-    if key in {'smallcap_momentum_swing','rsi_highway'} and mode!='paper':
+    if key in EQUITY_PAPER_KEYS and mode!='paper':
         raise ValueError('This equity strategy is paper-only')
     _,script,flags=PROFILES[key]
     command=[project+'/.venv/bin/python',project+'/'+script,'--user-id',str(user_id),*flags]
@@ -72,7 +74,7 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
     if int(config['user_id'])!=user_id:raise ValueError('Account is not authorized on this trading server')
     if key not in PROFILES or operation not in {'schedule','start','pause'} or mode not in {'paper','live'}:
         raise ValueError('Unsupported control request')
-    if key in {'smallcap_momentum_swing','rsi_highway'} and mode!='paper':
+    if key in EQUITY_PAPER_KEYS and mode!='paper':
         raise ValueError('This equity strategy is paper-only')
     unit=PROFILES[key][0]
     if ctl('show',unit+'.timer','--property=LoadState','--value')!='loaded':

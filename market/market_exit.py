@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import logging
+import threading
+from functools import wraps
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 
 from market.kite_orders import place_protected_market_order
@@ -18,8 +20,17 @@ EXIT_RETRY_DELAY = timedelta(seconds=2)
 OPTION_TICK_SIZE = Decimal("0.05")
 
 
+def _serialized(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._exit_lock:
+            return method(self, *args, **kwargs)
+    return wrapped
+
+
 class MarketExitExecutor:
     def __init__(self, kite, logger: logging.Logger):
+        self._exit_lock = threading.RLock()
         self.kite = kite
         self.logger = logger
         self._legacy_gtt_cleaned: set[str] = set()
@@ -30,6 +41,7 @@ class MarketExitExecutor:
         self._submitted_at: dict[str, datetime] = {}
         self._submitted_order_types: dict[str, str] = {}
 
+    @_serialized
     def remove_missing(self, active_keys: set[str]) -> None:
         """Forget exit ownership only after the broker no longer reports a position."""
         for key in set(self._submitted_orders) - active_keys:
@@ -40,6 +52,7 @@ class MarketExitExecutor:
             self._submitted_at.pop(key, None)
             self._submitted_order_types.pop(key, None)
 
+    @_serialized
     def reset_position(self, position_key: str) -> None:
         """Clear order ownership when the same symbol starts a new entry lifecycle."""
         self._submitted_orders.pop(position_key, None)
@@ -49,6 +62,7 @@ class MarketExitExecutor:
         self._submitted_order_types.pop(position_key, None)
         self._cancel_requested.clear()
 
+    @_serialized
     def remove_legacy_gtts(self, position: dict) -> bool:
         """Delete old active GTTs before this process assumes exit ownership."""
         key = self._position_key(position)
@@ -76,6 +90,7 @@ class MarketExitExecutor:
             self.logger.critical("[%s] Cannot remove legacy GTT: %s", symbol, exc)
             return False
 
+    @_serialized
     def exit_position(
         self,
         position: dict,

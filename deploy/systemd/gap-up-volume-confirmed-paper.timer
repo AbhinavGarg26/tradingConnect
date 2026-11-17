@@ -1,0 +1,10 @@
+[Unit]
+Description=Run gap-up prior-volume confirmed paper strategy after the daily close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 15:40:00 Asia/Kolkata
+Persistent=true
+Unit=gap-up-volume-confirmed-paper.service
+
+[Install]
+WantedBy=timers.target
