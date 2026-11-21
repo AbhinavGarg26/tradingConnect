@@ -1,6 +1,7 @@
 """Durable journal and restart state for One Direction Profit Lock V2.1."""
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 from sqlalchemy import select
 
@@ -19,6 +20,7 @@ class ProfitLockJournal:
             unresolved = db.scalar(select(StrategyTrade).where(
                 StrategyTrade.user_id == user_id,
                 StrategyTrade.strategy_key == KEY,
+                StrategyTrade.mode == self.mode,
                 StrategyTrade.status.in_(["open", "entry_pending", "exit_pending", "reconcile"]),
             ).order_by(StrategyTrade.id.desc()).limit(1))
             running = db.scalar(select(StrategyRun).where(
@@ -39,12 +41,24 @@ class ProfitLockJournal:
             if running:
                 config = running.configuration or {}
                 if config.get("session_date") != str(today):
-                    raise RuntimeError("Stale running Profit Lock session requires review")
-                self.run_id = running.id; running.status = "running"; running.ended_at = None
-                running.heartbeat_at = running.updated_at = datetime.now(timezone.utc)
-                self.restored_state = config.get("gate_state")
-                self.restored_runtime = config.get("runtime") or {}
-                return
+                    # A paper service is intentionally started by a daily timer.  A
+                    # run with no unresolved trade cannot own market state after its
+                    # session date, so preserve its audit trail and let today's
+                    # paper session start.  Live sessions stay fail-closed: an
+                    # operator must verify broker state before another live run.
+                    if self.mode == "live":
+                        raise RuntimeError("Stale running Profit Lock live session requires review")
+                    now = datetime.now(timezone.utc)
+                    running.status = "failed"
+                    running.ended_at = running.heartbeat_at = running.updated_at = now
+                    running.error_message = "Paper session expired before next scheduled run"
+                    running = None
+                else:
+                    self.run_id = running.id; running.status = "running"; running.ended_at = None
+                    running.heartbeat_at = running.updated_at = datetime.now(timezone.utc)
+                    self.restored_state = config.get("gate_state")
+                    self.restored_runtime = config.get("runtime") or {}
+                    return
             now = datetime.now(timezone.utc)
             run = StrategyRun(
                 user_id=user_id, strategy_key=KEY, strategy_version=VERSION,
@@ -157,7 +171,15 @@ class ProfitLockJournal:
         if self.trade_id is None: return None
         with self.factory() as db:
             trade = db.get(StrategyTrade, self.trade_id)
-            db.expunge(trade); return trade
+            if trade is None:
+                return None
+            # Never return an ORM instance beyond its session.  SQLAlchemy can
+            # lazily refresh an expired attribute after the session closes, which
+            # caused the prior DetachedInstanceError during exit/recovery paths.
+            return SimpleNamespace(**{
+                column.key: getattr(trade, column.key)
+                for column in StrategyTrade.__table__.columns
+            })
 
     def uncertain(self, message):
         if self.trade_id is None: return

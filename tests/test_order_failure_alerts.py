@@ -81,6 +81,31 @@ def test_profit_lock_exit_does_not_read_trade_after_session_closes():
     assert trade.status == 'exit_pending'
 
 
+def test_profit_lock_expires_old_paper_run_but_does_not_reuse_it():
+    """Daily paper timers must not be blocked by yesterday's stopped run."""
+    from contextlib import contextmanager
+    from datetime import date
+    from types import SimpleNamespace
+    from trading.one_direction_profit_lock_journal import ProfitLockJournal
+
+    prior = SimpleNamespace(
+        id=88, configuration={'session_date': '2026-11-19'}, status='stopped',
+        ended_at=None, heartbeat_at=None, updated_at=None, error_message=None,
+    )
+    db = Mock()
+    db.scalar.side_effect = [None, prior]
+    db.add.side_effect = lambda run: setattr(run, 'id', 89)
+
+    @contextmanager
+    def factory():
+        yield db
+
+    journal = ProfitLockJournal(factory, 1, date(2026, 11, 20), live=False)
+    assert prior.status == 'failed'
+    assert prior.error_message == 'Paper session expired before next scheduled run'
+    assert journal.run_id == 89
+
+
 def test_cooldown_claim_suppresses_repeated_alerts():
     from contextlib import contextmanager
     from trading.order_failure_alerts import notify_order_failure

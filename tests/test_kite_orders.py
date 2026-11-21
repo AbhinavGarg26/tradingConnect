@@ -1,6 +1,12 @@
 import unittest
 
-from market.kite_orders import place_protected_market_order
+from kiteconnect import KiteConnect
+from kiteconnect.exceptions import InputException
+
+from market.kite_orders import (
+    place_market_order_with_depth_fallback,
+    place_protected_market_order,
+)
 
 
 class OldSdkKite:
@@ -37,6 +43,39 @@ class KiteOrderCompatibilityTests(unittest.TestCase):
         self.assertEqual(url_args, {"variety": "regular"})
         self.assertEqual(params["market_protection"], -1)
         self.assertNotIn("variety", params)
+
+    def test_illiquid_stock_option_market_rejection_uses_best_bid_for_sell(self):
+        class Kite:
+            VARIETY_REGULAR = "regular"
+
+            def __init__(self):
+                self.order = None
+
+            def place_order(self, **params):
+                if params["order_type"] == "MARKET":
+                    raise InputException("MARKET orders are blocked for stock options due to illiquidity")
+                self.order = params
+                return "LIMIT-ORDER"
+
+            def quote(self, instruments):
+                assert instruments == ["NFO:ILLQCE"]
+                return {"NFO:ILLQCE": {"depth": {"buy": [{"price": 24.4}]}}}
+
+        kite = Kite()
+        order_id = place_market_order_with_depth_fallback(
+            kite,
+            variety="regular",
+            exchange="NFO",
+            tradingsymbol="ILLQCE",
+            transaction_type=KiteConnect.TRANSACTION_TYPE_SELL,
+            quantity=65,
+            product="NRML",
+            order_type=KiteConnect.ORDER_TYPE_MARKET,
+        )
+
+        self.assertEqual(order_id, "LIMIT-ORDER")
+        self.assertEqual(kite.order["order_type"], KiteConnect.ORDER_TYPE_LIMIT)
+        self.assertEqual(kite.order["price"], 24.4)
 
 
 if __name__ == "__main__":

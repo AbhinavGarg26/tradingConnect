@@ -8,7 +8,7 @@ import threading
 from functools import wraps
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 
-from market.kite_orders import place_protected_market_order
+from market.kite_orders import place_market_order_with_depth_fallback
 
 
 EXIT_TAG_PREFIX = "MB"
@@ -228,7 +228,7 @@ class MarketExitExecutor:
             tag = f"{MARKET_EXIT_TAG_PREFIX}{int(position['instrument_token'])}{datetime.now():%H%M%S}"[:20]
             self._attempts[position_key] = attempts + 1
             self._last_attempt_at[position_key] = now
-            order_id = place_protected_market_order(
+            order_id = place_market_order_with_depth_fallback(
                 self.kite,
                 variety=self.kite.VARIETY_REGULAR,
                 exchange=exchange,
