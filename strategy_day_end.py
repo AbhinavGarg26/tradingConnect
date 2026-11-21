@@ -26,8 +26,10 @@ VERSIONS = {
     "smallcap_momentum_swing": "v2-first-15m-strength-confirmation",
     "rsi_highway": "v2-rising-weekly-confirmation",
     "gap_up_volume_confirmed": "v1-prior-volume-15m-confirmed",
+    "groww_orb": "v1-pre1100-directional-paper",
 }
 EQUITY_REPLAY_KEYS = {"smallcap_momentum_swing", "rsi_highway", "gap_up_volume_confirmed"}
+OPTION_REPLAY_KEYS = {"one_direction_profit_lock", "groww_orb"}
 RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", *EQUITY_REPLAY_KEYS}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
 OPTION_REPLAY_NOTE = "Day-end paper option replay from Kite minute candles; OHLC fill model with adverse slippage."
@@ -278,6 +280,67 @@ def _one_direction_option_trades(kite, instruments, fifteen_rows, minute_rows):
     return output
 
 
+def _replay_groww_option_trade(kite, instruments, signal, *, slippage_ticks=OPTION_SLIPPAGE_TICKS):
+    """Value one frozen Groww ORB signal with its nearest-expiry ATM option.
+
+    The entry and exit decisions remain the underlying-index rules.  The option
+    is selected only after that decision: entry is the following option candle's
+    open plus two ticks; a range-stop exit is the following candle's open minus
+    two ticks; a session-end exit is the 15:29 option close minus two ticks.
+    Missing contracts/candles skip the paper trade rather than inventing a fill.
+    """
+    from strategies.nifty_opening_range import current_atm_option
+
+    contract = current_atm_option(instruments, signal["entry_time"].date(),
+                                  signal["side"], signal["entry"])
+    tick = Decimal(str(contract.get("tick_size") or "0.05"))
+    slip = Decimal(str(slippage_ticks)) * tick
+    candles = _option_candles(kite, contract, signal["entry_time"], signal["exit_time"])
+    entry_candle = _first_candle(candles, signal["entry_time"])
+    exit_candle = _first_candle(candles, signal["exit_time"])
+    if entry_candle is None or exit_candle is None:
+        return None
+    entry = _tick_price(entry_candle["open"] + slip, tick)
+    raw_exit = exit_candle["close"] if signal["reason"] == "session_end" else exit_candle["open"]
+    exit_price = _tick_price(raw_exit - slip, tick)
+    if entry <= 0 or exit_price <= 0:
+        return None
+    quantity = int(contract["lot_size"])
+    return {
+        **signal,
+        "option_symbol": contract["tradingsymbol"], "option_expiry": contract["expiry"],
+        "option_strike": Decimal(str(contract["strike"])), "quantity": quantity,
+        "entry_premium": entry, "exit_premium": exit_price,
+        "gross_option_pnl": (exit_price - entry) * quantity,
+        # The strategy stop is an underlying-range boundary, not an option stop.
+        "initial_stop": None, "current_stop": None, "option_replay": True,
+    }
+
+
+def _groww_orb_option_trades(kite, instruments, minute_rows):
+    """Replay the frozen directional ORB and retain only auditable option fills."""
+    from backtest.groww_orb import SETUPS, run
+
+    output = []
+    for session in _complete_minute_sessions(minute_rows):
+        for setup in SETUPS:
+            for raw in run(session, setup, slippage=1):
+                signal = dict(raw, entry_time=_stamp(raw["entry_time"]),
+                              exit_time=_stamp(raw["exit_time"]),
+                              entry=Decimal(str(raw["entry"])), exit=Decimal(str(raw["exit"])),
+                              points=Decimal(str(raw["points"])), stop=Decimal(str(raw["stop"])),
+                              target=None, reason=raw["reason"])
+                try:
+                    valued = _replay_groww_option_trade(kite, instruments, signal)
+                except Exception as exc:
+                    log.warning("Skipping Groww ORB option replay %s %s: %s",
+                                signal["entry_time"], signal["side"], exc)
+                    continue
+                if valued is not None:
+                    output.append(valued)
+    return output
+
+
 def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates, *, kite=None, nfo_instruments=None):
     """Replay the production decision engines and return closed index trades."""
     raw = []
@@ -319,6 +382,10 @@ def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates, *, kite=None,
         if kite is None or nfo_instruments is None:
             raise ValueError("Profit Lock option replay requires Kite and NFO instruments")
         raw = _one_direction_option_trades(kite, nfo_instruments, fifteen_rows, minute_rows)
+    elif key == "groww_orb":
+        if kite is None or nfo_instruments is None:
+            raise ValueError("Groww ORB option replay requires Kite and NFO instruments")
+        raw = _groww_orb_option_trades(kite, nfo_instruments, minute_rows)
     trades = [item if isinstance(item, dict) and item.get("option_replay") else _as_trade(item, key)
               for item in raw]
     return [trade for trade in trades if trade["entry_time"].date() in keep_dates]
@@ -339,7 +406,7 @@ def persist(factory, user_id, key, trades, now):
                 StrategyTrade.entry_signal_time == trade["entry_time"]).limit(1))
             if existing is None:
                 missing.append(trade)
-            elif (key == "one_direction_profit_lock" and trade.get("option_replay")
+            elif (key in OPTION_REPLAY_KEYS and trade.get("option_replay")
                   and existing.mode == "paper"
                   and (existing.error_message or "").startswith(PROXY_NOTE)):
                 # Replace a previously inserted index proxy only when the exact
@@ -368,8 +435,8 @@ def persist(factory, user_id, key, trades, now):
         run = StrategyRun(user_id=user_id, strategy_key=key, strategy_version=VERSIONS[key],
                           mode="paper", status="completed", started_at=now, ended_at=now,
                           heartbeat_at=now, configuration={"day_end_backfill": True, "lookback_sessions": 10,
-                                                          "price_source": "option_ohlc" if key == "one_direction_profit_lock" else "nifty_index",
-                                                          "option_slippage_ticks": str(OPTION_SLIPPAGE_TICKS) if key == "one_direction_profit_lock" else None})
+                                                          "price_source": "option_ohlc" if key in OPTION_REPLAY_KEYS else "nifty_index",
+                                                          "option_slippage_ticks": str(OPTION_SLIPPAGE_TICKS) if key in OPTION_REPLAY_KEYS else None})
         db.add(run); db.flush()
         per_day = {}
         for trade in missing:
@@ -387,13 +454,13 @@ def persist(factory, user_id, key, trades, now):
                 option_strike=strike, lot_count=1, quantity=trade["quantity"] if option_replay else 1,
                 entry_signal_time=trade["entry_time"], exit_signal_time=trade["exit_time"],
                 entry_confirmed_at=trade["entry_time"], exit_confirmed_at=trade["exit_time"],
-                entry_reason="day_end_replay", exit_reason=trade["reason"],
+                entry_reason=trade.get("setup", "day_end_replay"), exit_reason=trade["reason"],
                 entry_index=trade["entry"], exit_index=trade["exit"],
                 initial_stop=trade["initial_stop"] if option_replay else trade["stop"],
                 current_stop=trade["current_stop"] if option_replay else trade["stop"], target=trade["target"],
                 entry_premium=trade.get("entry_premium"), exit_premium=trade.get("exit_premium"),
                 gross_option_pnl=trade.get("gross_option_pnl"), index_points=trade["points"],
-                error_message=OPTION_REPLAY_NOTE if option_replay else PROXY_NOTE))
+                error_message=(OPTION_REPLAY_NOTE if option_replay else PROXY_NOTE)))
             inserted += 1
     return inserted + upgraded
 

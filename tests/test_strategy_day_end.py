@@ -3,7 +3,8 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from strategy_day_end import (IST, RESEARCH_REPLAY_KEYS, VERSIONS, _as_trade,
-                              _replay_profit_lock_option_trade, is_active, recent_session_dates)
+                              _replay_groww_option_trade, _replay_profit_lock_option_trade,
+                              is_active, recent_session_dates)
 
 
 class StrategyDayEndTest(unittest.TestCase):
@@ -38,6 +39,9 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual("v2-rising-weekly-confirmation", VERSIONS["rsi_highway"])
         self.assertEqual("v1-prior-volume-15m-confirmed", VERSIONS["gap_up_volume_confirmed"])
 
+    def test_groww_orb_paper_version_is_pinned(self):
+        self.assertEqual("v1-pre1100-directional-paper", VERSIONS["groww_orb"])
+
     def test_profit_lock_option_replay_uses_actual_ten_percent_loss_stop(self):
         replay = _replay_profit_lock_option_trade(
             _OptionKite([
@@ -61,6 +65,18 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual("stop", replay["reason"])
         self.assertEqual(Decimal("103.90"), replay["exit_premium"])
         self.assertEqual(Decimal("190.00"), replay["gross_option_pnl"])
+
+    def test_groww_orb_option_replay_uses_near_expiry_atm_and_adverse_fills(self):
+        signal = dict(_signal(), reason="session_end")
+        replay = _replay_groww_option_trade(
+            _OptionKite([
+                _option_bar(9, 30, 100, 101, 99),
+                _option_bar(15, 15, 110, 111, 109),
+            ]), [_contract()], signal)
+        self.assertEqual("NIFTY26N1925000PE", replay["option_symbol"])
+        self.assertEqual(Decimal("100.10"), replay["entry_premium"])
+        self.assertEqual(Decimal("109.90"), replay["exit_premium"])
+        self.assertEqual(Decimal("490.00"), replay["gross_option_pnl"])
 
 
 class _OptionKite:

@@ -82,6 +82,12 @@ class HelperTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'paper-only'):
             command_for('gap_up_volume_confirmed','live',1,'/app')
 
+    def test_groww_orb_strategy_is_strictly_paper_only(self):
+        command=command_for('groww_orb','paper',1,'/app')
+        self.assertIn('strategy_day_end.py --user-id 1 --only groww_orb',command)
+        with self.assertRaisesRegex(ValueError,'paper-only'):
+            command_for('groww_orb','live',1,'/app')
+
     def test_later_override_cannot_silently_change_selected_mode(self):
         def wrong(*args):
             if '--property=ExecStart' in args:return 'argv[]='+self.writes[-1][1]+' --live ;'

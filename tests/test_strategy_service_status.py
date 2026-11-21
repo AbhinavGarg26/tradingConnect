@@ -55,6 +55,12 @@ class StatusTests(unittest.TestCase):
         self.assertEqual('paper',report['configured_mode'])
         self.assertTrue(report['command_matches'])
 
+    def test_groww_orb_paper_service_is_observed(self):
+        report=observe('groww_orb',lambda unit:dict(
+            ExecStart='/app/strategy_day_end.py --user-id 1 --only groww_orb'))
+        self.assertEqual('paper',report['configured_mode'])
+        self.assertTrue(report['command_matches'])
+
     def test_another_accounts_service_cannot_claim_this_accounts_mode(self):
         report=observe('fixed_profit_filtered',lambda unit:dict(
             ExecStart='/app/fixed_profit_filtered_live.py --user-id 2 --live'),expected_user_id=1)

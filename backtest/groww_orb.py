@@ -1,6 +1,7 @@
 """Groww ORB research: spot-only one-minute close signals, never broker orders."""
 import argparse
 import csv
+import math
 from collections import defaultdict
 from datetime import datetime, time, timedelta
 
@@ -15,7 +16,7 @@ SETUPS = {
 
 
 def run(rows, setup, *, slippage=0.0):
-    if setup not in SETUPS or slippage < 0:
+    if setup not in SETUPS or not math.isfinite(slippage) or slippage < 0:
         raise ValueError('Unknown setup or negative slippage')
     minutes, width_filter = SETUPS[setup]
     days = defaultdict(list)
@@ -37,7 +38,8 @@ def run(rows, setup, *, slippage=0.0):
         opening = [bar for _, bar in bars[:minutes]]
         high, low = max(b['high'] for b in opening), min(b['low'] for b in opening)
         width = (high - low) / opening[0]['open']
-        if width_filter == 'wide' and width <= 0.005 or width_filter == 'narrow' and width > 0.005:
+        if ((width_filter == 'wide' and width <= 0.005)
+                or (width_filter == 'narrow' and width > 0.005)):
             continue
         first_side = None
         first_time = None
@@ -51,14 +53,17 @@ def run(rows, setup, *, slippage=0.0):
             if first_side is None:
                 if side:
                     first_side, first_time = side, close_time
-                    if setup == 'breakout' and close_time.time() < time(12):
+                    if setup == 'breakout' and side == 1 and close_time.time() < time(11):
                         signal = (stamp, side)
                         break
             elif setup != 'breakout':
                 if side == 0:
                     inside = True
+                elif setup == 'retest' and close_time - first_time > timedelta(minutes=60):
+                    break
                 elif inside and ((setup == 'retest' and side == first_side and close_time - first_time <= timedelta(minutes=60))
-                                or (setup == 'reversal' and side == -first_side and close_time.time() < time(12))):
+                                or (setup == 'reversal' and side == -1 and side == -first_side
+                                    and close_time.time() < time(12))):
                     signal = (stamp, side)
                     break
         if signal is None:

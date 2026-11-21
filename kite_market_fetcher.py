@@ -1393,6 +1393,23 @@ def refresh_shared_nifty_minutes():
         log.warning('Shared NIFTY candle update failed (%s)',type(exc).__name__)
 
 
+def refresh_nifty_option_minutes():
+    """Pin today's NFO contracts once and retain their completed minute bars."""
+    now = datetime.now(IST)
+    if not market_session_active(now):
+        return
+    try:
+        from market.option_snapshots import run
+        kite, _user_id = fetch_user_token(log)
+        master_key = ("NFO", now.date())
+        if master_key not in _instrument_master_cache:
+            _instrument_master_cache[master_key] = kite.instruments("NFO")
+        with get_db() as db:
+            run(kite, db, now, _instrument_master_cache[master_key])
+    except Exception:
+        log.exception("NIFTY option snapshot/minute capture failed")
+
+
 # ── Scheduler entry point ─────────────────────────────────────────────────────
 if __name__ == "__main__":
     log.info("Starting kite_market_fetcher (every 15 minutes during market hours)")
@@ -1486,6 +1503,11 @@ if __name__ == "__main__":
         refresh_shared_nifty_minutes, 'cron', day_of_week='mon-fri', hour='9-15',
         minute='*', second=8, id='shared_nifty_minute_candles',
         max_instances=1, coalesce=True, misfire_grace_time=20,
+    )
+    scheduler.add_job(
+        refresh_nifty_option_minutes, 'cron', day_of_week='mon-fri', hour='9-15',
+        minute='*', second=12, id='nifty_option_minute_candles',
+        max_instances=1, coalesce=True, misfire_grace_time=30,
     )
     try:
         scheduler.start()

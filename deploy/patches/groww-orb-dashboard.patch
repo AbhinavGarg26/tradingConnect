@@ -1,0 +1,31 @@
+--- a/app/controllers/strategy_performances_controller.rb
++++ b/app/controllers/strategy_performances_controller.rb
+@@
+     ["gap_up_volume_confirmed", "v1-prior-volume-15m-confirmed", "Gap-up Volume Confirmed · paper"],
++    ["groww_orb", "v1-pre1100-directional-paper", "Groww ORB · directional · paper"]
+   ].freeze
+--- a/app/models/strategy_risk_setting.rb
++++ b/app/models/strategy_risk_setting.rb
+@@
+     "gap_up_volume_confirmed" => "Gap-up Volume Confirmed · paper",
++    "groww_orb" => "Groww ORB · directional · paper"
+   }.freeze
+-  PAPER_ONLY_STRATEGY_KEYS = %w[gap_up_volume_confirmed].freeze
++  PAPER_ONLY_STRATEGY_KEYS = %w[gap_up_volume_confirmed groww_orb].freeze
+--- a/app/models/strategy_control_request.rb
++++ b/app/models/strategy_control_request.rb
+@@
+-  KEYS = %w[nifty_15m_breakout nifty_30m_reference fixed_profit_filtered nifty_daily_ema_monthly nifty_bearish_15m_9_21 nifty_bullish_15m_9_21 nifty_noise_area one_direction_profit_lock gap_up_volume_confirmed].freeze
++  KEYS = %w[nifty_15m_breakout nifty_30m_reference fixed_profit_filtered nifty_daily_ema_monthly nifty_bearish_15m_9_21 nifty_bullish_15m_9_21 nifty_noise_area one_direction_profit_lock gap_up_volume_confirmed groww_orb].freeze
+--- a/app/helpers/strategy_performances_helper.rb
++++ b/app/helpers/strategy_performances_helper.rb
+@@
+     "gap_up_volume_confirmed" => ["Gap-up with prior-volume and opening 15-minute confirmation", "Equities · paper only · weekdays at 15:40 IST", "After-close replay of cached daily and 15-minute candles. Records simulated equity trades; no broker orders or intraday paper execution."],
++    "groww_orb" => ["Frozen opening-range breakout/retest/reversal", "NIFTY near-expiry ATM options · paper only · weekdays at 15:40 IST", "Breakout is CE-only before 11:00; reversal is PE-only; retest is unchanged. The day-end replay records one-lot option fills from actual minute OHLC with two adverse ticks per side. It never sends broker orders."],
+     "one_direction_profit_lock" => ["15-minute trend alignment with profit-lock trailing stop", "Intraday · nearest-expiry ATM calls and puts · Paper or Live", "EMA 9/21, session price reference, ADX and directional movement select one market direction. Live activation requires approved risk limits, broker-held protection, a healthy guardian and completed evidence checks."]
+   }.freeze
+@@
+     "gap_up_volume_confirmed" => "Equity · long only",
++    "groww_orb" => "CE breakout · PE reversal · two-sided retest",
+     "one_direction_profit_lock" => "CE & PE"
+   }.freeze

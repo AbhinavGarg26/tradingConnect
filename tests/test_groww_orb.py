@@ -37,5 +37,32 @@ def test_missing_minute_rejected_instead_of_lookahead():
         run(rows, 'breakout')
 
 
+def test_breakout_rejects_a_close_at_or_after_1100():
+    rows = session()
+    for i, row in enumerate(rows):
+        if i >= 60:
+            row.update(open=20000, high=20001, low=19999, close=20000)
+    # The 10:59 candle completes at 11:00; it must not qualify.
+    rows[104].update(open=20120, high=20121, low=20119, close=20120)
+    assert run(rows, 'breakout') == []
+
+
+def test_breakout_rejects_a_pe_signal():
+    rows = session()
+    rows[60].update(open=19880, high=19881, low=19879, close=19880)
+    assert run(rows, 'breakout') == []
+
+
+def test_reversal_rejects_a_ce_signal():
+    rows = session()
+    for i, row in enumerate(rows):
+        row.update(open=20000, high=20001, low=19999, close=20000)
+        if i == 0:
+            row.update(high=20110, low=19990)
+    rows[5].update(open=19880, high=19881, low=19879, close=19880)
+    rows[7].update(open=20120, high=20121, low=20119, close=20120)
+    assert run(rows, 'reversal') == []
+
+
 def test_no_retest_without_return_inside_range():
     assert run(session(), 'retest') == []

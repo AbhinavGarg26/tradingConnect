@@ -7,6 +7,12 @@ paper/index replay for `one_direction_profit_lock`, which cannot place orders.
 The equity replays, including `gap_up_volume_confirmed`, read only cached daily
 and 15-minute `market_snapshots` and never submit broker orders.
 
+The frozen directional `groww_orb` replay buys a one-lot nearest-unexpired ATM
+NIFTY CE or PE in paper records only. It selects the contract from the actual
+NFO instrument list and values entries/exits from option minute OHLC with two
+adverse ticks per side. Missing option data skips the record rather than
+substituting an index proxy.
+
 The Profit Lock replay reconstructs direction and reversal signals from NIFTY
 candles, then retrieves the selected ATM option's one-minute Kite candles. It
 uses an adverse OHLC fill model (two ticks per side), applies the initial 10%

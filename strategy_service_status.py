@@ -19,6 +19,7 @@ UNITS={
     'smallcap_momentum_swing':('smallcap-momentum-v2-paper','strategy_day_end.py','--only smallcap_momentum_swing'),
     'rsi_highway':('rsi-highway-paper','strategy_day_end.py','--only rsi_highway'),
     'gap_up_volume_confirmed':('gap-up-volume-confirmed-paper','strategy_day_end.py','--only gap_up_volume_confirmed'),
+    'groww_orb':('groww-orb-paper','strategy_day_end.py','--only groww_orb'),
 }
 
 RUNTIME_SERVICES={
@@ -33,6 +34,7 @@ RUNTIME_SERVICES={
     'smallcap_momentum_swing':dict(unit='smallcap-momentum-v2-paper',timer=True,category='strategy',display_name='Smallcap Momentum V2 · 15m confirmed · paper'),
     'rsi_highway':dict(unit='rsi-highway-paper',timer=True,category='strategy',display_name='RSI Highway V2 · paper'),
     'gap_up_volume_confirmed':dict(unit='gap-up-volume-confirmed-paper',timer=True,category='strategy',display_name='Gap-up Volume Confirmed · paper'),
+    'groww_orb':dict(unit='groww-orb-paper',timer=True,category='strategy',display_name='Groww ORB · directional · paper'),
     'strategy_guardian':dict(unit='strategy-guardian',timer=True,category='support',display_name='Strategy guardian'),
     'strategy_control_worker':dict(unit='strategy-control-worker',timer=False,category='support',display_name='Strategy control worker'),
     'strategy_status_observer':dict(unit='strategy-status-observer',timer=True,category='support',display_name='Strategy status observer',prefer_timer_state=True,schedule_label='Every 60 seconds'),
@@ -174,6 +176,7 @@ def main():
             'smallcap_momentum_swing':records['smallcap_momentum_swing'],
             'rsi_highway':records['rsi_highway'],
             'gap_up_volume_confirmed':records['gap_up_volume_confirmed'],
+            'groww_orb':records['groww_orb'],
         }
         publish_runtime_statuses(db,args.user_id,[runtime_record(name,definition,
             strategy_details=strategy_by_service.get(name)) for name,definition in RUNTIME_SERVICES.items()])
