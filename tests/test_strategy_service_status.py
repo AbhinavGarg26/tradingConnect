@@ -18,6 +18,7 @@ class StatusTests(unittest.TestCase):
         self.assertEqual('unknown',report['configured_mode'])
         self.assertEqual('unknown',report['timer_state'])
         self.assertFalse(report['command_matches'])
+        self.assertEqual('Paper service is not installed on the server.', report['command_issue'])
 
     def test_explicit_live_and_active_timer(self):
         def probe(unit):

@@ -72,7 +72,14 @@ def observe(key,probe=inspect_unit,expected_user_id=None):
     service,timer=probe(unit+'.service'),probe(unit+'.timer')
     command=service.get('ExecStart','')
     compatible=script in command and (not required or required in command)
-    issue='' if compatible else 'Service command does not match this strategy.'
+    if compatible:
+        issue = ''
+    elif service.get('LoadState') == 'not-found':
+        issue = 'Paper service is not installed on the server.'
+    elif service.get('LoadState') != 'loaded':
+        issue = 'Paper service status is unavailable; check the server observer.'
+    else:
+        issue = 'Service command does not match this strategy.'
     if expected_user_id is not None:
         bound=configured_account(command,service)==expected_user_id
         if compatible and not bound:issue='Service account binding is unverified; last run mode is shown separately.'
