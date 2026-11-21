@@ -30,6 +30,8 @@ VERSIONS = {
 EQUITY_REPLAY_KEYS = {"smallcap_momentum_swing", "rsi_highway", "gap_up_volume_confirmed"}
 RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", *EQUITY_REPLAY_KEYS}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
+OPTION_REPLAY_NOTE = "Day-end paper option replay from Kite minute candles; OHLC fill model with adverse slippage."
+OPTION_SLIPPAGE_TICKS = Decimal("2")
 
 
 def is_active(details):
@@ -161,7 +163,122 @@ def _one_direction_trades(fifteen_rows):
     return trades
 
 
-def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
+def _tick_price(value, tick_size):
+    """Round down to an exchange-valid price without making a fill better."""
+    tick = Decimal(str(tick_size))
+    return (Decimal(str(value)) / tick).to_integral_value(rounding="ROUND_DOWN") * tick
+
+
+def _option_candles(kite, contract, start, finish):
+    """Read only the minute candles needed to value one historical option trade."""
+    values = kite.historical_data(
+        contract["instrument_token"],
+        start.strftime("%Y-%m-%d %H:%M:%S"),
+        finish.strftime("%Y-%m-%d %H:%M:%S"),
+        "minute",
+    )
+    return [{"time": _stamp(row["date"]),
+             **{name: Decimal(str(row[name])) for name in ("open", "high", "low", "close")}}
+            for row in values]
+
+
+def _first_candle(candles, at_or_after):
+    return next((candle for candle in candles if candle["time"] >= at_or_after), None)
+
+
+def _replay_profit_lock_option_trade(kite, instruments, signal, *, slippage_ticks=OPTION_SLIPPAGE_TICKS):
+    """Value a Profit Lock signal using the selected option's actual minute candles.
+
+    Kite historical candles have no bid/ask depth.  The fill model is therefore
+    intentionally adverse: buy at candle open + slippage and sell at candle
+    open/stop - slippage.  A missing contract or candle returns ``None`` rather
+    than fabricating an index-proxy result.
+    """
+    from strategies.nifty_opening_range import current_atm_option
+    from strategies.one_direction_profit_lock import OneDirectionProfitLock
+
+    contract = current_atm_option(instruments, signal["entry_time"].date(), signal["side"], signal["entry"])
+    tick = Decimal(str(contract.get("tick_size") or "0.05"))
+    slip = Decimal(str(slippage_ticks)) * tick
+    candles = _option_candles(kite, contract, signal["entry_time"], signal["exit_time"])
+    entry_candle = _first_candle(candles, signal["entry_time"])
+    exit_candle = _first_candle(candles, signal["exit_time"])
+    if entry_candle is None or exit_candle is None:
+        return None
+
+    entry = _tick_price(entry_candle["open"] + slip, tick)
+    if entry <= 0:
+        return None
+    gate = OneDirectionProfitLock()
+    initial_stop = _tick_price(gate.initial_stop(entry), tick)
+    stop, peak = initial_stop, entry
+    exit_time, exit_reason, exit_price = signal["exit_time"], signal["reason"], None
+
+    # Candle ordering is deliberately conservative and avoids hindsight: first
+    # test the stop available at the candle open, then raise the trailing stop
+    # from that candle's high for the following minute.
+    for candle in candles:
+        if candle["time"] <= entry_candle["time"] or candle["time"] > signal["exit_time"]:
+            continue
+        if candle["low"] <= stop:
+            raw_fill = min(candle["open"], stop)
+            exit_price = _tick_price(max(tick, raw_fill - slip), tick)
+            exit_time, exit_reason = candle["time"], "stop"
+            break
+        peak = max(peak, candle["high"])
+        trailed = gate.protected_stop(entry, peak, stop)
+        if trailed is not None:
+            stop = _tick_price(trailed, tick)
+
+    if exit_price is None:
+        exit_price = _tick_price(max(tick, exit_candle["open"] - slip), tick)
+
+    quantity = int(contract.get("lot_size") or 0)
+    if quantity < 1 or exit_price <= 0:
+        return None
+    return {
+        **signal,
+        "exit_time": exit_time,
+        "reason": exit_reason,
+        "option_symbol": contract["tradingsymbol"],
+        "option_expiry": contract["expiry"],
+        "option_strike": Decimal(str(contract["strike"])),
+        "quantity": quantity,
+        "entry_premium": entry,
+        "exit_premium": exit_price,
+        "gross_option_pnl": (exit_price - entry) * quantity,
+        "initial_stop": initial_stop,
+        "current_stop": stop,
+        "option_replay": True,
+    }
+
+
+def _one_direction_option_trades(kite, instruments, fifteen_rows, minute_rows):
+    """Return only auditable option-priced replays; never fall back to proxies."""
+    output = []
+    for signal in _one_direction_trades(fifteen_rows):
+        signal = _as_trade(signal, "one_direction_profit_lock")
+        try:
+            valued = _replay_profit_lock_option_trade(kite, instruments, signal)
+        except Exception as exc:
+            log.warning("Skipping Profit Lock option replay %s %s: %s", signal["entry_time"], signal["side"], exc)
+            continue
+        if valued is not None:
+            # Keep the underlying diagnostic aligned with the actual option
+            # exit minute, rather than falsely reporting a full-day hold.
+            entry_index = next((Decimal(str(row["close"])) for row in minute_rows
+                                if _stamp(row["date"]) >= valued["entry_time"]), None)
+            exit_index = next((Decimal(str(row["close"])) for row in minute_rows
+                               if _stamp(row["date"]) >= valued["exit_time"]), None)
+            if entry_index is not None and exit_index is not None:
+                valued["entry"] = entry_index
+                valued["exit"] = exit_index
+                valued["points"] = (Decimal("1") if valued["side"] == "CE" else Decimal("-1")) * (exit_index - entry_index)
+            output.append(valued)
+    return output
+
+
+def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates, *, kite=None, nfo_instruments=None):
     """Replay the production decision engines and return closed index trades."""
     raw = []
     if key == "nifty_15m_breakout":
@@ -199,8 +316,10 @@ def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates):
         raw = [dict(item, side="CE", entry_time=item["entry_date"],
                     exit_time=item["exit_date"], exit_reason="ema_reversal") for item in raw]
     elif key == "one_direction_profit_lock":
-        raw = _one_direction_trades(fifteen_rows)
-    trades = [_as_trade(item, key) for item in raw]
+        if kite is None or nfo_instruments is None:
+            raise ValueError("Profit Lock option replay requires Kite and NFO instruments")
+        raw = _one_direction_option_trades(kite, nfo_instruments, fifteen_rows, minute_rows)
+    trades = [item if item.get("option_replay") else _as_trade(item, key) for item in raw]
     return [trade for trade in trades if trade["entry_time"].date() in keep_dates]
 
 
@@ -211,39 +330,71 @@ def persist(factory, user_id, key, trades, now):
     inserted = 0
     with factory() as db:
         missing = []
+        upgraded = 0
         for trade in trades:
-            exists = db.scalar(select(StrategyTrade.id).where(
+            existing = db.scalar(select(StrategyTrade).where(
                 StrategyTrade.user_id == user_id, StrategyTrade.strategy_key == key,
                 StrategyTrade.side == trade["side"],
                 StrategyTrade.entry_signal_time == trade["entry_time"]).limit(1))
-            if not exists:
+            if existing is None:
                 missing.append(trade)
+            elif (key == "one_direction_profit_lock" and trade.get("option_replay")
+                  and existing.mode == "paper"
+                  and (existing.error_message or "").startswith(PROXY_NOTE)):
+                # Replace a previously inserted index proxy only when the exact
+                # same signal now has auditable option candles.  Live records
+                # and normal paper-forward records are never changed here.
+                existing.option_symbol = trade["option_symbol"]
+                existing.option_expiry = trade["option_expiry"]
+                existing.option_strike = trade["option_strike"]
+                existing.quantity = trade["quantity"]
+                existing.entry_index = trade["entry"]
+                existing.exit_index = trade["exit"]
+                existing.index_points = trade["points"]
+                existing.exit_signal_time = trade["exit_time"]
+                existing.exit_confirmed_at = trade["exit_time"]
+                existing.exit_reason = trade["reason"]
+                existing.initial_stop = trade["initial_stop"]
+                existing.current_stop = trade["current_stop"]
+                existing.entry_premium = trade["entry_premium"]
+                existing.exit_premium = trade["exit_premium"]
+                existing.gross_option_pnl = trade["gross_option_pnl"]
+                existing.error_message = OPTION_REPLAY_NOTE
+                existing.updated_at = now
+                upgraded += 1
         if not missing:
-            return 0
+            return upgraded
         run = StrategyRun(user_id=user_id, strategy_key=key, strategy_version=VERSIONS[key],
                           mode="paper", status="completed", started_at=now, ended_at=now,
                           heartbeat_at=now, configuration={"day_end_backfill": True, "lookback_sessions": 10,
-                                                          "price_source": "nifty_index"})
+                                                          "price_source": "option_ohlc" if key == "one_direction_profit_lock" else "nifty_index",
+                                                          "option_slippage_ticks": str(OPTION_SLIPPAGE_TICKS) if key == "one_direction_profit_lock" else None})
         db.add(run); db.flush()
         per_day = {}
         for trade in missing:
             day = trade["entry_time"].date()
             per_day[day] = per_day.get(day, 0) + 1
-            strike = (trade["entry"] / Decimal("50")).quantize(Decimal("1")) * Decimal("50")
+            option_replay = trade.get("option_replay", False)
+            strike = (trade["option_strike"] if option_replay else
+                      (trade["entry"] / Decimal("50")).quantize(Decimal("1")) * Decimal("50"))
             db.add(StrategyTrade(
                 strategy_run_id=run.id, user_id=user_id, strategy_key=key,
                 strategy_version=VERSIONS[key], mode="paper", trading_date=day,
                 trade_number=per_day[day], status="closed", side=trade["side"],
-                option_symbol=f"NIFTY INDEX PROXY {trade['side']}", option_expiry=day,
-                option_strike=strike, lot_count=1, quantity=1,
+                option_symbol=trade["option_symbol"] if option_replay else f"NIFTY INDEX PROXY {trade['side']}",
+                option_expiry=trade["option_expiry"] if option_replay else day,
+                option_strike=strike, lot_count=1, quantity=trade["quantity"] if option_replay else 1,
                 entry_signal_time=trade["entry_time"], exit_signal_time=trade["exit_time"],
                 entry_confirmed_at=trade["entry_time"], exit_confirmed_at=trade["exit_time"],
                 entry_reason="day_end_replay", exit_reason=trade["reason"],
                 entry_index=trade["entry"], exit_index=trade["exit"],
-                initial_stop=trade["stop"], current_stop=trade["stop"], target=trade["target"],
-                index_points=trade["points"], error_message=PROXY_NOTE))
+                initial_stop=trade["initial_stop"] if option_replay else trade["stop"],
+                current_stop=trade["current_stop"] if option_replay else trade["stop"], target=trade["target"],
+                entry_premium=trade.get("entry_premium"), exit_premium=trade.get("exit_premium"),
+                gross_option_pnl=trade.get("gross_option_pnl"), index_points=trade["points"],
+                error_message=OPTION_REPLAY_NOTE if option_replay else PROXY_NOTE))
             inserted += 1
-    return inserted
+    return inserted + upgraded
 
 
 def _equity_trade(symbol, entry_day, exit_day, entry, exit_price, reason, *, stop=None, entry_reason):
@@ -441,6 +592,7 @@ def main():
     else:
         kite, user_id = fetch_user_token(log, user_id=args.user_id)
         nifty = next(item for item in kite.instruments("NSE") if item["tradingsymbol"] == "NIFTY 50")
+        nfo_instruments = kite.instruments("NFO")
         start = today - timedelta(days=120)
         daily = _fetch(kite, nifty["instrument_token"], start, today, "day")
         sessions = set(recent_session_dates(daily, args.sessions))
@@ -456,7 +608,8 @@ def main():
             trades = replay_equity(key, sessions, now=datetime.now(IST))
             count = 0 if args.dry_run else persist_equity(get_db, user_id, key, trades, datetime.now(timezone.utc))
         else:
-            trades = replay(key, minute, fifteen, daily, sessions)
+            trades = replay(key, minute, fifteen, daily, sessions,
+                            kite=kite, nfo_instruments=nfo_instruments)
             count = 0 if args.dry_run else persist(get_db, user_id, key, trades, datetime.now(timezone.utc))
         total += count
         log.info("%s: replayed=%d inserted=%d", key, len(trades), count)

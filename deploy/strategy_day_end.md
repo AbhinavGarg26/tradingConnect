@@ -7,14 +7,16 @@ paper/index replay for `one_direction_profit_lock`, which cannot place orders.
 The equity replays, including `gap_up_volume_confirmed`, read only cached daily
 and 15-minute `market_snapshots` and never submit broker orders.
 
-The Profit Lock replay can reconstruct direction, reversal and session-end
-signals from NIFTY candles. It cannot reconstruct option-premium trailing-stop
-fills, so those rows remain explicitly labelled day-end index proxies.
+The Profit Lock replay reconstructs direction and reversal signals from NIFTY
+candles, then retrieves the selected ATM option's one-minute Kite candles. It
+uses an adverse OHLC fill model (two ticks per side), applies the initial 10%
+option-premium loss stop, and activates the +10% option-premium profit lock
+from the option's actual high. If the historical option contract or candles are
+unavailable, it skips the trade rather than creating an index proxy.
 
-An existing trade with the same strategy, side and entry signal time is never
-changed, regardless of whether it is live or paper. A missing closed signal is
-inserted as a paper index-proxy trade. The performance page labels these rows
-`paper · day-end replay` and does not claim an option-premium or rupee return.
+An existing live trade is never changed. A prior Profit Lock index proxy with
+the same signal is upgraded only when the exact option candles can be obtained;
+normal paper-forward trades are never overwritten.
 
 Test the report without writing first:
 

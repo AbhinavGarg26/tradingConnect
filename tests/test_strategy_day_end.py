@@ -1,8 +1,9 @@
 import unittest
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from strategy_day_end import (IST, RESEARCH_REPLAY_KEYS, VERSIONS, _as_trade,
-                              is_active, recent_session_dates)
+                              _replay_profit_lock_option_trade, is_active, recent_session_dates)
 
 
 class StrategyDayEndTest(unittest.TestCase):
@@ -36,6 +37,56 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual("v2-first-15m-strength-confirmation", VERSIONS["smallcap_momentum_swing"])
         self.assertEqual("v2-rising-weekly-confirmation", VERSIONS["rsi_highway"])
         self.assertEqual("v1-prior-volume-15m-confirmed", VERSIONS["gap_up_volume_confirmed"])
+
+    def test_profit_lock_option_replay_uses_actual_ten_percent_loss_stop(self):
+        replay = _replay_profit_lock_option_trade(
+            _OptionKite([
+                _option_bar(9, 30, 100, 102, 99),
+                _option_bar(9, 31, 95, 96, 89),
+                _option_bar(15, 15, 80, 81, 79),
+            ]), [_contract()], _signal())
+        self.assertEqual("stop", replay["reason"])
+        self.assertEqual(Decimal("90.05"), replay["initial_stop"])
+        self.assertEqual(Decimal("89.95"), replay["exit_premium"])
+        self.assertEqual(Decimal("-507.50"), replay["gross_option_pnl"])
+
+    def test_profit_lock_option_replay_locks_actual_ten_percent_profit(self):
+        replay = _replay_profit_lock_option_trade(
+            _OptionKite([
+                _option_bar(9, 30, 100, 101, 99),
+                _option_bar(9, 31, 108, 112, 107),
+                _option_bar(9, 32, 104, 105, 103),
+                _option_bar(15, 15, 80, 81, 79),
+            ]), [_contract()], _signal())
+        self.assertEqual("stop", replay["reason"])
+        self.assertEqual(Decimal("103.90"), replay["exit_premium"])
+        self.assertEqual(Decimal("190.00"), replay["gross_option_pnl"])
+
+
+class _OptionKite:
+    def __init__(self, candles):
+        self.candles = candles
+
+    def historical_data(self, *_args):
+        return self.candles
+
+
+def _option_bar(hour, minute, open_price, high, low):
+    return {"date": datetime(2026, 11, 19, hour, minute, tzinfo=IST), "open": open_price,
+            "high": high, "low": low, "close": open_price}
+
+
+def _contract():
+    return {"name": "NIFTY", "instrument_type": "PE", "expiry": date(2026, 11, 26),
+            "strike": 25000, "instrument_token": 123, "tradingsymbol": "NIFTY26N1925000PE",
+            "tick_size": 0.05, "lot_size": 50}
+
+
+def _signal():
+    return {"side": "PE", "entry_time": datetime(2026, 11, 19, 9, 30, tzinfo=IST),
+            "exit_time": datetime(2026, 11, 19, 15, 15, tzinfo=IST), "entry": Decimal("25000"),
+            "exit": Decimal("24900"), "points": Decimal("100"), "stop": None, "target": None,
+            "reason": "session_end"}
 
 
 if __name__ == "__main__":
