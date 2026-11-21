@@ -319,7 +319,8 @@ def replay(key, minute_rows, fifteen_rows, daily_rows, keep_dates, *, kite=None,
         if kite is None or nfo_instruments is None:
             raise ValueError("Profit Lock option replay requires Kite and NFO instruments")
         raw = _one_direction_option_trades(kite, nfo_instruments, fifteen_rows, minute_rows)
-    trades = [item if item.get("option_replay") else _as_trade(item, key) for item in raw]
+    trades = [item if isinstance(item, dict) and item.get("option_replay") else _as_trade(item, key)
+              for item in raw]
     return [trade for trade in trades if trade["entry_time"].date() in keep_dates]
 
 
