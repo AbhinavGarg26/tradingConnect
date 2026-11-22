@@ -16,6 +16,7 @@ from market.position_stops import (
 from market.groww_entry_price import execution_entry_price
 from market.recovery_gtt_executor import GrowwRecoveryGttExecutor
 from market.kite_ltp import live_prices
+from market.overnight_protection import carried_entry_price, overnight_protection_active
 
 
 TERMINAL_ORDER_STATUSES = {
@@ -173,11 +174,13 @@ class GrowwPositionRiskMonitor:
         ignored_symbols: set[str] | None = None,
         max_loss_amount: float | None = None,
         stop_loss_override_symbols: set[str] | None = None,
+        now=None,
     ) -> None:
-        now = time.monotonic() if monotonic_now is None else monotonic_now
-        if now - self._last_run < self.interval_seconds:
+        wall_clock_now = now
+        monotonic_clock = time.monotonic() if monotonic_now is None else monotonic_now
+        if monotonic_clock - self._last_run < self.interval_seconds:
             return
-        self._last_run = now
+        self._last_run = monotonic_clock
         try:
             from trading.exchange_link import ExchangeLinkRepo
 
@@ -222,6 +225,10 @@ class GrowwPositionRiskMonitor:
                 )
                 if not symbol or broker_entry <= 0:
                     continue
+                overnight = carried_entry_price(row) is not None
+                if overnight and not overnight_protection_active(wall_clock_now):
+                    self.logger.info("[%s] Carried-position stop protection begins at 09:30 IST", symbol)
+                    continue
                 position = {
                     "exchange": str(row.get("exchange") or "NSE").upper(),
                     "segment": str(row.get("segment") or "FNO").upper(),
@@ -237,6 +244,8 @@ class GrowwPositionRiskMonitor:
                     orders_by_segment.get(str(row.get("segment") or "FNO").upper(), []),
                     row,
                 )
+                if entry is None and overnight:
+                    entry = carried_entry_price(row)
                 if entry is None:
                     self.logger.error(
                         "[%s] Cannot reconcile Groww fills to open quantity; hard stop skipped (broker net_price=%.2f)",

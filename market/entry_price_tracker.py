@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from analytics.trade_reconciliation import aggregate_order_executions, build_fifo_trade_rows
+from market.overnight_protection import carried_entry_price
 
 
 class CurrentEntryPriceTracker:
@@ -25,10 +26,10 @@ class CurrentEntryPriceTracker:
             int(position.get("quantity") or 0),
         )
 
-    def resolve(self, kite, position: dict) -> tuple[float, bool]:
+    def resolve(self, kite, position: dict, *, allow_overnight_fallback: bool = False) -> tuple[float, bool]:
         """Return FIFO open-leg average and whether broker executions changed."""
         key = self.position_key(position)
-        marker = self.marker(position)
+        marker = self.marker(position) + ("execution",)
         cached = self._cache.get(key)
         if cached and cached[0] == marker:
             return cached[1], False
@@ -45,6 +46,13 @@ class CurrentEntryPriceTracker:
         total_qty = sum(int(row["quantity"]) for row in matching)
         expected_qty = abs(expected_quantity)
         if expected_qty == 0 or total_qty != expected_qty:
+            fallback = carried_entry_price(position) if allow_overnight_fallback else None
+            if fallback is not None:
+                marker = self.marker(position) + ("overnight", round(fallback, 4))
+                cached = self._cache.get(key)
+                changed = cached is not None and cached[0] != marker
+                self._cache[key] = (marker, round(fallback, 4))
+                return round(fallback, 4), changed
             raise RuntimeError(
                 f"execution ledger quantity {total_qty} != broker position {expected_qty}"
             )

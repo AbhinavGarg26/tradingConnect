@@ -7,6 +7,7 @@ from market.market_exit import MarketExitExecutor
 from market.entry_price_tracker import CurrentEntryPriceTracker
 from market.position_ltp_stream import PositionLtpStream
 from market.position_stops import PositionStopTracker, position_pnl_amount, position_pnl_pct
+from market.overnight_protection import carried_entry_price, overnight_protection_active
 
 
 ATR_MULTIPLIER = 1.5
@@ -81,6 +82,7 @@ def process_open_positions(
     positions_response: dict | None = None,
     max_loss_amount: float | None = None,
     stop_loss_override_symbols: set[str] | None = None,
+    now=None,
 ):
     if positions_response is None:
         positions_response = kite.positions()
@@ -130,8 +132,14 @@ def process_open_positions(
             continue
 
         position_key = _position_key(position)
+        overnight = carried_entry_price(position) is not None
+        if overnight and not overnight_protection_active(now):
+            logger.info("[%s] Carried-position stop protection begins at 09:30 IST", symbol)
+            continue
         try:
-            buy_price, entry_changed = entry_price_tracker.resolve(kite, position)
+            buy_price, entry_changed = entry_price_tracker.resolve(
+                kite, position, allow_overnight_fallback=overnight
+            )
         except Exception as exc:
             logger.critical("[%s] Cannot resolve execution-derived entry price: %s", symbol, exc)
             continue

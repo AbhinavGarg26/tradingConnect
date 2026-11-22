@@ -58,6 +58,20 @@ class EntryPriceTrackerTests(unittest.TestCase):
         self.assertEqual(price, 100.0)
         self.assertFalse(changed)
 
+    def test_uses_confirmed_carried_entry_only_when_explicitly_enabled(self):
+        position = {
+            "exchange": "NFO", "tradingsymbol": "NIFTYTESTCE", "product": "NRML",
+            "quantity": 65, "buy_quantity": 0, "buy_value": 0,
+            "sell_quantity": 0, "sell_value": 0,
+            "overnight_quantity": 65, "overnight_average_price": 83.25,
+        }
+        tracker = CurrentEntryPriceTracker()
+        with self.assertRaisesRegex(RuntimeError, "execution ledger"):
+            tracker.resolve(FakeKite([]), position)
+        price, changed = tracker.resolve(FakeKite([]), position, allow_overnight_fallback=True)
+        self.assertEqual(price, 83.25)
+        self.assertFalse(changed)
+
 
 if __name__ == "__main__":
     unittest.main()
