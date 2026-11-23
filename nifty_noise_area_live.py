@@ -193,7 +193,10 @@ class Executor:
         self.user_id, self.live, self.position = user_id, live, None
 
     def enter(self, signal, engine):
-        spot = fresh_price(self.kite, "NSE:NIFTY 50", datetime.now(IST))
+        # The signal is generated from the completed shared NIFTY minute candle.
+        # Reuse that audited close for ATM selection instead of adding a second
+        # quote request in the same burst as the option-premium quote.
+        spot = signal.index_price
         contract = current_atm_option(self.instruments, datetime.now(IST).date(), signal.action[-2:], spot)
         quantity = int(contract.get("lot_size") or 0)
         if quantity < 1: raise RuntimeError("Invalid option lot size")

@@ -99,8 +99,26 @@ def confirm_market_order(kite, contract, transaction, quantity, journal, *, exit
     raise UncertainOrder(f'Order {order_id} not confirmed; no retry permitted')
 
 
-def fresh_price(kite, symbol, now, *, max_age_seconds=25):
-    quote = kite.quote([symbol]).get(symbol)
+def fresh_price(kite, symbol, now, *, max_age_seconds=25, rate_limit_attempts=4,
+                sleep_fn=time.sleep):
+    """Read a fresh quote, tolerating a short Kite quote-rate-limit burst.
+
+    This function is read-only.  Retrying it cannot duplicate an order; callers
+    still treat every broker order submission as non-retryable.
+    """
+    if rate_limit_attempts < 1:
+        raise ValueError('rate_limit_attempts must be positive')
+    quote = None
+    for attempt in range(rate_limit_attempts):
+        try:
+            quote = kite.quote([symbol]).get(symbol)
+            break
+        except Exception as exc:
+            throttled = (type(exc).__name__ == 'NetworkException'
+                         and 'too many requests' in str(exc).lower())
+            if not throttled or attempt + 1 == rate_limit_attempts:
+                raise
+            sleep_fn(attempt + 1)
     if not quote:
         raise RuntimeError(f'Quote missing for {symbol}')
     timestamp = quote.get('timestamp')

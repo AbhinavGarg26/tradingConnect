@@ -1,9 +1,11 @@
 import unittest
 from datetime import date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 from strategy_day_end import (IST, RESEARCH_REPLAY_KEYS, VERSIONS, _as_trade,
                               _replay_groww_option_trade, _replay_profit_lock_option_trade,
+                              _minute_index_estimate, _recorded_option_prices,
                               is_active, recent_session_dates)
 
 
@@ -77,6 +79,28 @@ class StrategyDayEndTest(unittest.TestCase):
         self.assertEqual(Decimal("100.10"), replay["entry_premium"])
         self.assertEqual(Decimal("109.90"), replay["exit_premium"])
         self.assertEqual(Decimal("490.00"), replay["gross_option_pnl"])
+
+    def test_closed_reference_preserves_forward_entry_fill_and_estimates_exit(self):
+        row = SimpleNamespace(entry_signal_time=datetime(2026, 11, 19, 9, 30, tzinfo=IST),
+                              exit_signal_time=datetime(2026, 11, 19, 15, 15, tzinfo=IST),
+                              entry_premium=Decimal("105"), exit_premium=None, exit_reason="session_end")
+        prices = _recorded_option_prices(
+            _OptionKite([_option_bar(15, 15, 100, 101, 99)]), _contract(), row)
+        self.assertEqual((Decimal("105"), Decimal("99.90")), prices)
+
+    def test_missing_exact_exit_minute_does_not_invent_option_pnl(self):
+        row = SimpleNamespace(entry_signal_time=datetime(2026, 11, 19, 9, 30, tzinfo=IST),
+                              exit_signal_time=datetime(2026, 11, 19, 15, 15, tzinfo=IST),
+                              entry_premium=None, exit_premium=None, exit_reason="session_end")
+        self.assertIsNone(_recorded_option_prices(
+            _OptionKite([_option_bar(9, 30, 100, 101, 99)]), _contract(), row))
+
+    def test_index_repair_uses_only_the_exact_execution_minute(self):
+        minute = [_option_bar(9, 30, 25100, 25110, 25090)]
+        self.assertEqual(Decimal("25100"), _minute_index_estimate(
+            minute, datetime(2026, 11, 19, 9, 30, 24, tzinfo=IST)))
+        self.assertIsNone(_minute_index_estimate(
+            minute, datetime(2026, 11, 19, 9, 31, tzinfo=IST)))
 
 
 class _OptionKite:

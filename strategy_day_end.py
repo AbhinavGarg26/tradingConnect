@@ -34,6 +34,12 @@ RESEARCH_REPLAY_KEYS = {"one_direction_profit_lock", *EQUITY_REPLAY_KEYS}
 PROXY_NOTE = "Day-end paper index proxy; option premium was not reconstructed."
 OPTION_REPLAY_NOTE = "Day-end paper option replay from Kite minute candles; OHLC fill model with adverse slippage."
 OPTION_SLIPPAGE_TICKS = Decimal("2")
+OPTION_REPAIR_KEYS = {"nifty_30m_reference", "groww_orb"}
+EMA_INDEX_REPAIR_KEYS = {
+    "nifty_daily_ema_monthly",
+    "nifty_bearish_15m_9_21",
+    "nifty_bullish_15m_9_21",
+}
 
 
 def is_active(details):
@@ -186,6 +192,148 @@ def _option_candles(kite, contract, start, finish):
 
 def _first_candle(candles, at_or_after):
     return next((candle for candle in candles if candle["time"] >= at_or_after), None)
+
+
+def _recorded_option_prices(kite, contract, trade):
+    """Reconstruct missing paper prices for the recorded contract, never from spot."""
+    entry_at, exit_at = _stamp(trade.entry_signal_time), _stamp(trade.exit_signal_time)
+    if entry_at.date() != exit_at.date() or not entry_at <= exit_at:
+        return None
+    # A signal at 15:15 is executable from that minute; never substitute a
+    # later or earlier candle when the actual minute is absent.
+    candles = _option_candles(kite, contract, entry_at, exit_at)
+    by_minute = {bar["time"].replace(second=0, microsecond=0): bar for bar in candles}
+    entry_bar = by_minute.get(entry_at.replace(second=0, microsecond=0))
+    exit_bar = by_minute.get(exit_at.replace(second=0, microsecond=0))
+    if ((trade.entry_premium is None and entry_bar is None) or
+            (trade.exit_premium is None and exit_bar is None)):
+        return None
+    tick = Decimal(str(contract.get("tick_size") or "0.05"))
+    slip = tick * OPTION_SLIPPAGE_TICKS
+    entry = (trade.entry_premium if trade.entry_premium is not None else
+             _tick_price(entry_bar["open"] + slip, tick))
+    if trade.exit_premium is not None:
+        exit_price = trade.exit_premium
+    else:
+        raw_exit = exit_bar["close"] if trade.exit_reason == "session_end" and exit_at.time() >= time(15, 29) else exit_bar["open"]
+        exit_price = _tick_price(raw_exit - slip, tick)
+    if entry <= 0 or exit_price <= 0:
+        return None
+    return entry, exit_price
+
+
+def repair_closed_option_pnl(factory, kite, instruments, user_id, key, keep_dates):
+    """Fill absent option P&L on closed paper trades with verified contract candles."""
+    from sqlalchemy import select
+    from trading.strategy_records import StrategyTrade
+
+    if key not in OPTION_REPAIR_KEYS:
+        return 0
+    contracts = {item["tradingsymbol"]: item for item in instruments
+                 if item.get("tradingsymbol") and item.get("instrument_token")}
+    repaired = 0
+    with factory() as db:
+        rows = db.scalars(select(StrategyTrade).where(
+            StrategyTrade.user_id == user_id, StrategyTrade.strategy_key == key,
+            StrategyTrade.mode == "paper", StrategyTrade.status == "closed",
+            StrategyTrade.trading_date.in_(keep_dates),
+            StrategyTrade.gross_option_pnl.is_(None),
+            StrategyTrade.exit_signal_time.is_not(None))).all()
+        for row in rows:
+            contract = contracts.get(row.option_symbol)
+            if not contract or row.quantity <= 0 or row.option_expiry != contract.get("expiry"):
+                log.warning("Option repair skipped trade %s: recorded contract unavailable", row.id)
+                continue
+            try:
+                prices = _recorded_option_prices(kite, contract, row)
+            except Exception as exc:
+                log.warning("Option repair skipped trade %s: %s", row.id, type(exc).__name__)
+                continue
+            if prices is None:
+                log.warning("Option repair skipped trade %s: exact option minute missing", row.id)
+                continue
+            entry, exit_price = prices
+            row.entry_premium = entry
+            row.exit_premium = exit_price
+            row.gross_option_pnl = (exit_price - entry) * row.quantity
+            row.error_message = "Paper option exit reconstructed from recorded contract minute OHLC; adverse two-tick sell estimate."
+            row.updated_at = datetime.now(timezone.utc)
+            repaired += 1
+    return repaired
+
+
+def _minute_index_estimate(minute_rows, occurred_at):
+    """Return the recorded NIFTY minute close for a service-missed quote.
+
+    This is deliberately exact-minute only: a day-end repair must not pretend a
+    later price was an execution-time quote.  The caller labels this value as an
+    approximation because a candle close is not a live quote.
+    """
+    minute = _stamp(occurred_at).replace(second=0, microsecond=0)
+    for row in minute_rows:
+        if _stamp(row["date"]).replace(second=0, microsecond=0) == minute:
+            value = Decimal(str(row["close"]))
+            return value if value.is_finite() and value > 0 else None
+    return None
+
+
+def repair_ema_index_quotes(factory, user_id, key, keep_dates, minute_rows, now):
+    """Backfill closed EMA index quotes when an in-session service missed them.
+
+    The order intent's ``signal_index`` was sampled by the runner while it was
+    submitting the order, so it is preferred.  If that receipt is unavailable,
+    use only the exact corresponding NIFTY minute close and mark it as an
+    approximation.  Open positions are intentionally left alone: their exit
+    quote does not exist until an exit is executed.
+    """
+    from sqlalchemy import or_, select
+    from trading.strategy_order_intents import StrategyOrderIntent
+    from trading.strategy_records import StrategyTrade
+
+    if key not in EMA_INDEX_REPAIR_KEYS:
+        return 0
+    repaired = 0
+    with factory() as db:
+        rows = db.scalars(select(StrategyTrade).where(
+            StrategyTrade.user_id == user_id, StrategyTrade.strategy_key == key,
+            StrategyTrade.mode == "paper", StrategyTrade.status == "closed",
+            StrategyTrade.trading_date.in_(keep_dates),
+            or_(StrategyTrade.entry_index.is_(None), StrategyTrade.exit_index.is_(None)),
+        )).all()
+        for trade in rows:
+            entry_intent = db.scalar(select(StrategyOrderIntent).where(
+                StrategyOrderIntent.user_id == user_id,
+                StrategyOrderIntent.strategy_key == key,
+                StrategyOrderIntent.mode == "paper",
+                StrategyOrderIntent.broker_order_id == trade.entry_order_id,
+            ).limit(1))
+            exit_intent = db.scalar(select(StrategyOrderIntent).where(
+                StrategyOrderIntent.user_id == user_id,
+                StrategyOrderIntent.strategy_key == key,
+                StrategyOrderIntent.mode == "paper",
+                StrategyOrderIntent.broker_order_id == trade.exit_order_id,
+            ).limit(1))
+            entry = (Decimal(str(entry_intent.contract.get("signal_index")))
+                     if entry_intent and entry_intent.contract.get("signal_index") else
+                     _minute_index_estimate(minute_rows, trade.entry_signal_time))
+            exit_price = (Decimal(str(exit_intent.contract.get("signal_index")))
+                          if exit_intent and exit_intent.contract.get("signal_index") else
+                          _minute_index_estimate(minute_rows, trade.exit_signal_time))
+            changed = False
+            if trade.entry_index is None and entry is not None:
+                trade.entry_index = entry
+                changed = True
+            if trade.exit_index is None and exit_price is not None:
+                trade.exit_index = exit_price
+                changed = True
+            if changed and trade.entry_index is not None and trade.exit_index is not None:
+                trade.index_points = (Decimal("1") if trade.side == "CE" else Decimal("-1")) * (
+                    trade.exit_index - trade.entry_index)
+            if changed:
+                trade.error_message = "Day-end index approximation recovered from order receipt or exact NIFTY minute close."
+                trade.updated_at = now
+                repaired += 1
+    return repaired
 
 
 def _replay_profit_lock_option_trade(kite, instruments, signal, *, slippage_ticks=OPTION_SLIPPAGE_TICKS):
@@ -679,6 +827,16 @@ def main():
             trades = replay(key, minute, fifteen, daily, sessions,
                             kite=kite, nfo_instruments=nfo_instruments)
             count = 0 if args.dry_run else persist(get_db, user_id, key, trades, datetime.now(timezone.utc))
+            if key in EMA_INDEX_REPAIR_KEYS and not args.dry_run:
+                repaired = repair_ema_index_quotes(get_db, user_id, key, sessions,
+                                                   minute, datetime.now(timezone.utc))
+                log.info("%s: closed EMA index quotes repaired=%d", key, repaired)
+                count += repaired
+            if key in OPTION_REPAIR_KEYS and not args.dry_run:
+                repaired = repair_closed_option_pnl(get_db, kite, nfo_instruments,
+                                                     user_id, key, sessions)
+                log.info("%s: closed paper option P&L repaired=%d", key, repaired)
+                count += repaired
         total += count
         log.info("%s: replayed=%d inserted=%d", key, len(trades), count)
     log.info("Day-end backfill complete: inserted=%d active_strategies=%d", total, len(active))
