@@ -26,7 +26,7 @@ def validate_request(row,db,now):
     if now-utcstamp(row['created_at'])>timedelta(minutes=5):raise ValueError('Request expired; review current state and submit again')
     if row['mode']=='live' and not row['risk_acknowledged']:raise ValueError('Live risk acknowledgement missing')
     unresolved=db.execute(text('''SELECT id FROM strategy_trades WHERE user_id=:user_id
-        AND strategy_key=:key AND status != 'closed' LIMIT 1'''),dict(user_id=row['user_id'],key=row['strategy_key'])).first()
+        AND strategy_key=:key AND status IN ('open','entry_pending','exit_pending','reconcile') LIMIT 1'''),dict(user_id=row['user_id'],key=row['strategy_key'])).first()
     if unresolved:raise ValueError('Open or unresolved strategy position; reconcile before activation/mode changes')
     if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'}:
         if db.execute(text('''SELECT id FROM strategy_order_intents WHERE user_id=:user_id

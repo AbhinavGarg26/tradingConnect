@@ -26,14 +26,20 @@ def forward_evidence(factory, user_id):
             StrategyTrade.entry_premium.is_not(None), StrategyTrade.exit_premium.is_not(None),
             func.coalesce(StrategyTrade.error_message, "").not_like("Day-end paper index proxy;%"),
         )))
-        run_ids = {trade.strategy_run_id for trade in trades}
+        # Keep only scalar values once the session commits.  ORM instances expire
+        # on context exit, so using them below can raise DetachedInstanceError and
+        # incorrectly block a valid live-promotion request.
+        trade_data = [(trade.strategy_run_id, trade.trading_date) for trade in trades]
+        run_ids = {run_id for run_id, _ in trade_data}
         events = list(db.scalars(select(StrategyEvent).where(StrategyEvent.strategy_run_id.in_(run_ids)))) if run_ids else []
-    sessions = {trade.trading_date for trade in trades}
-    locks = sum(event.action == "PROFIT_LOCK_UPDATED" for event in events)
-    reversals = sum(event.reason == "reversal" and event.action.startswith("EXIT_") for event in events)
-    complete = (len(trades) >= MIN_TRADES and len(sessions) >= MIN_SESSIONS
+        event_data = [(event.action, event.reason) for event in events]
+    sessions = {trading_date for _, trading_date in trade_data}
+    locks = sum(action == "PROFIT_LOCK_UPDATED" for action, _ in event_data)
+    reversals = sum(reason == "reversal" and action.startswith("EXIT_")
+                    for action, reason in event_data)
+    complete = (len(trade_data) >= MIN_TRADES and len(sessions) >= MIN_SESSIONS
                 and locks >= MIN_PROFIT_LOCKS and reversals >= MIN_REVERSALS)
-    return {"complete": complete, "closed_option_trades": len(trades),
+    return {"complete": complete, "closed_option_trades": len(trade_data),
             "sessions": len(sessions), "profit_lock_events": locks, "reversal_exits": reversals,
             "requirements": {"trades": MIN_TRADES, "sessions": MIN_SESSIONS,
                              "profit_locks": MIN_PROFIT_LOCKS, "reversals": MIN_REVERSALS}}
