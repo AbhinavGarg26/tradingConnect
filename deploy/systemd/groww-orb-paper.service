@@ -1,5 +1,5 @@
 [Unit]
-Description=Frozen directional Groww ORB nearest-expiry option paper replay
+Description=Frozen directional Groww ORB intraday option runner (mode set by Strategy Controls)
 After=network-online.target postgresql.service
 
 [Service]
@@ -8,4 +8,4 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/tradingConnect
 EnvironmentFile=/home/ubuntu/tradingConnect/deploy/ema-strategies.env
-ExecStart=/home/ubuntu/tradingConnect/.venv/bin/python /home/ubuntu/tradingConnect/strategy_day_end.py --user-id ${EMA_USER_ID} --only groww_orb
+ExecStart=/home/ubuntu/tradingConnect/.venv/bin/python /home/ubuntu/tradingConnect/groww_orb_live.py --user-id ${EMA_USER_ID}

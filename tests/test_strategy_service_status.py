@@ -56,9 +56,9 @@ class StatusTests(unittest.TestCase):
         self.assertEqual('paper',report['configured_mode'])
         self.assertTrue(report['command_matches'])
 
-    def test_groww_orb_paper_service_is_observed(self):
+    def test_groww_orb_runner_mode_is_observed(self):
         report=observe('groww_orb',lambda unit:dict(
-            ExecStart='/app/strategy_day_end.py --user-id 1 --only groww_orb'))
+            ExecStart='/app/groww_orb_live.py --user-id 1'))
         self.assertEqual('paper',report['configured_mode'])
         self.assertTrue(report['command_matches'])
 

@@ -1,8 +1,8 @@
 [Unit]
-Description=Replay frozen directional Groww ORB after the daily close
+Description=Run frozen directional Groww ORB intraday session
 
 [Timer]
-OnCalendar=Mon..Fri *-*-* 15:40:00 Asia/Kolkata
+OnCalendar=Mon..Fri *-*-* 09:14:45 Asia/Kolkata
 Persistent=true
 Unit=groww-orb-paper.service
 

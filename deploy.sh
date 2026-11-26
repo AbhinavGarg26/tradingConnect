@@ -30,6 +30,7 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     "$project_dir/backtest/gap_up_volume_buildup_research.py" \
     "$project_dir/strategies/gap_up.py" \
     "$project_dir/one_direction_profit_lock_service.py" \
+    "$project_dir/groww_orb_live.py" \
     "$project_dir/one_direction_profit_lock_readiness.py" \
     "$project_dir/trading/one_direction_profit_lock_journal.py" \
     "$project_dir/trading/one_direction_profit_lock_execution.py"
@@ -42,6 +43,7 @@ if [[ "$project_dir" == "/home/deployer/apps/tradingConnect" \
     nifty-bullish-15m-ema
     nifty-daily-ema-calls
     one-direction-profit-lock
+    groww-orb-paper
     gap-up-volume-confirmed-paper
   )
   required_timers=(market-breath strategy-guardian strategy-status-observer strategy-day-end "${strategy_units[@]}")

@@ -47,13 +47,28 @@ and evaluate an untouched period.
 
 ## Paper option replay
 
-Key: `groww_orb`. Version: `v1-pre1100-directional-paper`. This is strictly
-paper-only. The day-end service replays complete NIFTY minute sessions and,
+Key: `groww_orb`. Version: `v1-pre1100-directional-paper`. The day-end service replays complete NIFTY minute sessions and,
 for each frozen underlying signal, selects the nearest listed unexpired ATM
 NIFTY CE or PE. It simulates one lot using the option's actual minute candles:
 buy at the entry-minute open plus two ticks; sell at the stop-exit minute open
 or the 15:29 close, minus two ticks. It skips missing contracts or candles;
 it never creates an index-proxy option fill and never submits a broker order.
+
+## Intraday execution
+
+`groww_orb_live.py` runs the same frozen signal engine from complete Kite
+one-minute NIFTY candles. It is paper by default. Live mode can only be chosen
+from Strategy Controls, requires a risk acknowledgement, enabled per-strategy
+risk limits, a healthy independent guardian, and at least two genuine paper
+option trades across two sessions. Each live entry is exactly one nearest-expiry ATM NIFTY lot. A
+broker-held option stop is confirmed immediately after the fill; failure causes
+an emergency exit/reconciliation rather than an unprotected position. The
+underlying range stop and 15:29 session close also exit the position.
+
+Before enabling live, set `strategy_risk_settings` for `groww_orb` to
+`live_enabled=true`, `stop_mode=broker_stop_limit`, and
+`adverse_action=emergency_exit`, with conservative allocation, per-trade, and
+daily-loss limits. The `strategy-guardian` timer must be installed and healthy.
 
 Install the dedicated paper timer only after reviewing the service account and
 paths, then use the Strategy controls page to schedule it in paper mode:

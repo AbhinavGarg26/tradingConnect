@@ -20,9 +20,9 @@ PROFILES={
  'smallcap_momentum_swing':('smallcap-momentum-v2-paper','strategy_day_end.py',['--only','smallcap_momentum_swing']),
  'rsi_highway':('rsi-highway-paper','strategy_day_end.py',['--only','rsi_highway']),
  'gap_up_volume_confirmed':('gap-up-volume-confirmed-paper','strategy_day_end.py',['--only','gap_up_volume_confirmed']),
- 'groww_orb':('groww-orb-paper','strategy_day_end.py',['--only','groww_orb']),
+ 'groww_orb':('groww-orb-paper','groww_orb_live.py',[]),
 }
-PAPER_ONLY_KEYS={'smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed','groww_orb'}
+PAPER_ONLY_KEYS={'smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed'}
 CONFIG=Path('/etc/trading-strategy-control.json')
 
 
@@ -100,7 +100,7 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
             legacy=ctl('show','nifty-30m-reference-v3.'+suffix,'--property=ActiveState','--value')
             if legacy not in {'inactive','failed',''}:
                 raise RuntimeError('Pause the legacy V3 timer/runner before controlling PE1')
-    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock'}:
+    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock','groww_orb'}:
         if mode=='live' and ctl('show','strategy-guardian.timer','--property=LoadState','--value')!='loaded':
             raise RuntimeError('Install the strategy guardian timer before scheduling protected live strategies')
     # Disable scheduling before changing the effective command. A partial failure
@@ -112,7 +112,7 @@ def apply(config,user_id,key,operation,mode,ctl=systemctl,write=write_override):
     arguments=re.findall(r'argv\[\]=(.*?)\s+;',effective)
     if len(arguments)!=1 or arguments[0].split()!=command.split():
         raise RuntimeError('Another service override changed the command; timer remains paused. Review systemctl cat')
-    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock'} and mode=='live':ctl('enable','--now','strategy-guardian.timer')
+    if key in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock','groww_orb'} and mode=='live':ctl('enable','--now','strategy-guardian.timer')
     if operation=='schedule':
         ctl('enable','--now',unit+'.timer')
         return f'{mode.upper()} mode configured; future sessions scheduled. Check observed status.'

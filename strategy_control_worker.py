@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 log=logging.getLogger(__name__)
 KEYS={'nifty_15m_breakout','nifty_30m_reference','fixed_profit_filtered','nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','nifty_noise_area','one_direction_profit_lock','smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed','groww_orb'}
-PAPER_ONLY_KEYS={'smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed','groww_orb'}
+PAPER_ONLY_KEYS={'smallcap_momentum_swing','rsi_highway','gap_up_volume_confirmed'}
 IST=ZoneInfo('Asia/Kolkata')
 
 
@@ -39,33 +39,36 @@ def validate_request(row,db,now):
             AND strategy_key=:key AND (status IN ('halted','reconcile') OR pending_signal != '{}'::jsonb) LIMIT 1'''),
             dict(user_id=row['user_id'],key=row['strategy_key'])).first():
             raise ValueError('EMA checkpoint requires reconciliation before activation')
-    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock'}:
+    if row['mode']=='live' and row['strategy_key'] in {'nifty_30m_reference','nifty_15m_breakout','nifty_noise_area','one_direction_profit_lock','groww_orb'}:
         risk=db.execute(text('''SELECT * FROM strategy_risk_settings WHERE user_id=:user_id
             AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
         if not risk or not risk['live_enabled'] or risk['stop_mode']!='broker_stop_limit' or risk['adverse_action']!='emergency_exit':
             raise ValueError('Save live-approved protected risk settings first')
         if not 0<risk['risk_per_trade']<=risk['amount_allocated'] or not 0<risk['max_daily_loss']<=risk['amount_allocated']:
             raise ValueError('Protected strategy allocation/loss limits are invalid')
-        if row['strategy_key']=='one_direction_profit_lock':
+        if row['strategy_key'] in {'one_direction_profit_lock','groww_orb'}:
             from pathlib import Path
             approval=db.execute(text('''SELECT value FROM market_configs WHERE user_id=:user_id
-                AND key='profit_lock_live_evidence_override' '''),
-                dict(user_id=row['user_id'])).scalar_one_or_none()
+                AND key=:approval_key '''),
+                dict(user_id=row['user_id'],approval_key=('profit_lock_live_evidence_override' if row['strategy_key']=='one_direction_profit_lock' else 'groww_orb_live_evidence_override'))).scalar_one_or_none()
             try:approval=json.loads(approval) if approval else {}
             except (ValueError,TypeError):approval={}
-            overridden=(approval.get('approved') is True and approval.get('acknowledgement') ==
-                'I accept live trading without the historical option backtest and verified reversal exit')
-            report_path=Path(__file__).resolve().parent/'outputs/one-direction-option-backtest.json'
+            acknowledgement=('I accept live trading without the historical option backtest and verified reversal exit'
+                if row['strategy_key']=='one_direction_profit_lock' else
+                'I accept live trading without independent Groww ORB option evidence')
+            overridden=(approval.get('approved') is True and approval.get('acknowledgement') == acknowledgement)
+            report_path=Path(__file__).resolve().parent/('outputs/one-direction-option-backtest.json' if row['strategy_key']=='one_direction_profit_lock' else 'outputs/groww-orb-option-backtest.json')
             option=json.loads(report_path.read_text()) if report_path.exists() else {}
-            if not option.get('accepted') and not overridden:
+            if row['strategy_key']=='one_direction_profit_lock' and not option.get('accepted') and not overridden:
                 raise ValueError('Live evidence check is incomplete: an accepted historical option bid/ask backtest is required')
             evidence=db.execute(text('''SELECT COUNT(*) AS trades, COUNT(DISTINCT trading_date) AS sessions
                 FROM strategy_trades WHERE user_id=:user_id AND strategy_key=:key AND mode='paper'
                 AND status='closed' AND entry_premium IS NOT NULL AND exit_premium IS NOT NULL
                 AND COALESCE(error_message,'') NOT LIKE 'Day-end paper index proxy;%' '''),
                 dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
-            if not evidence or evidence['trades']<8 or evidence['sessions']<3:
-                raise ValueError('Live evidence check is incomplete: at least 8 genuine paper option trades across 3 sessions are required')
+            required_trades, required_sessions = ((2, 2) if row['strategy_key']=='groww_orb' else (8, 3))
+            if not evidence or evidence['trades']<required_trades or evidence['sessions']<required_sessions:
+                raise ValueError(f'Live evidence check is incomplete: at least {required_trades} genuine paper option trades across {required_sessions} sessions are required')
         if row['operation']=='start':
             guardian=db.execute(text('''SELECT heartbeat_at,status FROM strategy_guardian_statuses
                 WHERE user_id=:user_id AND strategy_key=:key'''),dict(user_id=row['user_id'],key=row['strategy_key'])).mappings().first()
@@ -73,7 +76,7 @@ def validate_request(row,db,now):
                 raise ValueError('Independent guardian must be healthy before starting a protected live strategy')
     if row['operation']=='start':
         local=now.astimezone(IST)
-        opening=time(9,15);cutoff=time(16,15) if row['strategy_key'] in PAPER_ONLY_KEYS else (time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21'} else time(9,45))
+        opening=time(9,15);cutoff=time(16,15) if row['strategy_key'] in PAPER_ONLY_KEYS else (time(15,30) if row['strategy_key'] in {'nifty_daily_ema_monthly','nifty_bearish_15m_9_21','nifty_bullish_15m_9_21','groww_orb'} else time(9,45))
         if row['strategy_key']=='nifty_15m_breakout':cutoff=time(15,0)
         if row['strategy_key']=='nifty_noise_area':cutoff=time(9,40)
         holiday=db.execute(text('SELECT 1 FROM trading_holidays WHERE holiday_date=:day'),dict(day=local.date())).first()
