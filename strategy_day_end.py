@@ -27,6 +27,7 @@ VERSIONS = {
     "rsi_highway": "v2-rising-weekly-confirmation",
     "gap_up_volume_confirmed": "v1-prior-volume-15m-confirmed",
     "groww_orb": "v1-pre1100-directional-paper",
+    "nifty_noise_area": "noise_area_v1",
 }
 EQUITY_REPLAY_KEYS = {"smallcap_momentum_swing", "rsi_highway", "gap_up_volume_confirmed"}
 OPTION_REPLAY_KEYS = {"one_direction_profit_lock", "groww_orb"}
@@ -820,6 +821,12 @@ def main():
         return
     total = 0
     for key in active:
+        if key == "nifty_noise_area":
+            from trading.noise_area_reconciliation import reconcile_noise_area
+            count = 0 if args.dry_run else reconcile_noise_area(get_db, kite, user_id, sessions)
+            total += count
+            log.info("%s: broker-confirmed trades reconciled=%d", key, count)
+            continue
         if key in EQUITY_REPLAY_KEYS:
             trades = replay_equity(key, sessions, now=datetime.now(IST))
             count = 0 if args.dry_run else persist_equity(get_db, user_id, key, trades, datetime.now(timezone.utc))
