@@ -2,6 +2,7 @@
 import argparse
 from datetime import datetime, timedelta, timezone, time
 import logging
+import json
 import subprocess
 import time as clock
 from zoneinfo import ZoneInfo
@@ -47,10 +48,16 @@ def validate_request(row,db,now):
             raise ValueError('Protected strategy allocation/loss limits are invalid')
         if row['strategy_key']=='one_direction_profit_lock':
             from pathlib import Path
-            import json
+            approval=db.execute(text('''SELECT value FROM market_configs WHERE user_id=:user_id
+                AND key='profit_lock_live_evidence_override' '''),
+                dict(user_id=row['user_id'])).scalar_one_or_none()
+            try:approval=json.loads(approval) if approval else {}
+            except (ValueError,TypeError):approval={}
+            overridden=(approval.get('approved') is True and approval.get('acknowledgement') ==
+                'I accept live trading without the historical option backtest and verified reversal exit')
             report_path=Path(__file__).resolve().parent/'outputs/one-direction-option-backtest.json'
             option=json.loads(report_path.read_text()) if report_path.exists() else {}
-            if not option.get('accepted'):
+            if not option.get('accepted') and not overridden:
                 raise ValueError('Live evidence check is incomplete: an accepted historical option bid/ask backtest is required')
             evidence=db.execute(text('''SELECT COUNT(*) AS trades, COUNT(DISTINCT trading_date) AS sessions
                 FROM strategy_trades WHERE user_id=:user_id AND strategy_key=:key AND mode='paper'

@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from nifty_15m_env import load_nifty_environment
 load_nifty_environment()
@@ -16,6 +16,22 @@ MIN_TRADES = 8
 MIN_SESSIONS = 3
 MIN_PROFIT_LOCKS = 2
 MIN_REVERSALS = 1
+OVERRIDE_KEY = "profit_lock_live_evidence_override"
+
+
+def evidence_override(factory, user_id):
+    """User-approved exception to evidence checks, stored in the Rails UI."""
+    with factory() as db:
+        value = db.execute(text("SELECT value FROM market_configs WHERE user_id=:user_id AND key=:key"),
+                           {"user_id": user_id, "key": OVERRIDE_KEY}).scalar_one_or_none()
+    if not value:
+        return False
+    try:
+        approval = json.loads(value)
+    except (TypeError, ValueError):
+        return False
+    return (approval.get("approved") is True and
+            approval.get("acknowledgement") == "I accept live trading without the historical option backtest and verified reversal exit")
 
 
 def forward_evidence(factory, user_id):
@@ -50,7 +66,13 @@ def readiness(factory, user_id, option_report):
     option = json.loads(path.read_text()) if path.exists() else {
         "status": "blocked_missing_historical_option_bid_ask", "accepted": False}
     forward = forward_evidence(factory, user_id)
-    return {"ready": bool(option.get("accepted")) and forward["complete"],
+    override = evidence_override(factory, user_id)
+    paper_ready = (forward["closed_option_trades"] >= MIN_TRADES and
+                   forward["sessions"] >= MIN_SESSIONS and
+                   forward["profit_lock_events"] >= MIN_PROFIT_LOCKS)
+    return {"ready": paper_ready and (override or (bool(option.get("accepted")) and
+            forward["reversal_exits"] >= MIN_REVERSALS)),
+            "evidence_override": override,
             "option_backtest": option, "forward_paper": forward,
             "checked_at": datetime.now(timezone.utc).isoformat()}
 
