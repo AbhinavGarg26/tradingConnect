@@ -792,8 +792,18 @@ def main():
     active = ([args.only] if args.only else sorted(
         {key for key, details in observations if key in VERSIONS and is_active(details)} |
         RESEARCH_REPLAY_KEYS))
+    # A live Noise Area row in reconcile must be audited even if its strategy has
+    # since been disabled; otherwise a fixed recent-session window can strand it.
+    with get_db() as db:
+        unresolved_noise_area = bool(db.scalar(text("""SELECT 1 FROM strategy_trades
+            WHERE user_id=:uid AND strategy_key='nifty_noise_area' AND mode='live'
+              AND status IN ('entry_pending','open','exit_pending','reconcile') LIMIT 1"""),
+            {"uid": args.user_id}))
+    if unresolved_noise_area and "nifty_noise_area" not in active:
+        active.append("nifty_noise_area")
+        log.info("nifty_noise_area: auditing unresolved live trade(s) despite inactive strategy")
     if not active:
-        log.info("No active strategies; nothing to backfill")
+        log.info("No active strategies or unresolved live Noise Area trades; nothing to backfill")
         return
     today = datetime.now(IST).date()
     equity_only = args.only in EQUITY_REPLAY_KEYS

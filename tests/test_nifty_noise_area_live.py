@@ -8,7 +8,7 @@ try:
 except ImportError:
     pytest.skip("Live runner tests require the production SQLAlchemy 2 runtime", allow_module_level=True)
 
-from nifty_noise_area_live import confirmed_order, startup_allowed
+from nifty_noise_area_live import EntryRejectedBeforeSubmission, confirmed_order, startup_allowed
 from strategies.nifty_opening_range import IST
 from trading.reference_live_execution import UncertainOrder
 
@@ -36,5 +36,15 @@ def test_rejected_order_is_never_retried():
     kite.place_order.return_value = "order-1"
     kite.order_history.return_value = [{"status": "REJECTED"}]
     with pytest.raises(UncertainOrder):
+        confirmed_order(kite, {"tradingsymbol": "NIFTYPE"}, "BUY", 65, Mock())
+    kite.place_order.assert_called_once()
+
+
+def test_insufficient_funds_rejection_is_known_not_submitted():
+    kite = Mock(); kite.VARIETY_REGULAR = "regular"; kite.PRODUCT_MIS = "MIS"
+    kite.ORDER_TYPE_MARKET = "MARKET"; kite.VALIDITY_DAY = "DAY"
+    kite.TRANSACTION_TYPE_BUY = "BUY"
+    kite.place_order.side_effect = RuntimeError("Insufficient funds in account")
+    with pytest.raises(EntryRejectedBeforeSubmission):
         confirmed_order(kite, {"tradingsymbol": "NIFTYPE"}, "BUY", 65, Mock())
     kite.place_order.assert_called_once()

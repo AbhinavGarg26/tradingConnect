@@ -25,6 +25,10 @@ log = logging.getLogger(__name__)
 TAG = "NIFTYNOISEV1"
 
 
+class EntryRejectedBeforeSubmission(RuntimeError):
+    """The broker explicitly rejected a BUY before returning an order id."""
+
+
 def startup_allowed(now):
     return now.weekday() < 5 and time(9, 15) <= now.time() < time(9, 40)
 
@@ -71,6 +75,13 @@ def confirmed_order(kite, contract, transaction, quantity, journal, *, sleep_fn=
             quantity=quantity, product=kite.PRODUCT_MIS, order_type=kite.ORDER_TYPE_MARKET,
             validity=kite.VALIDITY_DAY, tag=TAG)
     except Exception as exc:
+        # A balance/margin rejection is broker evidence that this BUY was not
+        # accepted. Transport failures still remain uncertain and reconcile.
+        message = str(exc).lower()
+        if (transaction == kite.TRANSACTION_TYPE_BUY and any(term in message for term in
+                ("insufficient fund", "insufficient balance", "insufficient margin", "margin required"))):
+            raise EntryRejectedBeforeSubmission(
+                "Broker rejected BUY before submission because of insufficient funds/margin") from exc
         raise UncertainOrder("Order submission outcome is unknown; reconcile manually") from exc
     journal.event("ORDER_SUBMITTED", order_id=str(order_id), transaction=transaction)
     for _ in range(20):
@@ -124,7 +135,7 @@ class Journal:
                     trade.protection_order_id = details["order_id"]
                     trade.protection_trigger = Decimal(details["trigger"])
                     trade.protection_limit = Decimal(details["limit"])
-                elif action == "RECONCILE_REQUIRED": trade.status = "reconcile"
+                elif action == "RECONCILE_REQUIRED" and trade.status != "closed": trade.status = "reconcile"
                 trade.updated_at = now
             db.add(StrategyEvent(strategy_run_id=self.run_id, strategy_trade_id=self.trade_id,
                 occurred_at=now, action=action, reason=str(details.get("reason", action.lower())),
@@ -154,6 +165,21 @@ class Journal:
             if trade.status != "entry_pending": raise RuntimeError("Entry reservation changed")
             trade.status = "open"; trade.entry_order_id = order_id; trade.entry_premium = premium
             trade.entry_confirmed_at = datetime.now(timezone.utc)
+
+    def entry_rejected(self, reason):
+        """Close a reservation only after a definitive pre-submission rejection."""
+        from trading.strategy_records import StrategyTrade
+        with self.factory() as db:
+            trade = db.get(StrategyTrade, self.trade_id, with_for_update=True)
+            if trade.status != "entry_pending": raise RuntimeError("Entry reservation changed")
+            trade.status = "closed"
+            trade.exit_reason = "entry_not_submitted"
+            trade.gross_option_pnl = Decimal("0")
+            trade.index_points = Decimal("0")
+            trade.error_message = reason
+            trade.updated_at = datetime.now(timezone.utc)
+        self.event("ENTRY_REJECTED", reason=reason)
+        self.trade_id = None
 
     def exit_intent(self, signal):
         from trading.strategy_records import StrategyTrade
@@ -210,8 +236,13 @@ class Executor:
         self.journal.reserve_entry(signal, contract, quantity)
         order_id = None
         if self.live:
-            order_id, premium = confirmed_order(self.kite, contract, self.kite.TRANSACTION_TYPE_BUY,
-                                                quantity, self.journal)
+            try:
+                order_id, premium = confirmed_order(self.kite, contract, self.kite.TRANSACTION_TYPE_BUY,
+                                                    quantity, self.journal)
+            except EntryRejectedBeforeSubmission as exc:
+                self.journal.entry_rejected(str(exc))
+                engine.reject()
+                return False
         self.journal.entry_filled(order_id, premium)
         self.position = {"contract": contract, "quantity": quantity, "premium": premium,
                          "protection": None}
@@ -249,6 +280,7 @@ class Executor:
                 self.journal.exit_filled(emergency_id, emergency_price)
                 self.position = None; engine.position = engine.pending = None
                 raise RuntimeError("Protection failed after buy; emergency market exit confirmed") from exc
+        return True
 
     def exit(self, signal, engine):
         if not self.position: raise RuntimeError("No owned strategy position")
@@ -287,7 +319,10 @@ def run_session(kite, user_id, factory, *, live=False, poll_seconds=3, now_fn=No
                     if stamp.time() != time(9, 15): raise RuntimeError("Missing current session opening minute")
                     engine.start_session(stamp, row["open"])
                 signal = engine.on_minute(stamp, row["close"])
-                if signal and signal.action.startswith("BUY_"): executor.enter(signal, engine)
+                if signal and signal.action.startswith("BUY_"):
+                    if executor.enter(signal, engine) is False:
+                        journal.finish("completed", "Entry rejected before submission; no position was opened")
+                        return
                 elif signal and signal.action.startswith("EXIT_"): executor.exit(signal, engine)
             if now.time() >= time(15, 16) and not executor.position:
                 journal.finish("completed"); return

@@ -30,13 +30,15 @@ def confirmed_fill(kite, order_id, quantity):
 
 
 def reconcile_noise_area(factory, kite, user_id, dates):
-    """Never infer an exit from zero holdings or an index move."""
+    """Close only fully evidenced trades; revisit every outstanding row daily."""
     repaired = 0
     with factory() as db:
+        # A 10-session replay window must not strand an older uncertain live order.
+        # Every row here is unresolved, so dates deliberately do not limit it.
         rows = db.scalars(select(StrategyTrade).where(
             StrategyTrade.user_id == user_id, StrategyTrade.strategy_key == KEY,
-            StrategyTrade.mode == "live", StrategyTrade.trading_date.in_(dates),
-            StrategyTrade.status.in_(("entry_pending", "open", "exit_pending", "reconcile")))).all()
+            StrategyTrade.mode == "live", StrategyTrade.status.in_(
+                ("entry_pending", "open", "exit_pending", "reconcile")))).all()
         for trade in rows:
             try:
                 entry = confirmed_fill(kite, trade.entry_order_id, trade.quantity)
@@ -45,8 +47,18 @@ def reconcile_noise_area(factory, kite, user_id, dates):
                     ("strategy_exit", trade.exit_order_id), ("broker_stop", trade.protection_order_id)) if oid]
                 filled = [(name, oid, result) for name, oid, result in exits if result]
                 if not entry or len(filled) != 1:
-                    log.warning("Noise Area trade %s remains %s: entry or unique exit fill unverified",
-                                trade.id, trade.status)
+                    missing = []
+                    if not trade.entry_order_id:
+                        missing.append("entry order id was never journaled")
+                    elif not entry:
+                        missing.append("entry COMPLETE fill is unavailable")
+                    if not any((trade.exit_order_id, trade.protection_order_id)):
+                        missing.append("no exit or protective-stop order id was journaled")
+                    elif len(filled) != 1:
+                        missing.append("exactly one COMPLETE exit fill is required")
+                    reason = "; ".join(missing)
+                    _record_unresolved(db, trade, reason)
+                    log.warning("Noise Area trade %s remains %s: %s", trade.id, trade.status, reason)
                     continue
                 name, exit_id, (exit_price, exit_order) = filled[0]
                 entry_price, entry_order = entry
@@ -83,8 +95,9 @@ def reconcile_noise_area(factory, kite, user_id, dates):
                                      "exit_order_id": str(exit_id), "source": "broker_order_history"}))
                 repaired += 1
             except Exception as exc:
-                log.warning("Noise Area trade %s: broker reconciliation unavailable (%s)",
-                            trade.id, type(exc).__name__)
+                reason = "broker reconciliation unavailable (%s)" % type(exc).__name__
+                _record_unresolved(db, trade, reason)
+                log.warning("Noise Area trade %s remains %s: %s", trade.id, trade.status, reason)
         for run_id in {row.strategy_run_id for row in rows if row.status == "closed"}:
             run = db.get(StrategyRun, run_id)
             if run and run.status == "failed" and not db.scalar(select(StrategyTrade.id).where(
@@ -93,3 +106,16 @@ def reconcile_noise_area(factory, kite, user_id, dates):
                 run.status = "completed"
                 run.updated_at = datetime.now(timezone.utc)
     return repaired
+
+
+def _record_unresolved(db, trade, reason):
+    """Make the dashboard reason durable, without creating repeated events."""
+    message = "Broker reconciliation pending: " + reason
+    if trade.error_message == message:
+        return
+    now = datetime.now(timezone.utc)
+    trade.error_message = message
+    trade.updated_at = now
+    db.add(StrategyEvent(strategy_run_id=trade.strategy_run_id, strategy_trade_id=trade.id,
+                         occurred_at=now, action="BROKER_RECONCILIATION_PENDING",
+                         reason="broker_evidence_incomplete", details={"reason": reason}))
